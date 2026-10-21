@@ -37,6 +37,11 @@ const ALLOWLIST = new Map<string, string>([
   // Self-validation only: the route returns {valid, role} for the calling key and reads/writes no
   // resource, so a session-restricted key validating itself is harmless (it cannot broaden scope).
   ['auth-validate.controller.ts :: validate', 'self-validation of the calling key; no resource access'],
+  // AI Integration cross-session listings: both scope their rows to the calling key's
+  // allowedSessions (empty result when the requested session sits outside it), the same shape as
+  // the webhooks-list controller above.
+  ['ai-chatbot.controller.ts :: chatbotsIndex', 'scope-filters chatbots via the calling key'],
+  ['ai-chatbot.controller.ts :: ragIndex', 'RAG models are account-wide reads; no session dimension'],
 ]);
 
 /**

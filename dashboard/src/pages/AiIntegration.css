@@ -1,0 +1,324 @@
+.ai-page {
+  padding: 2rem;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* Create/edit modals carry form + persona text; roomier than the default (webhooks precedent). */
+.ai-page .modal:not(.modal-sm) {
+  max-width: 640px;
+}
+
+.ai-page .page-header {
+  margin-bottom: 1.5rem;
+}
+
+/* ── Section tabs (Chatbot / LLM / RAG / MCP) ─────────────────────────────────────────────── */
+
+.ai-page .ai-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.ai-page .ai-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ai-page .ai-tab:hover {
+  border-color: var(--primary);
+  color: var(--primary-text);
+}
+
+.ai-page .ai-tab.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+/* ── Card list, mirroring the webhook cards ───────────────────────────────────────────────── */
+
+.ai-page .ai-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ai-page .ai-card {
+  background: var(--bg-white);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.ai-page .ai-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.ai-page .ai-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-light);
+  gap: 1rem;
+}
+
+.ai-page .ai-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-page .ai-card-icon {
+  color: var(--primary-text);
+  flex-shrink: 0;
+}
+
+.ai-page .ai-card-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-page .ai-card-actions {
+  display: flex;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.ai-page .ai-card-body {
+  padding: 1rem 1.25rem;
+  overflow: hidden;
+}
+
+.ai-page .ai-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 0.875rem;
+}
+
+.ai-page .ai-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.ai-page .ai-meta-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.ai-page .ai-meta-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.ai-page .ai-meta-code {
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+}
+
+.ai-page .ai-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.ai-page .ai-tag {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  background: rgba(37, 211, 102, 0.15);
+  color: var(--primary-text);
+  border-radius: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid rgba(37, 211, 102, 0.25);
+  cursor: default;
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', monospace;
+}
+
+.ai-page .ai-tag-muted {
+  background: var(--bg-light);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.ai-page .ai-error-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--error-text);
+  overflow-wrap: anywhere;
+}
+
+/* ── Empty state (shared shape with webhooks) ─────────────────────────────────────────────── */
+
+.ai-page .empty-table-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.ai-page .empty-table-state svg {
+  margin-bottom: 1rem;
+  opacity: 0.4;
+  color: var(--text-muted);
+}
+
+.ai-page .empty-table-state h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 0.5rem;
+}
+
+.ai-page .empty-table-state p {
+  margin: 0;
+  font-size: 0.875rem;
+  max-width: 340px;
+}
+
+/* ── Form helpers inside modals ───────────────────────────────────────────────────────────── */
+
+.ai-page .modal-body > input,
+.ai-page .modal-body > select,
+.ai-page .modal-body > textarea,
+.ai-page .modal-body > .ai-field-row {
+  margin-bottom: 0.75rem;
+}
+
+.ai-page .modal-body > label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ai-page .modal-body textarea {
+  min-height: 90px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.ai-page .modal-body > .hint {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: -0.375rem 0 0.75rem;
+}
+
+.ai-page .modal-body > .hint.error {
+  color: var(--error-text);
+}
+
+.ai-page .ai-field-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ai-page .ai-field-row > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ai-page .ai-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+}
+
+.ai-page .ai-subhead {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin: 0.75rem 0 0.5rem;
+}
+
+/* Tree preview in the RAG expandable row */
+.ai-page .ai-tree {
+  margin: 0.5rem 0 0;
+  padding: 0.625rem 0.75rem;
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.ai-page .ai-tree-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.125rem 0;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.ai-page .ai-tree-row strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Status dot (LLM/MCP last test) */
+.ai-page .ai-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.375rem;
+  vertical-align: middle;
+}
+
+.ai-page .ai-status-dot.ok {
+  background: var(--success-text, #25d366);
+}
+
+.ai-page .ai-status-dot.fail {
+  background: var(--error-text, #e03131);
+}

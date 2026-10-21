@@ -69,7 +69,8 @@
     "messageTester": "संदेश परीक्षक",
     "infrastructure": "बुनियादी ढांचा",
     "plugins": "प्लगइन्स",
-    "logs": "लॉग्स"
+    "logs": "लॉग्स",
+    "aiIntegration": "AI एकीकरण"
   },
   "chats": {
     "media": {
@@ -1170,5 +1171,149 @@
       "current": "यह सत्र"
     },
     "loading": "खोजा जा रहा है…"
+  },
+  "ai": {
+    "title": "AI एकीकरण",
+    "subtitle": "चैटबॉट, LLM प्रदाता, vectorless RAG ज्ञान और MCP टूल सर्वर",
+    "add": {
+      "chatbots": "चैटबॉट जोड़ें",
+      "llm": "LLM मॉडल जोड़ें",
+      "rag": "RAG मॉडल जोड़ें",
+      "mcp": "MCP कनेक्शन जोड़ें"
+    },
+    "tabs": {
+      "chatbots": "चैटबॉट",
+      "llm": "AI LLM",
+      "rag": "RAG Vectorless",
+      "mcp": "MCP सर्वर"
+    },
+    "actions": {
+      "edit": "संपादित करें",
+      "delete": "हटाएं",
+      "enable": "सक्षम करें",
+      "disable": "अक्षम करें",
+      "expand": "ज्ञान दिखाएं"
+    },
+    "toasts": {
+      "created": "बनाया गया",
+      "updated": "सहेजा गया",
+      "deleted": "हटाया गया",
+      "testOk": "कनेक्शन ठीक है",
+      "testFailed": "परीक्षण विफल: {{message}}",
+      "indexed": "इंडेक्स बन गया"
+    },
+    "errors": {
+      "forbidden": "आपकी API कुंजी के पास AI एकीकरण सतह तक पहुँच नहीं है"
+    },
+    "chatbots": {
+      "emptyTitle": "अभी तक कोई चैटबॉट नहीं",
+      "emptyDescription": "एक चैटबॉट किसी एक सत्र के आने वाले संदेशों का उत्तर LLM से देता है। पहले एक LLM मॉडल बनाएं, फिर सत्र से एक बॉट जोड़ें।",
+      "createTitle": "चैटबॉट जोड़ें",
+      "editTitle": "चैटबॉट संपादित करें",
+      "deleteTitle": "चैटबॉट हटाएं",
+      "deleteConfirm": "चैटबॉट {{name}} हटाएं? यह तुरंत संदेशों का उत्तर देना बंद कर देगा।",
+      "session": "सत्र",
+      "selectSession": "सत्र चुनें…",
+      "name": "नाम",
+      "llmModel": "LLM मॉडल",
+      "selectLlm": "LLM मॉडल चुनें…",
+      "ragModel": "RAG ज्ञान",
+      "noRag": "कोई नहीं",
+      "persona": "व्यक्तित्व",
+      "personaPlaceholder": "आप … के सहायता एजेंट हैं (वैकल्पिक; मॉडल के व्यक्तित्व को ओवरराइड करता है)",
+      "chats": "चैट्स",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (खाली = हर चैट)",
+      "chatsHint": "कॉमा से अलग किए गए chat id या सिर्फ़ नंबर। सत्र की हर चैट का उत्तर देने के लिए खाली छोड़ें।",
+      "allChats": "हर चैट",
+      "cooldown": "कूलडाउन (से)",
+      "cooldownValue": "{{count}} से",
+      "context": "इतिहास",
+      "enabled": "सक्षम"
+    },
+    "llm": {
+      "emptyTitle": "अभी तक कोई LLM मॉडल नहीं",
+      "emptyDescription": "एक LLM मॉडल एक OpenAI-संगत endpoint है: बेस URL, api key, मॉडल id, सैंपलिंग पैरामीटर और एक वैकल्पिक व्यक्तित्व।",
+      "createTitle": "LLM मॉडल जोड़ें",
+      "editTitle": "LLM मॉडल संपादित करें",
+      "deleteTitle": "LLM मॉडल हटाएं",
+      "deleteConfirm": "LLM मॉडल {{name}} हटाएं? इसका उपयोग करने वाले चैटबॉट उत्तर देना बंद कर देंगे।",
+      "name": "नाम",
+      "endpoint": "Endpoint URL",
+      "endpointHint": "OpenAI-संगत बेस URL; /chat/completions जोड़ा जाता है।",
+      "modelId": "मॉडल id",
+      "apiKey": "API कुंजी",
+      "apiKeyKeep": "संग्रहीत कुंजी रखने के लिए खाली छोड़ें",
+      "persona": "व्यक्तित्व",
+      "personaPlaceholder": "हर completion के साथ भेजा जाने वाला सिस्टम प्रॉम्प्ट (वैकल्पिक)",
+      "parameters": "सैंपलिंग पैरामीटर",
+      "temperature": "तापमान",
+      "maxTokens": "अधिकतम टोकन",
+      "test": "कनेक्शन का परीक्षण करें",
+      "lastTest": "पिछला परीक्षण",
+      "testOk": "ठीक है"
+    },
+    "rag": {
+      "emptyTitle": "अभी तक कोई RAG मॉडल नहीं",
+      "emptyDescription": "एक RAG मॉडल आपके ज्ञान (शब्द, दस्तावेज़, URL) को एक ट्री इंडेक्स के रूप में रखता है जिस पर LLM तर्क करता है — vectorless, PageIndex-शैली में।",
+      "createTitle": "RAG मॉडल जोड़ें",
+      "editTitle": "RAG मॉडल संपादित करें",
+      "deleteTitle": "RAG मॉडल हटाएं",
+      "deleteConfirm": "RAG मॉडल {{name}} और उसका सारा ज्ञान हटाएं?",
+      "name": "नाम",
+      "scope": "सक्रिय सत्र",
+      "scopeAll": "सभी सत्र",
+      "scopeSelected": "चयनित सत्र",
+      "scopeNone": "कहीं नहीं (अलग किया गया)",
+      "sessionIds": "सत्र id",
+      "sessionIdsHint": "कॉमा से अलग किए गए सत्र id, या नीचे टिक करें",
+      "llmOverride": "तर्क के लिए LLM",
+      "llmFromBot": "चैटबॉट का LLM उपयोग करें",
+      "topK": "प्राप्त नोड्स",
+      "maxContextChars": "अधिकतम कॉन्टेक्स्ट वर्ण",
+      "vectorlessHint": "Vectorless: ज्ञान को एक ट्री के रूप में इंडेक्स किया जाता है और LLM तर्क (PageIndex-शैली) से प्राप्त किया जाता है — न एम्बेडिंग, न वेक्टर डेटाबेस।",
+      "documents": "प्रविष्टियाँ",
+      "indexState": "इंडेक्स बना",
+      "noIndex": "इंडेक्स नहीं बना",
+      "index": "इंडेक्स फिर से बनाएं",
+      "needsIndex": "इस ज्ञान को चैटबॉट के लिए उपलब्ध कराने हेतु इंडेक्स बिल्ड चलाएं।",
+      "addEntry": "प्रविष्टि जोड़ें",
+      "sourceType": {
+        "text": "टेक्स्ट",
+        "url": "URL",
+        "site": "साइट",
+        "file": "फ़ाइल"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "शीर्षक (वैकल्पिक)",
+      "contentPlaceholder": "शब्द, जानकारी, पेस्ट किया गया दस्तावेज़…",
+      "documentChars": "{{count}} वर्ण",
+      "queryPlaceholder": "ज्ञान आधार से पूछें…",
+      "query": "प्राप्त करें",
+      "sourceTypeLabel": "स्रोत प्रकार"
+    },
+    "mcp": {
+      "emptyTitle": "अभी तक कोई MCP कनेक्शन नहीं",
+      "emptyDescription": "क्रेडेंशियल के साथ या उसके बिना एक MCP टूल सर्वर (Streamable HTTP) कनेक्ट करें; जिन टूल्स की वह घोषणा करता है वे AI फ़्लो के लिए उपलब्ध हो जाते हैं।",
+      "createTitle": "MCP कनेक्शन जोड़ें",
+      "editTitle": "MCP कनेक्शन संपादित करें",
+      "deleteTitle": "MCP कनेक्शन हटाएं",
+      "deleteConfirm": "MCP कनेक्शन {{name}} हटाएं?",
+      "name": "नाम",
+      "endpoint": "Endpoint URL",
+      "auth": "प्रमाणीकरण",
+      "authNone": "कोई नहीं",
+      "authBearer": "Bearer टोकन",
+      "authHeader": "कस्टम हेडर",
+      "authHeaderName": "हेडर नाम",
+      "credential": "क्रेडेंशियल",
+      "credentialKeep": "संग्रहीत क्रेडेंशियल रखने के लिए खाली छोड़ें",
+      "timeout": "टाइमआउट (ms)",
+      "test": "कनेक्ट करें और टूल्स की सूची देखें",
+      "lastTest": "पिछला परीक्षण",
+      "toolCount": "{{count}} टूल्स"
+    },
+    "common": {
+      "failed": "अनुरोध विफल: {{message}}"
+    }
   }
 }

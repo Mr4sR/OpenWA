@@ -1535,3 +1535,229 @@ export const statsApi = {
   getOverview: () => request<OverviewStats>('/stats/overview'),
   getMessages: (period: StatsPeriod) => request<MessageStats>(`/stats/messages?period=${period}`),
 };
+
+// =============================================================================
+// AI Integration API (mirrors src/modules/ai)
+// =============================================================================
+
+/** One configured LLM provider connection. The api key and custom headers are write-only. */
+export interface AiLlmModel {
+  id: string;
+  name: string;
+  endpointUrl: string;
+  hasApiKey: boolean;
+  apiKeyMasked: string | null;
+  model: string;
+  persona: string | null;
+  parameters: { temperature?: number; maxTokens?: number; topP?: number; stop?: string[] } | null;
+  hasHeaders: boolean;
+  enabled: boolean;
+  lastTestedAt?: string | null;
+  lastStatus?: { ok: boolean; at: string; error?: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiLlmModelPayload {
+  name: string;
+  endpointUrl: string;
+  /** Omit on update to keep the stored key; `''` removes it. */
+  apiKey?: string;
+  model?: string;
+  persona?: string | null;
+  parameters?: { temperature?: number; maxTokens?: number; topP?: number; stop?: string[] } | null;
+  headers?: Record<string, string>;
+  enabled?: boolean;
+}
+
+/** One chatbot instance. `sessionId` binds it to a WhatsApp session. */
+export interface AiChatbot {
+  id: string;
+  sessionId: string;
+  name: string;
+  llmModelId: string;
+  ragModelId: string | null;
+  persona: string | null;
+  chatIds: string[] | null;
+  cooldownSeconds: number;
+  contextMessages: number;
+  enabled: boolean;
+  lastRepliedAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiChatbotPayload {
+  name: string;
+  llmModelId: string;
+  ragModelId?: string | null;
+  persona?: string | null;
+  chatIds?: string[] | null;
+  cooldownSeconds?: number;
+  contextMessages?: number;
+  enabled?: boolean;
+}
+
+/** Where a RAG model may be attached: every chatbot, selected sessions, or nowhere. */
+export type AiRagSessionScope = 'all' | 'selected' | 'none';
+
+export interface AiRagNode {
+  nodeId: string;
+  title: string;
+  summary: string;
+  text?: string;
+  nodes?: AiRagNode[] | null;
+}
+
+/** One vectorless (PageIndex-style) RAG model; the tree index is previewed, not transferred whole. */
+export interface AiRagModel {
+  id: string;
+  name: string;
+  sessionScope: AiRagSessionScope;
+  sessionIds: string[] | null;
+  llmModelId: string | null;
+  enabled: boolean;
+  topK: number;
+  maxContextChars: number;
+  hasIndex: boolean;
+  indexedAt: string | null;
+  lastIndexError: string | null;
+  documentCount: number;
+  indexPreview: { docName: string; docDescription?: string; structure?: AiRagNode[] } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiRagModelPayload {
+  name: string;
+  sessionScope?: AiRagSessionScope;
+  sessionIds?: string[] | null;
+  llmModelId?: string | null;
+  topK?: number;
+  maxContextChars?: number;
+  enabled?: boolean;
+}
+
+/** One knowledge entry before indexing: pasted text, a fetched URL, a site or an uploaded file. */
+export interface AiRagDocument {
+  id: string;
+  ragModelId: string;
+  sourceType: 'text' | 'url' | 'site' | 'file';
+  title: string | null;
+  sourceUrl: string | null;
+  contentPreview: string | null;
+  contentLength: number;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiRagDocumentPayload {
+  sourceType: 'text' | 'url' | 'site' | 'file';
+  title?: string | null;
+  sourceUrl?: string;
+  content?: string;
+  storageKey?: string;
+}
+
+export interface AiRagQueryResult {
+  query: string;
+  nodes: AiRagNode[];
+  context: string;
+  warnings?: string[];
+}
+
+/** One outbound MCP server connection. The credential and headers are write-only. */
+export interface AiMcpConnection {
+  id: string;
+  name: string;
+  endpointUrl: string;
+  authKind: 'none' | 'bearer' | 'header';
+  authHeader: string;
+  hasCredential: boolean;
+  authCredentialMasked: string | null;
+  hasHeaders: boolean;
+  timeoutMs: number;
+  enabled: boolean;
+  lastStatus: {
+    ok: boolean;
+    at: string;
+    serverName?: string;
+    serverVersion?: string;
+    toolCount?: number;
+    error?: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiMcpConnectionPayload {
+  name: string;
+  endpointUrl: string;
+  authKind?: 'none' | 'bearer' | 'header';
+  authHeader?: string;
+  /** Omit on update to keep the stored credential; `''` removes it. */
+  authCredential?: string;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+  enabled?: boolean;
+}
+
+export interface AiMcpTool {
+  name: string;
+  description?: string;
+}
+
+export const aiApi = {
+  listLlmModels: () => request<AiLlmModel[]>('/ai/llm-models'),
+  createLlmModel: (body: AiLlmModelPayload) =>
+    request<AiLlmModel>('/ai/llm-models', { method: 'POST', body: JSON.stringify(body) }),
+  updateLlmModel: (id: string, body: Partial<AiLlmModelPayload>) =>
+    request<AiLlmModel>(`/ai/llm-models/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteLlmModel: (id: string) => request<void>(`/ai/llm-models/${id}`, { method: 'DELETE' }),
+  testLlmModel: (id: string) =>
+    request<{ ok: boolean; answer: string }>(`/ai/llm-models/${id}/test`, { method: 'POST' }),
+
+  listChatbots: () => request<AiChatbot[]>('/ai/chatbots'),
+  createChatbot: (sessionId: string, body: AiChatbotPayload) =>
+    request<AiChatbot>(`/sessions/${sessionId}/ai-chatbots`, { method: 'POST', body: JSON.stringify(body) }),
+  updateChatbot: (sessionId: string, id: string, body: Partial<AiChatbotPayload>) =>
+    request<AiChatbot>(`/sessions/${sessionId}/ai-chatbots/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteChatbot: (sessionId: string, id: string) =>
+    request<void>(`/sessions/${sessionId}/ai-chatbots/${id}`, { method: 'DELETE' }),
+
+  listRagModels: () => request<AiRagModel[]>('/ai/rag-models'),
+  createRagModel: (body: AiRagModelPayload) =>
+    request<AiRagModel>('/ai/rag-models', { method: 'POST', body: JSON.stringify(body) }),
+  updateRagModel: (id: string, body: Partial<AiRagModelPayload>) =>
+    request<AiRagModel>(`/ai/rag-models/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteRagModel: (id: string) => request<void>(`/ai/rag-models/${id}`, { method: 'DELETE' }),
+  indexRagModel: (id: string) => request<AiRagModel>(`/ai/rag-models/${id}/index`, { method: 'POST', body: '{}' }),
+  queryRagModel: (id: string, query: string) =>
+    request<AiRagQueryResult>(`/ai/rag-models/${id}/query`, { method: 'POST', body: JSON.stringify({ query }) }),
+  listRagDocuments: (id: string) => request<AiRagDocument[]>(`/ai/rag-models/${id}/documents`),
+  addRagDocument: (id: string, body: AiRagDocumentPayload) =>
+    request<AiRagDocument>(`/ai/rag-models/${id}/documents`, { method: 'POST', body: JSON.stringify(body) }),
+  updateRagDocument: (id: string, documentId: string, body: { title?: string | null; content?: string; sourceUrl?: string }) =>
+    request<AiRagDocument>(`/ai/rag-models/${id}/documents/${documentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  deleteRagDocument: (id: string, documentId: string) =>
+    request<void>(`/ai/rag-models/${id}/documents/${documentId}`, { method: 'DELETE' }),
+
+  listMcpConnections: () => request<AiMcpConnection[]>('/ai/mcp-connections'),
+  createMcpConnection: (body: AiMcpConnectionPayload) =>
+    request<AiMcpConnection>('/ai/mcp-connections', { method: 'POST', body: JSON.stringify(body) }),
+  updateMcpConnection: (id: string, body: Partial<AiMcpConnectionPayload>) =>
+    request<AiMcpConnection>(`/ai/mcp-connections/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteMcpConnection: (id: string) => request<void>(`/ai/mcp-connections/${id}`, { method: 'DELETE' }),
+  testMcpConnection: (id: string) =>
+    request<{ ok: boolean; serverName?: string; serverVersion?: string; tools: AiMcpTool[]; error?: string }>(
+      `/ai/mcp-connections/${id}/test`,
+      { method: 'POST' },
+    ),
+  listMcpTools: (id: string) =>
+    request<{ tools: AiMcpTool[] }>(`/ai/mcp-connections/${id}/tools`),
+};

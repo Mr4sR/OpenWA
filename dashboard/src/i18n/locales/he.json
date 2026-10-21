@@ -73,7 +73,8 @@
     "messageTester": "בדיקת הודעות",
     "infrastructure": "תשתית",
     "plugins": "תוספים",
-    "logs": "לוגים"
+    "logs": "לוגים",
+    "aiIntegration": "שילוב AI"
   },
   "chats": {
     "media": {
@@ -1183,5 +1184,149 @@
       "current": "הפעלה זו"
     },
     "loading": "מחפש…"
+  },
+  "ai": {
+    "title": "שילוב AI",
+    "subtitle": "צ׳אטבוטים, ספקי LLM, ידע RAG ללא־וקטורים ושרתי כלים של MCP",
+    "add": {
+      "chatbots": "הוספת צ׳אטבוט",
+      "llm": "הוספת מודל LLM",
+      "rag": "הוספת מודל RAG",
+      "mcp": "הוספת חיבור MCP"
+    },
+    "tabs": {
+      "chatbots": "צ׳אטבוט",
+      "llm": "AI LLM",
+      "rag": "RAG ללא־וקטורים",
+      "mcp": "שרת MCP"
+    },
+    "actions": {
+      "edit": "עריכה",
+      "delete": "מחיקה",
+      "enable": "הפעלה",
+      "disable": "השבתה",
+      "expand": "הצגת הידע"
+    },
+    "toasts": {
+      "created": "נוצר",
+      "updated": "נשמר",
+      "deleted": "נמחק",
+      "testOk": "החיבור תקין",
+      "testFailed": "הבדיקה נכשלה: {{message}}",
+      "indexed": "האינדקס נבנה"
+    },
+    "errors": {
+      "forbidden": "למפתח ה-API שלך אין גישה לממשק שילוב ה-AI"
+    },
+    "chatbots": {
+      "emptyTitle": "אין עדיין צ׳אטבוטים",
+      "emptyDescription": "צ׳אטבוט עונה להודעות הנכנסות של סשן אחד באמצעות מודל LLM. צרו מודל LLM תחילה, ואז קשרו בוט לסשן.",
+      "createTitle": "הוספת צ׳אטבוט",
+      "editTitle": "עריכת הצ׳אטבוט",
+      "deleteTitle": "מחיקת הצ׳אטבוט",
+      "deleteConfirm": "למחוק את הצ׳אטבוט {{name}}? הוא יפסיק לענות להודעות באופן מיידי.",
+      "session": "סשן",
+      "selectSession": "בחרו סשן…",
+      "name": "שם",
+      "llmModel": "מודל LLM",
+      "selectLlm": "בחרו מודל LLM…",
+      "ragModel": "ידע RAG",
+      "noRag": "ללא",
+      "persona": "פרסונה",
+      "personaPlaceholder": "אתם סוכן התמיכה של… (אופציונלי; דורס את הפרסונה של המודל)",
+      "chats": "צ׳אטים",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (ריק = כל הצ׳אטים)",
+      "chatsHint": "מזהי צ׳אט או מספרים בלבד, מופרדים בפסיקים. השאירו ריק כדי לענות לכל צ׳אט בסשן.",
+      "allChats": "כל הצ׳אטים",
+      "cooldown": "זמן שהות (שנ׳)",
+      "cooldownValue": "{{count}} שנ׳",
+      "context": "היסטוריה",
+      "enabled": "מופעל"
+    },
+    "llm": {
+      "emptyTitle": "אין עדיין מודלי LLM",
+      "emptyDescription": "מודל LLM הוא endpoint תואם OpenAI: כתובת בסיס, מפתח API, מזהה מודל, פרמטרי דגימה ופרסונה אופציונלית.",
+      "createTitle": "הוספת מודל LLM",
+      "editTitle": "עריכת מודל LLM",
+      "deleteTitle": "מחיקת מודל LLM",
+      "deleteConfirm": "למחוק את מודל ה-LLM {{name}}? צ׳אטבוטים שמשתמשים בו יפסיקו לענות.",
+      "name": "שם",
+      "endpoint": "כתובת endpoint",
+      "endpointHint": "כתובת בסיס תואמת OpenAI; הנתיב /chat/completions מתווסף אוטומטית.",
+      "modelId": "מזהה מודל",
+      "apiKey": "מפתח API",
+      "apiKeyKeep": "השאירו ריק כדי לשמור על המפתח השמור",
+      "persona": "פרסונה",
+      "personaPlaceholder": "הנחיית מערכת שנשלחת עם כל completion (אופציונלי)",
+      "parameters": "פרמטרי דגימה",
+      "temperature": "טמפרטורה",
+      "maxTokens": "מקסימום טוקנים",
+      "test": "בדיקת חיבור",
+      "lastTest": "בדיקה אחרונה",
+      "testOk": "תקין"
+    },
+    "rag": {
+      "emptyTitle": "אין עדיין מודלי RAG",
+      "emptyDescription": "מודל RAG מאחסן את הידע שלכם (מילים, מסמכים, כתובות URL) כאינדקס עץ שה-LLM מסיק עליו — ללא־וקטורים, בסגנון PageIndex.",
+      "createTitle": "הוספת מודל RAG",
+      "editTitle": "עריכת מודל RAG",
+      "deleteTitle": "מחיקת מודל RAG",
+      "deleteConfirm": "למחוק את מודל ה-RAG {{name}} ואת כל הידע שלו?",
+      "name": "שם",
+      "scope": "סשנים פעילים",
+      "scopeAll": "כל הסשנים",
+      "scopeSelected": "סשנים נבחרים",
+      "scopeNone": "שום מקום (מנותק)",
+      "sessionIds": "מזהי סשן",
+      "sessionIdsHint": "מזהי סשן מופרדים בפסיקים, או סמנו למטה",
+      "llmOverride": "LLM להסקת מסקנות",
+      "llmFromBot": "שימוש ב-LLM של הצ׳אטבוט",
+      "topK": "צמתים שנשלפו",
+      "maxContextChars": "מקסימום תווי הקשר",
+      "vectorlessHint": "ללא־וקטורים: הידע נבנה כאינדקס עץ ונשלף באמצעות הסקה של ה-LLM (בסגנון PageIndex) — בלי embeddings, בלי מסד נתונים וקטורי.",
+      "documents": "רשומות",
+      "indexState": "האינדקס נבנה",
+      "noIndex": "לא נבנה אינדקס",
+      "index": "בניית האינדקס מחדש",
+      "needsIndex": "הריצו את בניית האינדקס כדי להפוך את הידע הזה לזמין לצ׳אטבוטים.",
+      "addEntry": "הוספת רשומה",
+      "sourceType": {
+        "text": "טקסט",
+        "url": "URL",
+        "site": "אתר",
+        "file": "קובץ"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "כותרת (אופציונלי)",
+      "contentPlaceholder": "מילים, מידע, מסמך שהודבק…",
+      "documentChars": "{{count}} תווים",
+      "queryPlaceholder": "שאלו את בסיס הידע…",
+      "query": "שליפה",
+      "sourceTypeLabel": "סוג מקור"
+    },
+    "mcp": {
+      "emptyTitle": "אין עדיין חיבורי MCP",
+      "emptyDescription": "התחברו לשרת כלים של MCP (Streamable HTTP) עם או בלי אישורי גישה; הכלים שהוא מציג הופכים זמינים לזרימות AI.",
+      "createTitle": "הוספת חיבור MCP",
+      "editTitle": "עריכת חיבור MCP",
+      "deleteTitle": "מחיקת חיבור MCP",
+      "deleteConfirm": "למחוק את חיבור ה-MCP {{name}}?",
+      "name": "שם",
+      "endpoint": "כתובת endpoint",
+      "auth": "אימות",
+      "authNone": "ללא",
+      "authBearer": "אסימון Bearer",
+      "authHeader": "כותרת מותאמת אישית",
+      "authHeaderName": "שם הכותרת",
+      "credential": "אישור גישה",
+      "credentialKeep": "השאירו ריק כדי לשמור על אישור הגישה השמור",
+      "timeout": "פסק זמן (מילישניות)",
+      "test": "התחברות ורשימת כלים",
+      "lastTest": "בדיקה אחרונה",
+      "toolCount": "{{count}} כלים"
+    },
+    "common": {
+      "failed": "הבקשה נכשלה: {{message}}"
+    }
   }
 }

@@ -69,7 +69,8 @@
     "messageTester": "Mesaj Test Aracı",
     "infrastructure": "Altyapı",
     "plugins": "Eklentiler",
-    "logs": "Kayıtlar (Logs)"
+    "logs": "Kayıtlar (Logs)",
+    "aiIntegration": "AI Entegrasyonu"
   },
   "chats": {
     "media": {
@@ -1170,5 +1171,149 @@
       "current": "Bu oturum"
     },
     "loading": "Aranıyor…"
+  },
+  "ai": {
+    "title": "AI Entegrasyonu",
+    "subtitle": "Sohbet botları, LLM sağlayıcıları, vectorsüz RAG bilgisi ve MCP araç sunucuları",
+    "add": {
+      "chatbots": "Sohbet botu ekle",
+      "llm": "LLM modeli ekle",
+      "rag": "RAG modeli ekle",
+      "mcp": "MCP bağlantısı ekle"
+    },
+    "tabs": {
+      "chatbots": "Sohbet Botu",
+      "llm": "AI LLM",
+      "rag": "Vectorsüz RAG",
+      "mcp": "MCP Sunucusu"
+    },
+    "actions": {
+      "edit": "Düzenle",
+      "delete": "Sil",
+      "enable": "Etkinleştir",
+      "disable": "Devre dışı bırak",
+      "expand": "Bilgiyi göster"
+    },
+    "toasts": {
+      "created": "Oluşturuldu",
+      "updated": "Kaydedildi",
+      "deleted": "Silindi",
+      "testOk": "Bağlantıda sorun yok",
+      "testFailed": "Test başarısız: {{message}}",
+      "indexed": "İndeks oluşturuldu"
+    },
+    "errors": {
+      "forbidden": "API anahtarınızın AI Entegrasyonu yüzeyine erişimi yok"
+    },
+    "chatbots": {
+      "emptyTitle": "Henüz sohbet botu yok",
+      "emptyDescription": "Sohbet botu, bir oturuma gelen mesajları bir LLM ile yanıtlar. Önce bir LLM modeli oluşturun, sonra botu oturuma bağlayın.",
+      "createTitle": "Sohbet botu ekle",
+      "editTitle": "Sohbet botunu düzenle",
+      "deleteTitle": "Sohbet botunu sil",
+      "deleteConfirm": "{{name}} sohbet botu silinsin mi? Mesajları yanıtlamayı hemen durdurur.",
+      "session": "Oturum",
+      "selectSession": "Bir oturum seçin…",
+      "name": "Ad",
+      "llmModel": "LLM modeli",
+      "selectLlm": "Bir LLM modeli seçin…",
+      "ragModel": "RAG bilgisi",
+      "noRag": "Yok",
+      "persona": "Persona",
+      "personaPlaceholder": "Destek temsilcisisiniz… (isteğe bağlı; model personayı geçersiz kılar)",
+      "chats": "Sohbetler",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (boş = tüm sohbetler)",
+      "chatsHint": "Virgülle ayrılmış sohbet kimlikleri veya çıplak numaralar. Oturumun tüm sohbetlerini yanıtlamak için boş bırakın.",
+      "allChats": "Tüm sohbetler",
+      "cooldown": "Bekleme süresi (sn)",
+      "cooldownValue": "{{count}} sn",
+      "context": "Geçmiş",
+      "enabled": "Etkin"
+    },
+    "llm": {
+      "emptyTitle": "Henüz LLM modeli yok",
+      "emptyDescription": "LLM modeli, OpenAI uyumlu bir endpoint'tir: temel URL, API anahtarı, model kimliği, örnekleme parametreleri ve isteğe bağlı bir persona.",
+      "createTitle": "LLM modeli ekle",
+      "editTitle": "LLM modelini düzenle",
+      "deleteTitle": "LLM modelini sil",
+      "deleteConfirm": "{{name}} LLM modeli silinsin mi? Onu kullanan sohbet botları yanıtlamayı durdurur.",
+      "name": "Ad",
+      "endpoint": "Endpoint URL'si",
+      "endpointHint": "OpenAI uyumlu temel URL; /chat/completions sonuna eklenir.",
+      "modelId": "Model kimliği",
+      "apiKey": "API anahtarı",
+      "apiKeyKeep": "Depolanmış anahtarı korumak için boş bırakın",
+      "persona": "Persona",
+      "personaPlaceholder": "Her tamamlamayla gönderilen sistem komutu (isteğe bağlı)",
+      "parameters": "Örnekleme parametreleri",
+      "temperature": "Sıcaklık",
+      "maxTokens": "Maks. token",
+      "test": "Bağlantıyı test et",
+      "lastTest": "Son test",
+      "testOk": "Tamam"
+    },
+    "rag": {
+      "emptyTitle": "Henüz RAG modeli yok",
+      "emptyDescription": "RAG modeli, bilginizi (kelimeler, belgeler, URL'ler) LLM'in üzerinde akıl yürüttüğü bir ağaç indeksi olarak tutar — vectorsüz, PageIndex tarzı.",
+      "createTitle": "RAG modeli ekle",
+      "editTitle": "RAG modelini düzenle",
+      "deleteTitle": "RAG modelini sil",
+      "deleteConfirm": "{{name}} RAG modeli ve tüm bilgisi silinsin mi?",
+      "name": "Ad",
+      "scope": "Etkin oturumlar",
+      "scopeAll": "Tüm oturumlar",
+      "scopeSelected": "Seçili oturumlar",
+      "scopeNone": "Hiçbir yerde (bağı kopuk)",
+      "sessionIds": "Oturum kimlikleri",
+      "sessionIdsHint": "Virgülle ayrılmış oturum kimlikleri veya aşağıdaki kutucukları işaretleyin",
+      "llmOverride": "Akıl yürüten LLM",
+      "llmFromBot": "Sohbet botunun LLM'ini kullan",
+      "topK": "Getirilen düğümler",
+      "maxContextChars": "Maks. bağlam karakteri",
+      "vectorlessHint": "Vectorsüz: bilgi bir ağaç olarak indekslenir ve LLM akıl yürütmesiyle getirilir (PageIndex tarzı) — ne embedding ne de vektör veritabanı var.",
+      "documents": "Girdiler",
+      "indexState": "İndeks oluşturuldu",
+      "noIndex": "İndekslenmedi",
+      "index": "İndeksi yeniden oluştur",
+      "needsIndex": "Bu bilginin sohbet botları tarafından kullanılabilmesi için indeks oluşturmayı çalıştırın.",
+      "addEntry": "Girdi ekle",
+      "sourceType": {
+        "text": "Metin",
+        "url": "URL",
+        "site": "Site",
+        "file": "Dosya"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "Başlık (isteğe bağlı)",
+      "contentPlaceholder": "Kelimeler, bilgiler, yapıştırılan belge…",
+      "documentChars": "{{count}} karakter",
+      "queryPlaceholder": "Bilgi tabanına sorun…",
+      "query": "Getir",
+      "sourceTypeLabel": "Kaynak türü"
+    },
+    "mcp": {
+      "emptyTitle": "Henüz MCP bağlantısı yok",
+      "emptyDescription": "MCP araç sunucusuna (Streamable HTTP) kimlik bilgisiyle veya olmadan bağlanın; sunduğu araçlar AI akışları için kullanılabilir hale gelir.",
+      "createTitle": "MCP bağlantısı ekle",
+      "editTitle": "MCP bağlantısını düzenle",
+      "deleteTitle": "MCP bağlantısını sil",
+      "deleteConfirm": "{{name}} MCP bağlantısı silinsin mi?",
+      "name": "Ad",
+      "endpoint": "Endpoint URL'si",
+      "auth": "Kimlik doğrulama",
+      "authNone": "Yok",
+      "authBearer": "Bearer belirteci",
+      "authHeader": "Özel başlık",
+      "authHeaderName": "Başlık adı",
+      "credential": "Kimlik bilgisi",
+      "credentialKeep": "Depolanmış kimlik bilgisini korumak için boş bırakın",
+      "timeout": "Zaman aşımı (ms)",
+      "test": "Bağlan ve araçları listele",
+      "lastTest": "Son test",
+      "toolCount": "{{count}} araç"
+    },
+    "common": {
+      "failed": "İstek başarısız: {{message}}"
+    }
   }
 }

@@ -69,7 +69,8 @@
     "messageTester": "訊息測試器",
     "infrastructure": "基礎架構",
     "plugins": "外掛",
-    "logs": "記錄"
+    "logs": "記錄",
+    "aiIntegration": "AI 整合"
   },
   "chats": {
     "media": {
@@ -1170,5 +1171,149 @@
       "current": "目前工作階段"
     },
     "loading": "搜尋中…"
+  },
+  "ai": {
+    "title": "AI 整合",
+    "subtitle": "聊天機械人、LLM 供應商、無向量 RAG 知識庫與 MCP 工具伺服器",
+    "add": {
+      "chatbots": "新增聊天機械人",
+      "llm": "新增 LLM 模型",
+      "rag": "新增 RAG 模型",
+      "mcp": "新增 MCP 連線"
+    },
+    "tabs": {
+      "chatbots": "聊天機械人",
+      "llm": "AI LLM",
+      "rag": "無向量 RAG",
+      "mcp": "MCP 伺服器"
+    },
+    "actions": {
+      "edit": "編輯",
+      "delete": "刪除",
+      "enable": "啟用",
+      "disable": "停用",
+      "expand": "展開知識"
+    },
+    "toasts": {
+      "created": "已建立",
+      "updated": "已儲存",
+      "deleted": "已刪除",
+      "testOk": "連線正常",
+      "testFailed": "測試失敗：{{message}}",
+      "indexed": "索引已建立"
+    },
+    "errors": {
+      "forbidden": "你的 API 金鑰無權存取 AI 整合功能"
+    },
+    "chatbots": {
+      "emptyTitle": "尚未有任何聊天機械人",
+      "emptyDescription": "聊天機械人使用 LLM 回應某個工作階段收到的訊息。請先建立 LLM 模型，再將機械人綁定至該工作階段。",
+      "createTitle": "新增聊天機械人",
+      "editTitle": "編輯聊天機械人",
+      "deleteTitle": "刪除聊天機械人",
+      "deleteConfirm": "刪除聊天機械人 {{name}}？它將立即停止回應訊息。",
+      "session": "工作階段",
+      "selectSession": "選擇一個工作階段…",
+      "name": "名稱",
+      "llmModel": "LLM 模型",
+      "selectLlm": "選擇一個 LLM 模型…",
+      "ragModel": "RAG 知識庫",
+      "noRag": "無",
+      "persona": "人設",
+      "personaPlaceholder": "你是……的客戶服務專員（可選；將覆蓋模型人設）",
+      "chats": "聊天",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us（留空 = 所有聊天）",
+      "chatsHint": "以逗號分隔的聊天 ID 或純數字號碼。留空則回應該工作階段的所有聊天。",
+      "allChats": "所有聊天",
+      "cooldown": "冷卻時間（秒）",
+      "cooldownValue": "{{count}} 秒",
+      "context": "歷史",
+      "enabled": "已啟用"
+    },
+    "llm": {
+      "emptyTitle": "尚未有任何 LLM 模型",
+      "emptyDescription": "LLM 模型是一個 OpenAI 相容的端點：包含基礎 URL、API 金鑰、模型 ID、取樣參數及可選的人設。",
+      "createTitle": "新增 LLM 模型",
+      "editTitle": "編輯 LLM 模型",
+      "deleteTitle": "刪除 LLM 模型",
+      "deleteConfirm": "刪除 LLM 模型 {{name}}？使用它的聊天機械人將停止回應。",
+      "name": "名稱",
+      "endpoint": "端點 URL",
+      "endpointHint": "OpenAI 相容的基礎 URL；系統會自動加上 /chat/completions。",
+      "modelId": "模型 ID",
+      "apiKey": "API 金鑰",
+      "apiKeyKeep": "留空則保留已儲存的金鑰",
+      "persona": "人設",
+      "personaPlaceholder": "隨每次補全一併傳送的系統提示詞（可選）",
+      "parameters": "取樣參數",
+      "temperature": "溫度",
+      "maxTokens": "最大 token 數",
+      "test": "測試連線",
+      "lastTest": "上次測試",
+      "testOk": "正常"
+    },
+    "rag": {
+      "emptyTitle": "尚未有任何 RAG 模型",
+      "emptyDescription": "RAG 模型將你的知識（文字、文件、URL）保存為樹狀索引，供 LLM 推理查閱——無向量，PageIndex 風格。",
+      "createTitle": "新增 RAG 模型",
+      "editTitle": "編輯 RAG 模型",
+      "deleteTitle": "刪除 RAG 模型",
+      "deleteConfirm": "刪除 RAG 模型 {{name}} 及其全部知識？",
+      "name": "名稱",
+      "scope": "生效工作階段",
+      "scopeAll": "所有工作階段",
+      "scopeSelected": "選定的工作階段",
+      "scopeNone": "無（已分離）",
+      "sessionIds": "工作階段 ID",
+      "sessionIdsHint": "以逗號分隔的工作階段 ID，或在下方勾選",
+      "llmOverride": "推理 LLM",
+      "llmFromBot": "使用聊天機械人的 LLM",
+      "topK": "擷取節點數",
+      "maxContextChars": "最大上下文字元數",
+      "vectorlessHint": "無向量：知識以樹狀結構建立索引，並透過 LLM 推理擷取（PageIndex 風格）——無需向量嵌入，亦無需向量資料庫。",
+      "documents": "項目",
+      "indexState": "索引已建立",
+      "noIndex": "尚未建立索引",
+      "index": "重建索引",
+      "needsIndex": "請先建立索引，聊天機械人才能使用這些知識。",
+      "addEntry": "新增項目",
+      "sourceType": {
+        "text": "文字",
+        "url": "URL",
+        "site": "網站",
+        "file": "檔案"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "標題（可選）",
+      "contentPlaceholder": "文字、資料或貼上的文件…",
+      "documentChars": "{{count}} 個字元",
+      "queryPlaceholder": "向知識庫提問…",
+      "query": "擷取",
+      "sourceTypeLabel": "來源類型"
+    },
+    "mcp": {
+      "emptyTitle": "尚未有任何 MCP 連線",
+      "emptyDescription": "連接 MCP 工具伺服器（Streamable HTTP），憑證可選；它提供的工具將可用於 AI 流程。",
+      "createTitle": "新增 MCP 連線",
+      "editTitle": "編輯 MCP 連線",
+      "deleteTitle": "刪除 MCP 連線",
+      "deleteConfirm": "刪除 MCP 連線 {{name}}？",
+      "name": "名稱",
+      "endpoint": "端點 URL",
+      "auth": "身份驗證",
+      "authNone": "無",
+      "authBearer": "Bearer 權杖",
+      "authHeader": "自訂標頭",
+      "authHeaderName": "標頭名稱",
+      "credential": "憑證",
+      "credentialKeep": "留空則保留已儲存的憑證",
+      "timeout": "逾時（毫秒）",
+      "test": "連線並列出工具",
+      "lastTest": "上次測試",
+      "toolCount": "{{count}} 個工具"
+    },
+    "common": {
+      "failed": "請求失敗：{{message}}"
+    }
   }
 }

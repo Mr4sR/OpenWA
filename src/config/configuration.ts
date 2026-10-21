@@ -515,6 +515,23 @@ export default () => ({
     })(),
   },
 
+  // AI Integration caps. Every cap has the same semantics: a create at/over the cap gets 400,
+  // existing rows are grandfathered, and 0 disables the cap.
+  ai: {
+    llmModelsMax: (() => {
+      const n = parseInt(process.env.AI_LLM_MODELS_MAX ?? '', 10);
+      return Number.isFinite(n) && n >= 0 ? n : 50;
+    })(),
+    chatbotsMaxPerSession: (() => {
+      const n = parseInt(process.env.AI_CHATBOTS_MAX_PER_SESSION ?? '', 10);
+      return Number.isFinite(n) && n >= 0 ? n : 8;
+    })(),
+    mcpConnectionsMax: (() => {
+      const n = parseInt(process.env.AI_MCP_CONNECTIONS_MAX ?? '', 10);
+      return Number.isFinite(n) && n >= 0 ? n : 50;
+    })(),
+  },
+
   // Server-side media conversion (opt-in): transcodes caller-supplied audio and video into the
   // shapes WhatsApp clients actually play, by running the ffmpeg binary. Nothing is converted
   // implicitly — only the explicit conversion endpoints use this.

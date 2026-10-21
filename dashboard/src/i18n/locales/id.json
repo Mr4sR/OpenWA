@@ -69,7 +69,8 @@
     "messageTester": "Penguji Pesan",
     "infrastructure": "Infrastruktur",
     "plugins": "Plugin",
-    "logs": "Log"
+    "logs": "Log",
+    "aiIntegration": "Integrasi AI"
   },
   "chats": {
     "media": {
@@ -1170,5 +1171,149 @@
       "current": "Sesi ini"
     },
     "loading": "Mencari…"
+  },
+  "ai": {
+    "title": "Integrasi AI",
+    "subtitle": "Chatbot, penyedia LLM, pengetahuan RAG vectorless, dan server alat MCP",
+    "add": {
+      "chatbots": "Tambah chatbot",
+      "llm": "Tambah model LLM",
+      "rag": "Tambah model RAG",
+      "mcp": "Tambah koneksi MCP"
+    },
+    "tabs": {
+      "chatbots": "Chatbot",
+      "llm": "AI LLM",
+      "rag": "RAG Vectorless",
+      "mcp": "Server MCP"
+    },
+    "actions": {
+      "edit": "Ubah",
+      "delete": "Hapus",
+      "enable": "Aktifkan",
+      "disable": "Matikan",
+      "expand": "Lihat pengetahuan"
+    },
+    "toasts": {
+      "created": "Dibuat",
+      "updated": "Tersimpan",
+      "deleted": "Terhapus",
+      "testOk": "Koneksi OK",
+      "testFailed": "Tes gagal: {{message}}",
+      "indexed": "Indeks dibangun"
+    },
+    "errors": {
+      "forbidden": "Kunci API Anda tidak punya akses ke Integrasi AI"
+    },
+    "chatbots": {
+      "emptyTitle": "Belum ada chatbot",
+      "emptyDescription": "Chatbot menjawab pesan masuk satu sesi dengan LLM. Buat model LLM dulu, lalu ikat bot ke sesi.",
+      "createTitle": "Tambah chatbot",
+      "editTitle": "Ubah chatbot",
+      "deleteTitle": "Hapus chatbot",
+      "deleteConfirm": "Hapus chatbot {{name}}? Ia langsung berhenti menjawab pesan.",
+      "session": "Sesi",
+      "selectSession": "Pilih sesi…",
+      "name": "Nama",
+      "llmModel": "Model LLM",
+      "selectLlm": "Pilih model LLM…",
+      "ragModel": "Pengetahuan RAG",
+      "noRag": "Tidak ada",
+      "persona": "Persona",
+      "personaPlaceholder": "Anda adalah agen dukungan dari… (opsional; menimpa persona model)",
+      "chats": "Chat",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (kosong = semua chat)",
+      "chatsHint": "Id chat atau nomor, dipisah koma. Biarkan kosong untuk menjawab semua chat di sesi.",
+      "allChats": "Semua chat",
+      "cooldown": "Jeda (detik)",
+      "cooldownValue": "{{count}} dtk",
+      "context": "Riwayat",
+      "enabled": "Aktif"
+    },
+    "llm": {
+      "emptyTitle": "Belum ada model LLM",
+      "emptyDescription": "Model LLM adalah endpoint kompatibel OpenAI: URL dasar, api key, id model, parameter sampling, dan persona opsional.",
+      "createTitle": "Tambah model LLM",
+      "editTitle": "Ubah model LLM",
+      "deleteTitle": "Hapus model LLM",
+      "deleteConfirm": "Hapus model LLM {{name}}? Chatbot yang memakainya berhenti menjawab.",
+      "name": "Nama",
+      "endpoint": "URL endpoint",
+      "endpointHint": "URL dasar kompatibel OpenAI; /chat/completions ditambahkan.",
+      "modelId": "Id model",
+      "apiKey": "API key",
+      "apiKeyKeep": "Biarkan kosong untuk mempertahankan key tersimpan",
+      "persona": "Persona",
+      "personaPlaceholder": "System prompt yang dikirim pada setiap completion (opsional)",
+      "parameters": "Parameter sampling",
+      "temperature": "Temperature",
+      "maxTokens": "Token maks",
+      "test": "Tes koneksi",
+      "lastTest": "Tes terakhir",
+      "testOk": "OK"
+    },
+    "rag": {
+      "emptyTitle": "Belum ada model RAG",
+      "emptyDescription": "Model RAG menyimpan pengetahuan Anda (kata, dokumen, URL) sebagai indeks pohon yang ditalar LLM — vectorless, gaya PageIndex.",
+      "createTitle": "Tambah model RAG",
+      "editTitle": "Ubah model RAG",
+      "deleteTitle": "Hapus model RAG",
+      "deleteConfirm": "Hapus model RAG {{name}} beserta seluruh pengetahuannya?",
+      "name": "Nama",
+      "scope": "Sesi aktif",
+      "scopeAll": "Semua sesi",
+      "scopeSelected": "Sesi terpilih",
+      "scopeNone": "Tidak ada (terlepas)",
+      "sessionIds": "Id sesi",
+      "sessionIdsHint": "Id sesi dipisah koma, atau centang di bawah",
+      "llmOverride": "LLM penalaran",
+      "llmFromBot": "Ikuti LLM chatbot",
+      "topK": "Node diambil",
+      "maxContextChars": "Karakter konteks maks",
+      "vectorlessHint": "Vectorless: pengetahuan diindeks sebagai pohon dan diambil lewat penalaran LLM (gaya PageIndex) — tanpa embedding, tanpa vector database.",
+      "documents": "Entri",
+      "indexState": "Indeks dibangun",
+      "noIndex": "Belum diindeks",
+      "index": "Bangun ulang indeks",
+      "needsIndex": "Jalankan pembangunan indeks agar pengetahuan ini bisa dipakai chatbot.",
+      "addEntry": "Tambah entri",
+      "sourceType": {
+        "text": "Teks",
+        "url": "URL",
+        "site": "Situs",
+        "file": "Berkas"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "Judul (opsional)",
+      "contentPlaceholder": "Kata-kata, informasi, dokumen tempel…",
+      "documentChars": "{{count}} karakter",
+      "queryPlaceholder": "Tanya basis pengetahuan…",
+      "query": "Ambil",
+      "sourceTypeLabel": "Jenis sumber"
+    },
+    "mcp": {
+      "emptyTitle": "Belum ada koneksi MCP",
+      "emptyDescription": "Hubungkan server alat MCP (Streamable HTTP) dengan atau tanpa kredensial; alat yang diiklankannya tersedia untuk alur AI.",
+      "createTitle": "Tambah koneksi MCP",
+      "editTitle": "Ubah koneksi MCP",
+      "deleteTitle": "Hapus koneksi MCP",
+      "deleteConfirm": "Hapus koneksi MCP {{name}}?",
+      "name": "Nama",
+      "endpoint": "URL endpoint",
+      "auth": "Autentikasi",
+      "authNone": "Tanpa",
+      "authBearer": "Token Bearer",
+      "authHeader": "Header kustom",
+      "authHeaderName": "Nama header",
+      "credential": "Kredensial",
+      "credentialKeep": "Biarkan kosong untuk mempertahankan kredensial",
+      "timeout": "Timeout (ms)",
+      "test": "Sambung dan lihat alat",
+      "lastTest": "Tes terakhir",
+      "toolCount": "{{count}} alat"
+    },
+    "common": {
+      "failed": "Permintaan gagal: {{message}}"
+    }
   }
 }

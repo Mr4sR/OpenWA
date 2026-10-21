@@ -64,6 +64,28 @@ export enum AuditAction {
   INTEGRATION_INSTANCE_DELETED = 'integration_instance_deleted',
   INTEGRATION_INSTANCE_REDRIVEN = 'integration_instance_redriven',
 
+  // AI Integration events: provider credentials, chatbot instances, vectorless RAG knowledge and
+  // outbound MCP connections. The LLM/MCP rows hold credentials and the chatbots speak as the
+  // account, so every mutation is audited at the admin/operator boundary that performed it.
+  AI_LLM_MODEL_CREATED = 'ai_llm_model_created',
+  AI_LLM_MODEL_UPDATED = 'ai_llm_model_updated',
+  AI_LLM_MODEL_DELETED = 'ai_llm_model_deleted',
+  AI_LLM_MODEL_TESTED = 'ai_llm_model_tested',
+  AI_CHATBOT_CREATED = 'ai_chatbot_created',
+  AI_CHATBOT_UPDATED = 'ai_chatbot_updated',
+  AI_CHATBOT_DELETED = 'ai_chatbot_deleted',
+  AI_RAG_MODEL_CREATED = 'ai_rag_model_created',
+  AI_RAG_MODEL_UPDATED = 'ai_rag_model_updated',
+  AI_RAG_MODEL_DELETED = 'ai_rag_model_deleted',
+  AI_RAG_MODEL_INDEXED = 'ai_rag_model_indexed',
+  AI_RAG_DOCUMENT_CREATED = 'ai_rag_document_created',
+  AI_RAG_DOCUMENT_UPDATED = 'ai_rag_document_updated',
+  AI_RAG_DOCUMENT_DELETED = 'ai_rag_document_deleted',
+  AI_MCP_CONNECTION_CREATED = 'ai_mcp_connection_created',
+  AI_MCP_CONNECTION_UPDATED = 'ai_mcp_connection_updated',
+  AI_MCP_CONNECTION_DELETED = 'ai_mcp_connection_deleted',
+  AI_MCP_CONNECTION_TESTED = 'ai_mcp_connection_tested',
+
   // Infrastructure events (ADMIN-only operations on the infra module: credential-bearing config
   // mutation, server restart / Docker orchestration, and full-DB / storage export+import).
   INFRA_CONFIG_SAVED = 'infra_config_saved',

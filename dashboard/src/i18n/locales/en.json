@@ -69,7 +69,8 @@
     "messageTester": "Message Tester",
     "infrastructure": "Infrastructure",
     "plugins": "Plugins",
-    "logs": "Logs"
+    "logs": "Logs",
+    "aiIntegration": "AI Integration"
   },
   "chats": {
     "media": {
@@ -1170,5 +1171,149 @@
       "current": "This session"
     },
     "loading": "Searching…"
+  },
+  "ai": {
+    "title": "AI Integration",
+    "subtitle": "Chatbots, LLM providers, vectorless RAG knowledge and MCP tool servers",
+    "add": {
+      "chatbots": "Add chatbot",
+      "llm": "Add LLM model",
+      "rag": "Add RAG model",
+      "mcp": "Add MCP connection"
+    },
+    "tabs": {
+      "chatbots": "Chatbot",
+      "llm": "AI LLM",
+      "rag": "RAG Vectorless",
+      "mcp": "MCP Server"
+    },
+    "actions": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "enable": "Enable",
+      "disable": "Disable",
+      "expand": "Show knowledge"
+    },
+    "toasts": {
+      "created": "Created",
+      "updated": "Saved",
+      "deleted": "Deleted",
+      "testOk": "Connection OK",
+      "testFailed": "Test failed: {{message}}",
+      "indexed": "Index built"
+    },
+    "errors": {
+      "forbidden": "Your API key has no access to the AI Integration surface"
+    },
+    "chatbots": {
+      "emptyTitle": "No chatbots yet",
+      "emptyDescription": "A chatbot answers the inbound messages of one session with an LLM. Create an LLM model first, then bind a bot to the session.",
+      "createTitle": "Add chatbot",
+      "editTitle": "Edit chatbot",
+      "deleteTitle": "Delete chatbot",
+      "deleteConfirm": "Delete the chatbot {{name}}? It will stop answering messages immediately.",
+      "session": "Session",
+      "selectSession": "Select a session…",
+      "name": "Name",
+      "llmModel": "LLM model",
+      "selectLlm": "Select an LLM model…",
+      "ragModel": "RAG knowledge",
+      "noRag": "None",
+      "persona": "Persona",
+      "personaPlaceholder": "You are the support agent of… (optional; overrides the model persona)",
+      "chats": "Chats",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (empty = every chat)",
+      "chatsHint": "Comma-separated chat ids or bare numbers. Leave empty to answer every chat of the session.",
+      "allChats": "Every chat",
+      "cooldown": "Cooldown (s)",
+      "cooldownValue": "{{count}} s",
+      "context": "History",
+      "enabled": "Enabled"
+    },
+    "llm": {
+      "emptyTitle": "No LLM models yet",
+      "emptyDescription": "An LLM model is an OpenAI-compatible endpoint: base URL, api key, model id, sampling parameters and an optional persona.",
+      "createTitle": "Add LLM model",
+      "editTitle": "Edit LLM model",
+      "deleteTitle": "Delete LLM model",
+      "deleteConfirm": "Delete the LLM model {{name}}? Chatbots using it will stop answering.",
+      "name": "Name",
+      "endpoint": "Endpoint URL",
+      "endpointHint": "OpenAI-compatible base URL; /chat/completions is appended.",
+      "modelId": "Model id",
+      "apiKey": "API key",
+      "apiKeyKeep": "Leave empty to keep the stored key",
+      "persona": "Persona",
+      "personaPlaceholder": "System prompt sent with every completion (optional)",
+      "parameters": "Sampling parameters",
+      "temperature": "Temperature",
+      "maxTokens": "Max tokens",
+      "test": "Test connection",
+      "lastTest": "Last test",
+      "testOk": "OK"
+    },
+    "rag": {
+      "emptyTitle": "No RAG models yet",
+      "emptyDescription": "A RAG model holds your knowledge (words, documents, URLs) as a tree index that the LLM reasons over — vectorless, PageIndex-style.",
+      "createTitle": "Add RAG model",
+      "editTitle": "Edit RAG model",
+      "deleteTitle": "Delete RAG model",
+      "deleteConfirm": "Delete the RAG model {{name}} and all of its knowledge?",
+      "name": "Name",
+      "scope": "Active sessions",
+      "scopeAll": "All sessions",
+      "scopeSelected": "Selected sessions",
+      "scopeNone": "Nowhere (detached)",
+      "sessionIds": "Session ids",
+      "sessionIdsHint": "Comma-separated session ids, or tick below",
+      "llmOverride": "Reasoning LLM",
+      "llmFromBot": "Use the chatbot’s LLM",
+      "topK": "Retrieved nodes",
+      "maxContextChars": "Max context chars",
+      "vectorlessHint": "Vectorless: knowledge is indexed as a tree and retrieved by LLM reasoning (PageIndex-style) — no embeddings, no vector database.",
+      "documents": "Entries",
+      "indexState": "Index built",
+      "noIndex": "Not indexed",
+      "index": "Rebuild index",
+      "needsIndex": "Run the index build to make this knowledge available to chatbots.",
+      "addEntry": "Add entry",
+      "sourceType": {
+        "text": "Text",
+        "url": "URL",
+        "site": "Site",
+        "file": "File"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "Title (optional)",
+      "contentPlaceholder": "Words, information, pasted document…",
+      "documentChars": "{{count}} chars",
+      "queryPlaceholder": "Ask the knowledge base…",
+      "query": "Retrieve",
+      "sourceTypeLabel": "Source type"
+    },
+    "mcp": {
+      "emptyTitle": "No MCP connections yet",
+      "emptyDescription": "Connect an MCP tool server (Streamable HTTP) with or without credentials; the tools it advertises become available to AI flows.",
+      "createTitle": "Add MCP connection",
+      "editTitle": "Edit MCP connection",
+      "deleteTitle": "Delete MCP connection",
+      "deleteConfirm": "Delete the MCP connection {{name}}?",
+      "name": "Name",
+      "endpoint": "Endpoint URL",
+      "auth": "Authentication",
+      "authNone": "None",
+      "authBearer": "Bearer token",
+      "authHeader": "Custom header",
+      "authHeaderName": "Header name",
+      "credential": "Credential",
+      "credentialKeep": "Leave empty to keep the stored credential",
+      "timeout": "Timeout (ms)",
+      "test": "Connect and list tools",
+      "lastTest": "Last test",
+      "toolCount": "{{count}} tools"
+    },
+    "common": {
+      "failed": "Request failed: {{message}}"
+    }
   }
 }

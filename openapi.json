@@ -91,6 +91,24 @@
                 "integration_instance_secret_regenerated",
                 "integration_instance_deleted",
                 "integration_instance_redriven",
+                "ai_llm_model_created",
+                "ai_llm_model_updated",
+                "ai_llm_model_deleted",
+                "ai_llm_model_tested",
+                "ai_chatbot_created",
+                "ai_chatbot_updated",
+                "ai_chatbot_deleted",
+                "ai_rag_model_created",
+                "ai_rag_model_updated",
+                "ai_rag_model_deleted",
+                "ai_rag_model_indexed",
+                "ai_rag_document_created",
+                "ai_rag_document_updated",
+                "ai_rag_document_deleted",
+                "ai_mcp_connection_created",
+                "ai_mcp_connection_updated",
+                "ai_mcp_connection_deleted",
+                "ai_mcp_connection_tested",
                 "infra_config_saved",
                 "infra_restart_requested",
                 "infra_data_exported",
@@ -4210,6 +4228,1975 @@
         "summary": "Delete an autoreply rule",
         "tags": [
           "automation"
+        ]
+      }
+    },
+    "/api/ai/llm-models": {
+      "post": {
+        "operationId": "AiLlmModelController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAiLlmModelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Model created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLlmModelResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid endpoint URL, or the model limit is reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create an LLM provider connection",
+        "tags": [
+          "AiLlmModel"
+        ]
+      },
+      "get": {
+        "operationId": "AiLlmModelController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The models.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiLlmModelResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the configured LLM provider connections",
+        "tags": [
+          "AiLlmModel"
+        ]
+      }
+    },
+    "/api/ai/llm-models/{id}": {
+      "get": {
+        "operationId": "AiLlmModelController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLlmModelResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get one LLM provider connection",
+        "tags": [
+          "AiLlmModel"
+        ]
+      },
+      "put": {
+        "operationId": "AiLlmModelController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiLlmModelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiLlmModelResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed, fails validation, or carries a field the DTO does not declare",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update an LLM provider connection",
+        "tags": [
+          "AiLlmModel"
+        ]
+      },
+      "delete": {
+        "operationId": "AiLlmModelController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Model deleted."
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete an LLM provider connection",
+        "tags": [
+          "AiLlmModel"
+        ]
+      }
+    },
+    "/api/ai/llm-models/{id}/test": {
+      "post": {
+        "operationId": "AiLlmModelController_test",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The provider answered."
+          },
+          "400": {
+            "description": "The provider refused the call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Test the connection to the provider (one minimal completion)",
+        "tags": [
+          "AiLlmModel"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-chatbots": {
+      "post": {
+        "operationId": "AiChatbotController_create",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAiChatbotDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Chatbot created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiChatbotResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown LLM/RAG model, invalid body, or the per-session chatbot limit is reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No session with this id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a chatbot for the session",
+        "tags": [
+          "ai"
+        ]
+      },
+      "get": {
+        "operationId": "AiChatbotController_findAll",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chatbots in creation order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiChatbotResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the session’s chatbots",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-chatbots/{chatbotId}": {
+      "get": {
+        "operationId": "AiChatbotController_findOne",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatbotId",
+            "required": true,
+            "in": "path",
+            "description": "Chatbot ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The chatbot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiChatbotResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such chatbot in this session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get one chatbot",
+        "tags": [
+          "ai"
+        ]
+      },
+      "put": {
+        "operationId": "AiChatbotController_update",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatbotId",
+            "required": true,
+            "in": "path",
+            "description": "Chatbot ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiChatbotDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated chatbot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiChatbotResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed, fails validation, or carries a field the DTO does not declare",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such chatbot in this session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update a chatbot",
+        "tags": [
+          "ai"
+        ]
+      },
+      "delete": {
+        "operationId": "AiChatbotController_remove",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatbotId",
+            "required": true,
+            "in": "path",
+            "description": "Chatbot ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Chatbot deleted."
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such chatbot in this session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a chatbot",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/chatbots": {
+      "get": {
+        "operationId": "AiIntegrationController_chatbotsIndex",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": false,
+            "in": "query",
+            "description": "Filter to a single session",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chatbots.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiChatbotResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List chatbots visible to the calling key (scoped to its allowed sessions)",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/rag-models": {
+      "get": {
+        "operationId": "AiRagModelController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The RAG models.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiRagModelResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the RAG models (with knowledge counts and index state)",
+        "tags": [
+          "ai"
+        ]
+      },
+      "post": {
+        "operationId": "AiRagModelController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAiRagModelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "RAG model created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiRagModelResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body, or a sessionId outside the calling key scope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a RAG model (a named vectorless knowledge base)",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/rag-models/{id}": {
+      "get": {
+        "operationId": "AiRagModelController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "RAG model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The RAG model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiRagModelResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such RAG model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get one RAG model",
+        "tags": [
+          "ai"
+        ]
+      },
+      "put": {
+        "operationId": "AiRagModelController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "RAG model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiRagModelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated RAG model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiRagModelResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed, fails validation, or carries a field the DTO does not declare",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such RAG model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update a RAG model (activation scope, retrieval tuning, LLM override)",
+        "tags": [
+          "ai"
+        ]
+      },
+      "delete": {
+        "operationId": "AiRagModelController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "RAG model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "RAG model deleted."
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such RAG model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a RAG model (its knowledge entries go with it)",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/rag-models/{id}/index": {
+      "post": {
+        "operationId": "AiRagModelController_index",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "RAG model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexAiRagModelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Index built.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiRagModelResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No knowledge added, or the LLM call failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such RAG model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Build (or rebuild) the PageIndex-style tree index. LLM-mediated; can take minutes on large knowledge.",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/rag-models/{id}/query": {
+      "post": {
+        "operationId": "AiRagModelController_query",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "RAG model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryAiRagModelDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The cited nodes and the composed context.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiRagQueryResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty query.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such RAG model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Retrieve knowledge for a question (the reasoning walk, without a reply)",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/rag-models/{id}/documents": {
+      "post": {
+        "operationId": "AiRagModelController_addDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "RAG model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAiRagDocumentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Entry added.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiRagDocumentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Source fetch failed, or the entry has no content.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such RAG model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Add a knowledge entry (text/url/site/file)",
+        "tags": [
+          "ai"
+        ]
+      },
+      "get": {
+        "operationId": "AiRagModelController_documents",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "RAG model ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The entries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiRagDocumentResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such RAG model.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the knowledge entries of a RAG model",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/rag-models/{id}/documents/{documentId}": {
+      "put": {
+        "operationId": "AiRagModelController_updateDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "RAG model ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "description": "Document ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiRagDocumentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiRagDocumentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed, fails validation, or carries a field the DTO does not declare",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update a knowledge entry (title/content/sourceUrl)",
+        "tags": [
+          "ai"
+        ]
+      },
+      "delete": {
+        "operationId": "AiRagModelController_removeDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "RAG model ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "description": "Document ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Entry deleted."
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete a knowledge entry",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/mcp-connections": {
+      "post": {
+        "operationId": "AiMcpConnectionController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAiMcpConnectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Connection created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiMcpConnectionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid endpoint URL, header name, or the connection limit is reached.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create an MCP server connection",
+        "tags": [
+          "ai"
+        ]
+      },
+      "get": {
+        "operationId": "AiMcpConnectionController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The connections.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiMcpConnectionResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the configured MCP server connections",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/mcp-connections/{id}": {
+      "get": {
+        "operationId": "AiMcpConnectionController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Connection ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiMcpConnectionResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get one MCP server connection",
+        "tags": [
+          "ai"
+        ]
+      },
+      "put": {
+        "operationId": "AiMcpConnectionController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Connection ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAiMcpConnectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiMcpConnectionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed, fails validation, or carries a field the DTO does not declare",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update an MCP server connection",
+        "tags": [
+          "ai"
+        ]
+      },
+      "delete": {
+        "operationId": "AiMcpConnectionController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Connection ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Connection deleted."
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete an MCP server connection",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/mcp-connections/{id}/test": {
+      "post": {
+        "operationId": "AiMcpConnectionController_test",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Connection ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connected; the tool catalogue follows."
+          },
+          "400": {
+            "description": "The server refused the connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Connect to the MCP server and list its tools (records the outcome as diagnostics)",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/mcp-connections/{id}/tools": {
+      "get": {
+        "operationId": "AiMcpConnectionController_tools",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Connection ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The tool catalogue."
+          },
+          "400": {
+            "description": "The server refused the connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such connection.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the tools the MCP server advertises (live call)",
+        "tags": [
+          "ai"
         ]
       }
     },
@@ -19931,6 +21918,891 @@
           "enabled": {
             "type": "boolean",
             "description": "Whether the rule is active"
+          }
+        }
+      },
+      "CreateAiLlmModelDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "example": "OpenAI production",
+            "maxLength": 100
+          },
+          "endpointUrl": {
+            "type": "string",
+            "description": "OpenAI-compatible chat-completions base URL. The `/chat/completions` suffix is appended to it, so the value ends at the API root (`https://api.openai.com/v1`).",
+            "example": "https://api.openai.com/v1",
+            "maxLength": 2048
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "API key sent as `Authorization: Bearer …`. Never returned; masked in every response.",
+            "maxLength": 512
+          },
+          "model": {
+            "type": "string",
+            "description": "Model id at the provider",
+            "example": "gpt-4o-mini",
+            "maxLength": 200
+          },
+          "persona": {
+            "type": "string",
+            "description": "System prompt prepended to every completion (an AI persona)",
+            "maxLength": 8000
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Sampling parameters. Unset fields fall back to the provider defaults.",
+            "example": {
+              "temperature": 0.7,
+              "maxTokens": 1024
+            }
+          },
+          "headers": {
+            "type": "object",
+            "description": "Extra HTTP headers on every completion call"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the model may be used",
+            "default": true
+          }
+        },
+        "required": [
+          "name",
+          "endpointUrl"
+        ]
+      },
+      "AiLlmModelResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "endpointUrl": {
+            "type": "string"
+          },
+          "hasApiKey": {
+            "type": "boolean",
+            "description": "Whether an api key is stored"
+          },
+          "apiKeyMasked": {
+            "type": "object",
+            "description": "Stored api key, masked",
+            "example": "sk-p…3f2a",
+            "nullable": true
+          },
+          "model": {
+            "type": "string"
+          },
+          "persona": {
+            "type": "object",
+            "nullable": true
+          },
+          "parameters": {
+            "type": "object",
+            "nullable": true
+          },
+          "hasHeaders": {
+            "type": "boolean",
+            "description": "Whether custom headers are stored (values are never returned)"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lastTestedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the connection was last tested"
+          },
+          "lastStatus": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "endpointUrl",
+          "hasApiKey",
+          "apiKeyMasked",
+          "model",
+          "hasHeaders",
+          "enabled",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateAiLlmModelDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "maxLength": 100
+          },
+          "endpointUrl": {
+            "type": "string",
+            "description": "OpenAI-compatible chat-completions base URL",
+            "maxLength": 2048
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "New API key. Omit to keep the stored one; an empty string removes it.",
+            "maxLength": 512
+          },
+          "model": {
+            "type": "string",
+            "description": "Model id at the provider",
+            "maxLength": 200
+          },
+          "persona": {
+            "type": "object",
+            "description": "System prompt for every completion",
+            "maxLength": 8000
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Sampling parameters; null clears them",
+            "nullable": true
+          },
+          "headers": {
+            "type": "object",
+            "description": "Extra HTTP headers; replaces the stored map"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the model may be used"
+          }
+        }
+      },
+      "CreateAiChatbotDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Support bot",
+            "maxLength": 100
+          },
+          "llmModelId": {
+            "type": "string",
+            "description": "LLM model this chatbot answers with (`ai_llm_models.id`)"
+          },
+          "ragModelId": {
+            "type": "object",
+            "description": "Optional RAG model whose knowledge rides along (`ai_rag_models.id`)"
+          },
+          "persona": {
+            "type": "object",
+            "description": "Persona for THIS bot; overrides the LLM model persona when set",
+            "maxLength": 4096
+          },
+          "chatIds": {
+            "description": "Chat allowlist: only these chats of the session are answered (JIDs or bare phone numbers). Null/empty answers every chat.",
+            "example": [
+              "628123456789@c.us"
+            ],
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cooldownSeconds": {
+            "type": "number",
+            "description": "Quiet period per chat, in seconds, after the bot answers (default 60, 0 disables)",
+            "default": 60,
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "contextMessages": {
+            "type": "number",
+            "description": "Prior chat messages included as conversation history (default 8, 0-20)",
+            "default": 8,
+            "minimum": 0,
+            "maximum": 20
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the bot is active",
+            "default": true
+          }
+        },
+        "required": [
+          "name",
+          "llmModelId"
+        ]
+      },
+      "AiChatbotResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "llmModelId": {
+            "type": "string"
+          },
+          "ragModelId": {
+            "type": "object",
+            "nullable": true
+          },
+          "persona": {
+            "type": "object",
+            "nullable": true
+          },
+          "chatIds": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cooldownSeconds": {
+            "type": "number"
+          },
+          "contextMessages": {
+            "type": "number"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lastRepliedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastError": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sessionId",
+          "name",
+          "llmModelId",
+          "chatIds",
+          "cooldownSeconds",
+          "contextMessages",
+          "enabled",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateAiChatbotDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "maxLength": 100
+          },
+          "llmModelId": {
+            "type": "string",
+            "description": "LLM model to answer with"
+          },
+          "ragModelId": {
+            "type": "object",
+            "description": "RAG model to consult; null detaches",
+            "nullable": true
+          },
+          "persona": {
+            "type": "object",
+            "description": "Persona; null falls back to the LLM model persona",
+            "nullable": true
+          },
+          "chatIds": {
+            "type": "object",
+            "description": "Chat allowlist; null/empty answers every chat",
+            "nullable": true
+          },
+          "cooldownSeconds": {
+            "type": "number",
+            "description": "Quiet period per chat in seconds",
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "contextMessages": {
+            "type": "number",
+            "description": "Conversation history length",
+            "minimum": 0,
+            "maximum": 20
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the bot is active"
+          }
+        }
+      },
+      "AiRagNodeDto": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "description": "Raw source text; present on leaves only"
+          },
+          "nodes": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiRagNodeDto"
+            }
+          }
+        },
+        "required": [
+          "nodeId",
+          "title",
+          "summary"
+        ]
+      },
+      "AiRagModelResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sessionScope": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selected",
+              "none"
+            ]
+          },
+          "sessionIds": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "llmModelId": {
+            "type": "object",
+            "nullable": true
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "topK": {
+            "type": "number"
+          },
+          "maxContextChars": {
+            "type": "number"
+          },
+          "hasIndex": {
+            "type": "boolean",
+            "description": "Whether a tree index has been built"
+          },
+          "indexedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastIndexError": {
+            "type": "object",
+            "nullable": true
+          },
+          "documentCount": {
+            "type": "number",
+            "description": "Knowledge entry count"
+          },
+          "indexPreview": {
+            "nullable": true,
+            "description": "Top level of the tree index (truncated summaries)",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AiRagNodeDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "sessionScope",
+          "sessionIds",
+          "enabled",
+          "topK",
+          "maxContextChars",
+          "hasIndex",
+          "documentCount",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateAiRagModelDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Product FAQ",
+            "maxLength": 100
+          },
+          "sessionScope": {
+            "type": "string",
+            "description": "Where the model may be attached: `all` (every AI chatbot), `selected` (`sessionIds`), or `none` (detached)",
+            "enum": [
+              "all",
+              "selected",
+              "none"
+            ],
+            "default": "all"
+          },
+          "sessionIds": {
+            "description": "Session ids when `sessionScope` is `selected`",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "llmModelId": {
+            "type": "object",
+            "description": "Optional LLM used for the indexing/retrieval reasoning steps"
+          },
+          "topK": {
+            "type": "number",
+            "description": "Retrieved leaf nodes per query (default 4, 1-10)",
+            "default": 4
+          },
+          "maxContextChars": {
+            "type": "number",
+            "description": "Max characters of retrieved text per reply (default 4000, 500-20000)",
+            "default": 4000
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the model is usable",
+            "default": true
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateAiRagModelDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "maxLength": 100
+          },
+          "sessionScope": {
+            "type": "string",
+            "description": "Session scope of the model",
+            "enum": [
+              "all",
+              "selected",
+              "none"
+            ]
+          },
+          "sessionIds": {
+            "type": "object",
+            "description": "Session ids when `sessionScope` is `selected`"
+          },
+          "llmModelId": {
+            "type": "object",
+            "description": "LLM for the reasoning steps; null falls back to the chatbot LLM",
+            "nullable": true
+          },
+          "topK": {
+            "type": "number",
+            "description": "Retrieved leaf nodes per query (1-10)"
+          },
+          "maxContextChars": {
+            "type": "number",
+            "description": "Max characters of retrieved text per reply (500-20000)"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the model is usable"
+          }
+        }
+      },
+      "IndexAiRagModelDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "QueryAiRagModelDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Question to retrieve knowledge for",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "AiRagQueryResultDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "The question, as answered from the index"
+          },
+          "nodes": {
+            "description": "Leaf nodes the reasoning walk selected, with their source text",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AiRagNodeDto"
+            }
+          },
+          "context": {
+            "type": "string",
+            "description": "Concatenated retrieval context actually injected into a chatbot reply"
+          },
+          "warnings": {
+            "description": "Non-fatal retrieval notes (e.g. index missing)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "query",
+          "nodes",
+          "context"
+        ]
+      },
+      "CreateAiRagDocumentDto": {
+        "type": "object",
+        "properties": {
+          "sourceType": {
+            "type": "string",
+            "description": "Knowledge source: `text` (pasted words/information), `url` (one page), `site` (site crawl), `file` (upload)",
+            "enum": [
+              "text",
+              "url",
+              "site",
+              "file"
+            ]
+          },
+          "title": {
+            "type": "object",
+            "description": "Entry title; defaults derived from the source when blank",
+            "maxLength": 255
+          },
+          "sourceUrl": {
+            "type": "string",
+            "description": "Source URL for url/site entries",
+            "maxLength": 2048
+          },
+          "content": {
+            "type": "string",
+            "description": "Knowledge body for text entries (or a paste-over of an extracted one)",
+            "maxLength": 2000000
+          },
+          "storageKey": {
+            "type": "string",
+            "description": "Storage key of an uploaded file (file entries)"
+          }
+        },
+        "required": [
+          "sourceType"
+        ]
+      },
+      "AiRagDocumentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ragModelId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": [
+              "text",
+              "url",
+              "site",
+              "file"
+            ]
+          },
+          "title": {
+            "type": "object",
+            "nullable": true
+          },
+          "sourceUrl": {
+            "type": "object",
+            "nullable": true,
+            "description": "Source URL (url/site/file entries)"
+          },
+          "contentPreview": {
+            "type": "object",
+            "description": "Stored knowledge text (truncated preview for list views)"
+          },
+          "contentLength": {
+            "type": "number",
+            "description": "Total characters of stored knowledge text"
+          },
+          "metadata": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ragModelId",
+          "sourceType",
+          "contentPreview",
+          "contentLength",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateAiRagDocumentDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "object",
+            "description": "Entry title",
+            "maxLength": 255
+          },
+          "sourceUrl": {
+            "type": "string",
+            "description": "Source URL for url/site entries",
+            "maxLength": 2048
+          },
+          "content": {
+            "type": "string",
+            "description": "Knowledge body",
+            "maxLength": 2000000
+          }
+        }
+      },
+      "CreateAiMcpConnectionDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "example": "Internal tools",
+            "maxLength": 100
+          },
+          "endpointUrl": {
+            "type": "string",
+            "description": "MCP server endpoint (Streamable HTTP transport)",
+            "example": "https://tools.example.com/mcp",
+            "maxLength": 2048
+          },
+          "authKind": {
+            "type": "string",
+            "description": "Authentication: `none`, `bearer` (Authorization header) or `header` (custom header)",
+            "enum": [
+              "none",
+              "bearer",
+              "header"
+            ],
+            "default": "none"
+          },
+          "authHeader": {
+            "type": "string",
+            "description": "Header name used when `authKind` is `header`",
+            "example": "X-API-Key",
+            "default": "X-API-Key",
+            "maxLength": 100
+          },
+          "authCredential": {
+            "type": "string",
+            "description": "Bearer token or header value. Never returned; masked in every response.",
+            "maxLength": 2048
+          },
+          "headers": {
+            "type": "object",
+            "description": "Extra HTTP headers on every MCP request"
+          },
+          "timeoutMs": {
+            "type": "number",
+            "description": "Timeout of one MCP round trip in ms (default 30000, 1000-120000)"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the connection may be used",
+            "default": true
+          }
+        },
+        "required": [
+          "name",
+          "endpointUrl"
+        ]
+      },
+      "AiMcpConnectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "endpointUrl": {
+            "type": "string"
+          },
+          "authKind": {
+            "type": "string",
+            "enum": [
+              "none",
+              "bearer",
+              "header"
+            ]
+          },
+          "authHeader": {
+            "type": "string"
+          },
+          "hasCredential": {
+            "type": "boolean",
+            "description": "Whether a credential is stored"
+          },
+          "authCredentialMasked": {
+            "type": "object",
+            "description": "Stored credential, masked",
+            "nullable": true
+          },
+          "hasHeaders": {
+            "type": "boolean",
+            "description": "Whether custom headers are stored (values are never returned)"
+          },
+          "timeoutMs": {
+            "type": "number"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lastStatus": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "endpointUrl",
+          "authKind",
+          "authHeader",
+          "hasCredential",
+          "authCredentialMasked",
+          "hasHeaders",
+          "timeoutMs",
+          "enabled",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "UpdateAiMcpConnectionDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name",
+            "maxLength": 100
+          },
+          "endpointUrl": {
+            "type": "string",
+            "description": "MCP server endpoint",
+            "maxLength": 2048
+          },
+          "authKind": {
+            "type": "string",
+            "description": "Authentication kind",
+            "enum": [
+              "none",
+              "bearer",
+              "header"
+            ]
+          },
+          "authHeader": {
+            "type": "string",
+            "description": "Header name for `authKind: header`",
+            "maxLength": 100
+          },
+          "authCredential": {
+            "type": "string",
+            "description": "New credential. Omit to keep the stored one; an empty string removes it.",
+            "maxLength": 2048
+          },
+          "headers": {
+            "type": "object",
+            "description": "Extra HTTP headers; replaces the stored map"
+          },
+          "timeoutMs": {
+            "type": "number",
+            "description": "Timeout of one MCP round trip in ms (1000-120000)"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the connection may be used"
           }
         }
       },

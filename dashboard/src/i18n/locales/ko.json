@@ -69,7 +69,8 @@
     "messageTester": "메시지 테스터",
     "infrastructure": "인프라",
     "plugins": "플러그인",
-    "logs": "로그"
+    "logs": "로그",
+    "aiIntegration": "AI 통합"
   },
   "chats": {
     "media": {
@@ -1170,5 +1171,149 @@
       "current": "현재 세션"
     },
     "loading": "검색하는 중…"
+  },
+  "ai": {
+    "title": "AI 통합",
+    "subtitle": "챗봇, LLM 제공자, 벡터리스 RAG 지식 및 MCP 도구 서버",
+    "add": {
+      "chatbots": "챗봇 추가",
+      "llm": "LLM 모델 추가",
+      "rag": "RAG 모델 추가",
+      "mcp": "MCP 연결 추가"
+    },
+    "tabs": {
+      "chatbots": "챗봇",
+      "llm": "AI LLM",
+      "rag": "벡터리스 RAG",
+      "mcp": "MCP 서버"
+    },
+    "actions": {
+      "edit": "편집",
+      "delete": "삭제",
+      "enable": "활성화",
+      "disable": "비활성화",
+      "expand": "지식 펼치기"
+    },
+    "toasts": {
+      "created": "생성됨",
+      "updated": "저장됨",
+      "deleted": "삭제됨",
+      "testOk": "연결 정상",
+      "testFailed": "테스트 실패: {{message}}",
+      "indexed": "인덱스 구축 완료"
+    },
+    "errors": {
+      "forbidden": "이 API 키에는 AI 통합 화면에 대한 접근 권한이 없습니다"
+    },
+    "chatbots": {
+      "emptyTitle": "아직 챗봇이 없습니다",
+      "emptyDescription": "챗봇은 LLM으로 한 세션의 수신 메시지에 답변합니다. 먼저 LLM 모델을 만든 뒤 봇을 세션에 바인딩하세요.",
+      "createTitle": "챗봇 추가",
+      "editTitle": "챗봇 편집",
+      "deleteTitle": "챗봇 삭제",
+      "deleteConfirm": "챗봇 {{name}}을(를) 삭제하시겠습니까? 즉시 메시지 답변이 중단됩니다.",
+      "session": "세션",
+      "selectSession": "세션 선택…",
+      "name": "이름",
+      "llmModel": "LLM 모델",
+      "selectLlm": "LLM 모델 선택…",
+      "ragModel": "RAG 지식",
+      "noRag": "없음",
+      "persona": "페르소나",
+      "personaPlaceholder": "당신은 …의 고객 지원 상담원입니다(선택 사항; 모델 페르소나를 대체합니다)",
+      "chats": "채팅",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (비어 있음 = 모든 채팅)",
+      "chatsHint": "쉼표로 구분된 채팅 ID 또는 숫자만 입력하세요. 비워 두면 세션의 모든 채팅에 답변합니다.",
+      "allChats": "모든 채팅",
+      "cooldown": "쿨다운(초)",
+      "cooldownValue": "{{count}}초",
+      "context": "기록",
+      "enabled": "활성화됨"
+    },
+    "llm": {
+      "emptyTitle": "아직 LLM 모델이 없습니다",
+      "emptyDescription": "LLM 모델은 OpenAI 호환 엔드포인트입니다. 기본 URL, API 키, 모델 ID, 샘플링 파라미터 및 선택적 페르소나로 구성됩니다.",
+      "createTitle": "LLM 모델 추가",
+      "editTitle": "LLM 모델 편집",
+      "deleteTitle": "LLM 모델 삭제",
+      "deleteConfirm": "LLM 모델 {{name}}을(를) 삭제하시겠습니까? 이 모델을 사용하는 챗봇의 답변이 중단됩니다.",
+      "name": "이름",
+      "endpoint": "엔드포인트 URL",
+      "endpointHint": "OpenAI 호환 기본 URL입니다. /chat/completions가 자동으로 추가됩니다.",
+      "modelId": "모델 ID",
+      "apiKey": "API 키",
+      "apiKeyKeep": "저장된 키를 유지하려면 비워 두세요",
+      "persona": "페르소나",
+      "personaPlaceholder": "모든 완성 요청과 함께 전송되는 시스템 프롬프트(선택 사항)",
+      "parameters": "샘플링 파라미터",
+      "temperature": "온도",
+      "maxTokens": "최대 토큰 수",
+      "test": "연결 테스트",
+      "lastTest": "마지막 테스트",
+      "testOk": "정상"
+    },
+    "rag": {
+      "emptyTitle": "아직 RAG 모델이 없습니다",
+      "emptyDescription": "RAG 모델은 지식(텍스트, 문서, URL)을 LLM이 추론하는 트리 인덱스로 보관합니다. 벡터리스, PageIndex 방식입니다.",
+      "createTitle": "RAG 모델 추가",
+      "editTitle": "RAG 모델 편집",
+      "deleteTitle": "RAG 모델 삭제",
+      "deleteConfirm": "RAG 모델 {{name}}과(와) 모든 지식을 삭제하시겠습니까?",
+      "name": "이름",
+      "scope": "적용 세션",
+      "scopeAll": "모든 세션",
+      "scopeSelected": "선택한 세션",
+      "scopeNone": "없음(분리됨)",
+      "sessionIds": "세션 ID",
+      "sessionIdsHint": "쉼표로 구분된 세션 ID를 입력하거나 아래에서 체크하세요",
+      "llmOverride": "추론 LLM",
+      "llmFromBot": "챗봇의 LLM 사용",
+      "topK": "검색 노드 수",
+      "maxContextChars": "최대 컨텍스트 문자 수",
+      "vectorlessHint": "벡터리스: 지식은 트리로 인덱싱되고 LLM 추론으로 검색됩니다(PageIndex 방식). 임베딩도 벡터 데이터베이스도 필요하지 않습니다.",
+      "documents": "항목",
+      "indexState": "인덱스 구축 완료",
+      "noIndex": "인덱스 없음",
+      "index": "인덱스 재구축",
+      "needsIndex": "챗봇이 이 지식을 사용할 수 있도록 인덱스 구축을 실행하세요.",
+      "addEntry": "항목 추가",
+      "sourceType": {
+        "text": "텍스트",
+        "url": "URL",
+        "site": "사이트",
+        "file": "파일"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "제목(선택 사항)",
+      "contentPlaceholder": "텍스트, 정보, 붙여넣은 문서…",
+      "documentChars": "{{count}}자",
+      "queryPlaceholder": "지식 베이스에 질문…",
+      "query": "검색",
+      "sourceTypeLabel": "소스 유형"
+    },
+    "mcp": {
+      "emptyTitle": "아직 MCP 연결이 없습니다",
+      "emptyDescription": "자격 증명 유무와 관계없이 MCP 도구 서버(Streamable HTTP)에 연결하세요. 서버가 제공하는 도구를 AI 플로우에서 사용할 수 있게 됩니다.",
+      "createTitle": "MCP 연결 추가",
+      "editTitle": "MCP 연결 편집",
+      "deleteTitle": "MCP 연결 삭제",
+      "deleteConfirm": "MCP 연결 {{name}}을(를) 삭제하시겠습니까?",
+      "name": "이름",
+      "endpoint": "엔드포인트 URL",
+      "auth": "인증",
+      "authNone": "없음",
+      "authBearer": "Bearer 토큰",
+      "authHeader": "사용자 지정 헤더",
+      "authHeaderName": "헤더 이름",
+      "credential": "자격 증명",
+      "credentialKeep": "저장된 자격 증명을 유지하려면 비워 두세요",
+      "timeout": "타임아웃(밀리초)",
+      "test": "연결 후 도구 목록 표시",
+      "lastTest": "마지막 테스트",
+      "toolCount": "도구 {{count}}개"
+    },
+    "common": {
+      "failed": "요청 실패: {{message}}"
+    }
   }
 }

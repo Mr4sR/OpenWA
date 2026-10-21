@@ -29,6 +29,7 @@ describe('docs/05 documents the real column names', () => {
     'engine',
     'modules/integration',
     'modules/status-store',
+    'modules/ai',
   ].map(entities);
   const MAIN_ENTITIES = ['modules/auth', 'modules/audit'].map(entities);
 

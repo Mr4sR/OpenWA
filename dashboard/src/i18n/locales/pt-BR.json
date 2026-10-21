@@ -71,7 +71,8 @@
     "infrastructure": "Infraestrutura",
     "plugins": "Plugins",
     "logs": "Registros",
-    "templates": "Modelos"
+    "templates": "Modelos",
+    "aiIntegration": "Integração de IA"
   },
   "chats": {
     "media": {
@@ -1176,5 +1177,149 @@
       "current": "Esta sessão"
     },
     "loading": "Pesquisando…"
+  },
+  "ai": {
+    "title": "Integração de IA",
+    "subtitle": "Chatbots, provedores de LLM, conhecimento RAG vectorless e servidores de ferramentas MCP",
+    "add": {
+      "chatbots": "Adicionar chatbot",
+      "llm": "Adicionar modelo LLM",
+      "rag": "Adicionar modelo RAG",
+      "mcp": "Adicionar conexão MCP"
+    },
+    "tabs": {
+      "chatbots": "Chatbot",
+      "llm": "LLM de IA",
+      "rag": "RAG Vectorless",
+      "mcp": "Servidor MCP"
+    },
+    "actions": {
+      "edit": "Editar",
+      "delete": "Excluir",
+      "enable": "Habilitar",
+      "disable": "Desabilitar",
+      "expand": "Mostrar conhecimento"
+    },
+    "toasts": {
+      "created": "Criado",
+      "updated": "Salvo",
+      "deleted": "Excluído",
+      "testOk": "Conexão bem-sucedida",
+      "testFailed": "Teste falhou: {{message}}",
+      "indexed": "Índice construído"
+    },
+    "errors": {
+      "forbidden": "Sua chave de API não tem acesso à área de Integração de IA"
+    },
+    "chatbots": {
+      "emptyTitle": "Ainda não há chatbots",
+      "emptyDescription": "Um chatbot responde com um LLM às mensagens recebidas de uma sessão. Crie primeiro um modelo LLM e depois vincule um bot à sessão.",
+      "createTitle": "Adicionar chatbot",
+      "editTitle": "Editar chatbot",
+      "deleteTitle": "Excluir chatbot",
+      "deleteConfirm": "Excluir o chatbot {{name}}? Ele vai parar de responder mensagens imediatamente.",
+      "session": "Sessão",
+      "selectSession": "Selecione uma sessão…",
+      "name": "Nome",
+      "llmModel": "Modelo LLM",
+      "selectLlm": "Selecione um modelo LLM…",
+      "ragModel": "Conhecimento RAG",
+      "noRag": "Nenhum",
+      "persona": "Persona",
+      "personaPlaceholder": "Você é o agente de suporte de… (opcional; substitui a persona do modelo)",
+      "chats": "Chats",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (vazio = todos os chats)",
+      "chatsHint": "IDs de chat ou números avulsos, separados por vírgulas. Deixe vazio para responder todos os chats da sessão.",
+      "allChats": "Todos os chats",
+      "cooldown": "Intervalo (s)",
+      "cooldownValue": "{{count}} s",
+      "context": "Histórico",
+      "enabled": "Habilitado"
+    },
+    "llm": {
+      "emptyTitle": "Ainda não há modelos LLM",
+      "emptyDescription": "Um modelo LLM é um endpoint compatível com OpenAI: URL base, chave de API, ID do modelo, parâmetros de amostragem e uma persona opcional.",
+      "createTitle": "Adicionar modelo LLM",
+      "editTitle": "Editar modelo LLM",
+      "deleteTitle": "Excluir modelo LLM",
+      "deleteConfirm": "Excluir o modelo LLM {{name}}? Os chatbots que o usam vão parar de responder.",
+      "name": "Nome",
+      "endpoint": "URL do endpoint",
+      "endpointHint": "URL base compatível com OpenAI; /chat/completions é adicionado.",
+      "modelId": "ID do modelo",
+      "apiKey": "Chave de API",
+      "apiKeyKeep": "Deixe vazio para manter a chave salva",
+      "persona": "Persona",
+      "personaPlaceholder": "System prompt enviado com cada completion (opcional)",
+      "parameters": "Parâmetros de amostragem",
+      "temperature": "Temperatura",
+      "maxTokens": "Máximo de tokens",
+      "test": "Testar conexão",
+      "lastTest": "Último teste",
+      "testOk": "OK"
+    },
+    "rag": {
+      "emptyTitle": "Ainda não há modelos RAG",
+      "emptyDescription": "Um modelo RAG armazena o seu conhecimento (palavras, documentos, URLs) como um índice em árvore sobre o qual o LLM raciocina — vectorless, no estilo PageIndex.",
+      "createTitle": "Adicionar modelo RAG",
+      "editTitle": "Editar modelo RAG",
+      "deleteTitle": "Excluir modelo RAG",
+      "deleteConfirm": "Excluir o modelo RAG {{name}} e todo o conhecimento associado?",
+      "name": "Nome",
+      "scope": "Sessões ativas",
+      "scopeAll": "Todas as sessões",
+      "scopeSelected": "Sessões selecionadas",
+      "scopeNone": "Em nenhuma (desvinculado)",
+      "sessionIds": "IDs de sessão",
+      "sessionIdsHint": "IDs de sessão separados por vírgulas, ou marque abaixo",
+      "llmOverride": "LLM de raciocínio",
+      "llmFromBot": "Usar o LLM do chatbot",
+      "topK": "Nós recuperados",
+      "maxContextChars": "Máximo de caracteres de contexto",
+      "vectorlessHint": "Vectorless: o conhecimento é indexado como uma árvore e recuperado pelo raciocínio do LLM (no estilo PageIndex) — sem embeddings, sem banco de dados vetorial.",
+      "documents": "Entradas",
+      "indexState": "Índice construído",
+      "noIndex": "Não indexado",
+      "index": "Reconstruir índice",
+      "needsIndex": "Execute a construção do índice para disponibilizar este conhecimento para os chatbots.",
+      "addEntry": "Adicionar entrada",
+      "sourceType": {
+        "text": "Texto",
+        "url": "URL",
+        "site": "Site",
+        "file": "Arquivo"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "Título (opcional)",
+      "contentPlaceholder": "Palavras, informações, documento colado…",
+      "documentChars": "{{count}} caracteres",
+      "queryPlaceholder": "Pergunte à base de conhecimento…",
+      "query": "Recuperar",
+      "sourceTypeLabel": "Tipo de fonte"
+    },
+    "mcp": {
+      "emptyTitle": "Ainda não há conexões MCP",
+      "emptyDescription": "Conecte um servidor de ferramentas MCP (Streamable HTTP), com ou sem credenciais; as ferramentas que ele anuncia ficam disponíveis para os fluxos de IA.",
+      "createTitle": "Adicionar conexão MCP",
+      "editTitle": "Editar conexão MCP",
+      "deleteTitle": "Excluir conexão MCP",
+      "deleteConfirm": "Excluir a conexão MCP {{name}}?",
+      "name": "Nome",
+      "endpoint": "URL do endpoint",
+      "auth": "Autenticação",
+      "authNone": "Nenhuma",
+      "authBearer": "Token Bearer",
+      "authHeader": "Cabeçalho personalizado",
+      "authHeaderName": "Nome do cabeçalho",
+      "credential": "Credencial",
+      "credentialKeep": "Deixe vazio para manter a credencial salva",
+      "timeout": "Tempo limite (ms)",
+      "test": "Conectar e listar ferramentas",
+      "lastTest": "Último teste",
+      "toolCount": "{{count}} ferramentas"
+    },
+    "common": {
+      "failed": "Falha na solicitação: {{message}}"
+    }
   }
 }

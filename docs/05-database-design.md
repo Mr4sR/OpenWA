@@ -724,6 +724,11 @@ The data connection also owns:
 - **`baileys_stored_messages`** — Baileys engine message store — the serialized WAMessage proto (`src/engine/adapters/baileys-stored-message.entity.ts`); present only when the Baileys engine is used. (Credentials live on the filesystem, not here.)
 - **`lid_mappings`** — LID↔phone-number identity mappings (`src/engine/identity/lid-mapping.entity.ts`).
 - **`chat_states`** (engine): per-session mute, archive and pin state of each Baileys chat (`src/engine/adapters/baileys-chat-state.entity.ts`), keyed `(sessionId, chatId)`. `chatId` is the person's phone JID (`<phone>@s.whatsapp.net`) whenever their lid resolves, so a state WhatsApp syncs under the lid and one set through the phone number land on the same row; it stays `<lid>@lid` while the lid is unresolved, and a row found under the lid later is folded onto the phone JID on the chat's next change (reads and the fold take each field from the newest row that observed it: `observed` lists the fields a row has seen, and null, on a row not written since the column was added, means the fields it holds a set value for; the next write that can read the row records the list). WhatsApp does not re-deliver that state, so it is kept in backups. A chat deleted on the phone or through the API loses its row, so a later message starts it clean.
+- **`ai_llm_models`** — LLM provider connections (`src/modules/ai/entities/ai-llm-model.entity.ts`): OpenAI-compatible endpoint, write-only API key and custom headers, sampling parameters, optional persona, and the last connection-test diagnostics; unique on `name`.
+- **`ai_chatbots`** — per-session chatbot instances (`src/modules/ai/entities/ai-chatbot.entity.ts`): one LLM model binding, an optional RAG model binding, a persona override, a chat allowlist (`simple-array`; null/empty answers every chat), per-chat cooldown, context window and the last reply/error diagnostics. `sessionId` is a varchar FK to `sessions` with `ON DELETE CASCADE` (the `webhooks.sessionId` convention).
+- **`ai_rag_models`** — vectorless (PageIndex-style) knowledge bases (`src/modules/ai/entities/ai-rag-model.entity.ts`): activation scope (`all`/`selected`/`none` plus `sessionIds`), retrieval tuning (`topK`, `maxContextChars`), and the hierarchical tree index stored as JSON on the row (`index`, `indexedAt`, `lastIndexError`); unique on `name`.
+- **`ai_rag_documents`** — knowledge entries of a RAG model (`src/modules/ai/entities/ai-rag-model.entity.ts`): `sourceType` (`text`/`url`/`site`/`file`), title, source URL, extracted or stored content, and an optional storage key for uploads; indexed by `ragModelId` and removed with their model.
+- **`ai_mcp_connections`** — outbound MCP server connections (`src/modules/ai/entities/ai-mcp-connection.entity.ts`): Streamable-HTTP endpoint, auth kind (`none`/`bearer`/`header`) with a write-only credential, extra headers, timeout and the last connect/tools-list diagnostics; unique on `name`.
 
 Additionally, the `AddMessagesFts` migration creates the full-text-search structures over `messages` (a FTS5 virtual table on SQLite, a generated `body_ts` `tsvector` column plus GIN index on PostgreSQL) that back the `/search` endpoint.
 
@@ -927,7 +932,8 @@ src/database/migrations/           # data connection (pluggable)
 ├── 1787100000000-AddSendIdempotencyKeys.ts   # send_idempotency_keys (opt-in send retry guard)
 ├── 1787200000000-DeduplicateTerminalWebhookFailures.ts   # one terminal record per webhook and idempotency key
 ├── 1790812800000-AddMessageWindowIndexes.ts   # compound timestamp indexes for message-time pagination
-└── 1791100000000-AddIntegrationDeliveryFailureDeliveryIndex.ts   # (pluginId, instanceId, deliveryId) index for the dead-letter guards
+├── 1791100000000-AddIntegrationDeliveryFailureDeliveryIndex.ts   # (pluginId, instanceId, deliveryId) index for the dead-letter guards
+└── 1792000000000-AddAiIntegration.ts   # ai_llm_models, ai_chatbots, ai_rag_models, ai_rag_documents, ai_mcp_connections
 ```
 
 > [!NOTE]

@@ -19,6 +19,7 @@ import { WebhookModule } from '../webhook/webhook.module';
 import { StatusStoreModule } from '../status-store/status-store.module';
 import { ChatMediaModule } from '../chat-media/chat-media.module';
 import { AutomationModule } from '../automation/automation.module';
+import { AiModule } from '../ai/ai.module';
 import { PLUGIN_SESSION_PORT } from '../../core/plugins/plugin-host-ports';
 
 @Module({
@@ -30,6 +31,9 @@ import { PLUGIN_SESSION_PORT } from '../../core/plugins/plugin-host-ports';
     StatusStoreModule,
     ChatMediaModule,
     AutomationModule,
+    // AiModule evaluates chatbot replies on the inbound dispatch; it does not import
+    // SessionModule back, so the dependency stays one-directional (same shape as AutomationModule).
+    AiModule,
   ],
   controllers: [SessionController],
   providers: [

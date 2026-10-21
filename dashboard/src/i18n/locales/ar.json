@@ -77,7 +77,8 @@
     "messageTester": "اختبار الرسائل",
     "infrastructure": "البنية التحتية",
     "plugins": "الإضافات",
-    "logs": "السجلات"
+    "logs": "السجلات",
+    "aiIntegration": "تكامل الذكاء الاصطناعي"
   },
   "chats": {
     "media": {
@@ -1195,5 +1196,149 @@
       "current": "هذه الجلسة"
     },
     "loading": "جارٍ البحث…"
+  },
+  "ai": {
+    "title": "تكامل الذكاء الاصطناعي",
+    "subtitle": "روبوتات الدردشة، مزودات LLM، معرفة RAG بلا متجهات، وخوادم أدوات MCP",
+    "add": {
+      "chatbots": "إضافة روبوت دردشة",
+      "llm": "إضافة نموذج LLM",
+      "rag": "إضافة نموذج RAG",
+      "mcp": "إضافة اتصال MCP"
+    },
+    "tabs": {
+      "chatbots": "روبوت دردشة",
+      "llm": "LLM للذكاء الاصطناعي",
+      "rag": "RAG بلا متجهات",
+      "mcp": "خادم MCP"
+    },
+    "actions": {
+      "edit": "تعديل",
+      "delete": "حذف",
+      "enable": "تمكين",
+      "disable": "تعطيل",
+      "expand": "عرض المعرفة"
+    },
+    "toasts": {
+      "created": "تم الإنشاء",
+      "updated": "تم الحفظ",
+      "deleted": "تم الحذف",
+      "testOk": "الاتصال يعمل",
+      "testFailed": "فشل الاختبار: {{message}}",
+      "indexed": "تم بناء الفهرس"
+    },
+    "errors": {
+      "forbidden": "مفتاح API الخاص بك لا يملك صلاحية الوصول إلى تكامل الذكاء الاصطناعي"
+    },
+    "chatbots": {
+      "emptyTitle": "لا توجد روبوتات دردشة بعد",
+      "emptyDescription": "يجيب روبوت الدردشة على الرسائل الواردة لجلسة واحدة باستخدام نموذج LLM. أنشئ نموذج LLM أولاً، ثم اربط الروبوت بالجلسة.",
+      "createTitle": "إضافة روبوت دردشة",
+      "editTitle": "تعديل روبوت الدردشة",
+      "deleteTitle": "حذف روبوت الدردشة",
+      "deleteConfirm": "حذف روبوت الدردشة {{name}}؟ سيتوقف عن الرد على الرسائل فوراً.",
+      "session": "الجلسة",
+      "selectSession": "اختر جلسة…",
+      "name": "الاسم",
+      "llmModel": "نموذج LLM",
+      "selectLlm": "اختر نموذج LLM…",
+      "ragModel": "معرفة RAG",
+      "noRag": "بلا",
+      "persona": "الشخصية",
+      "personaPlaceholder": "أنت موظف الدعم الخاص بـ… (اختياري؛ يتجاوز شخصية النموذج)",
+      "chats": "الدردشات",
+      "chatsPlaceholder": "628123456789@c.us، 1203…@g.us (فارغ = كل الدردشات)",
+      "chatsHint": "معرفات دردشة أو أرقام مجردة، مفصولة بفواصل. اتركه فارغاً للرد على كل دردشات الجلسة.",
+      "allChats": "كل الدردشات",
+      "cooldown": "فترة التهدئة (ث)",
+      "cooldownValue": "{{count}} ث",
+      "context": "السجل",
+      "enabled": "ممكّن"
+    },
+    "llm": {
+      "emptyTitle": "لا توجد نماذج LLM بعد",
+      "emptyDescription": "نموذج LLM هو endpoint متوافق مع OpenAI: عنوان URL أساسي، مفتاح API، معرف النموذج، معاملات أخذ العينات، وشخصية اختيارية.",
+      "createTitle": "إضافة نموذج LLM",
+      "editTitle": "تعديل نموذج LLM",
+      "deleteTitle": "حذف نموذج LLM",
+      "deleteConfirm": "حذف نموذج LLM {{name}}؟ سيتوقف روبوتات الدردشة التي تستخدمه عن الرد.",
+      "name": "الاسم",
+      "endpoint": "عنوان URL نقطة النهاية",
+      "endpointHint": "عنوان URL أساسي متوافق مع OpenAI؛ يُضاف /chat/completions تلقائياً.",
+      "modelId": "معرف النموذج",
+      "apiKey": "مفتاح API",
+      "apiKeyKeep": "اتركه فارغاً للاحتفاظ بالمفتاح المخزّن",
+      "persona": "الشخصية",
+      "personaPlaceholder": "أمر النظام المُرسل مع كل إكمال (اختياري)",
+      "parameters": "معاملات أخذ العينات",
+      "temperature": "درجة الحرارة",
+      "maxTokens": "الحد الأقصى للرموز",
+      "test": "اختبار الاتصال",
+      "lastTest": "آخر اختبار",
+      "testOk": "يعمل"
+    },
+    "rag": {
+      "emptyTitle": "لا توجد نماذج RAG بعد",
+      "emptyDescription": "يخزّن نموذج RAG معرفتك (كلمات، مستندات، عناوين URL) كفهرس شجري يفسره نموذج LLM — بلا متجهات، على طريقة PageIndex.",
+      "createTitle": "إضافة نموذج RAG",
+      "editTitle": "تعديل نموذج RAG",
+      "deleteTitle": "حذف نموذج RAG",
+      "deleteConfirm": "حذف نموذج RAG {{name}} وجميع معرفته؟",
+      "name": "الاسم",
+      "scope": "الجلسات النشطة",
+      "scopeAll": "كل الجلسات",
+      "scopeSelected": "الجلسات المحددة",
+      "scopeNone": "لا مكان (منفصل)",
+      "sessionIds": "معرفات الجلسات",
+      "sessionIdsHint": "معرفات جلسات مفصولة بفواصل، أو حدّد أدناه",
+      "llmOverride": "نموذج LLM للاستدلال",
+      "llmFromBot": "استخدم نموذج LLM الخاص بالروبوت",
+      "topK": "العقد المسترجعة",
+      "maxContextChars": "الحد الأقصى لأحرف السياق",
+      "vectorlessHint": "بلا متجهات: تُفهرس المعرفة كشجرة ويُسترجع منها عبر استدلال LLM (على طريقة PageIndex) — بلا تضمينات، بلا قواعد بيانات متجهات.",
+      "documents": "الإدخالات",
+      "indexState": "تم بناء الفهرس",
+      "noIndex": "غير مفهرس",
+      "index": "إعادة بناء الفهرس",
+      "needsIndex": "شغّل بناء الفهرس لتصبح هذه المعرفة متاحة لروبوتات الدردشة.",
+      "addEntry": "إضافة إدخال",
+      "sourceType": {
+        "text": "نص",
+        "url": "URL",
+        "site": "موقع",
+        "file": "ملف"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "العنوان (اختياري)",
+      "contentPlaceholder": "كلمات، معلومات، مستند ملصق…",
+      "documentChars": "{{count}} حرفاً",
+      "queryPlaceholder": "اسأل قاعدة المعرفة…",
+      "query": "استرجاع",
+      "sourceTypeLabel": "نوع المصدر"
+    },
+    "mcp": {
+      "emptyTitle": "لا توجد اتصالات MCP بعد",
+      "emptyDescription": "اتصل بخادم أدوات MCP (Streamable HTTP) ببيانات اعتماد أو بدونها؛ تصبح الأدوات التي يعرضها متاحة لتدفقات الذكاء الاصطناعي.",
+      "createTitle": "إضافة اتصال MCP",
+      "editTitle": "تعديل اتصال MCP",
+      "deleteTitle": "حذف اتصال MCP",
+      "deleteConfirm": "حذف اتصال MCP {{name}}؟",
+      "name": "الاسم",
+      "endpoint": "عنوان URL نقطة النهاية",
+      "auth": "المصادقة",
+      "authNone": "بلا",
+      "authBearer": "رمز Bearer",
+      "authHeader": "ترويسة مخصصة",
+      "authHeaderName": "اسم الترويسة",
+      "credential": "بيانات الاعتماد",
+      "credentialKeep": "اتركه فارغاً للاحتفاظ ببيانات الاعتماد المخزّنة",
+      "timeout": "المهلة (مللي ثانية)",
+      "test": "الاتصال وسرد الأدوات",
+      "lastTest": "آخر اختبار",
+      "toolCount": "{{count}} أداة"
+    },
+    "common": {
+      "failed": "فشل الطلب: {{message}}"
+    }
   }
 }

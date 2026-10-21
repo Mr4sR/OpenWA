@@ -16,6 +16,7 @@ import {
   type StatsPeriod,
   type CreateInstanceInput,
   type UpdateInstanceInput,
+  aiApi,
 } from '../services/api';
 
 // ── Query Keys ────────────────────────────────────────────────────────
@@ -36,6 +37,11 @@ export const queryKeys = {
   currentEngine: ['engines', 'current'] as const,
   statsOverview: ['stats', 'overview'] as const,
   statsMessages: (period: string) => ['stats', 'messages', period] as const,
+  aiLlmModels: ['ai', 'llm-models'] as const,
+  aiChatbots: ['ai', 'chatbots'] as const,
+  aiRagModels: ['ai', 'rag-models'] as const,
+  aiRagDocuments: (ragModelId: string) => ['ai', 'rag-models', ragModelId, 'documents'] as const,
+  aiMcpConnections: ['ai', 'mcp-connections'] as const,
 };
 
 // ── Session Queries ───────────────────────────────────────────────────
@@ -379,4 +385,73 @@ export function useStatsMessagesQuery(period: StatsPeriod) {
     staleTime: 30_000,
     retry: false,
   });
+}
+
+// ── AI Integration Queries ─────────────────────────────────────────────────────────────
+// The AI surfaces are ADMIN-gated for writes; the reads answer a scoped key too, so the list
+// queries never retry a 403 (the page renders the forbidden state instead).
+
+export function useAiLlmModelsQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.aiLlmModels,
+    queryFn: aiApi.listLlmModels,
+    staleTime: 30_000,
+    retry: false,
+    enabled,
+  });
+}
+
+export function useAiChatbotsQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.aiChatbots,
+    queryFn: aiApi.listChatbots,
+    staleTime: 30_000,
+    retry: false,
+    enabled,
+  });
+}
+
+export function useAiRagModelsQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.aiRagModels,
+    queryFn: aiApi.listRagModels,
+    staleTime: 30_000,
+    retry: false,
+    enabled,
+  });
+}
+
+export function useAiRagDocumentsQuery(ragModelId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.aiRagDocuments(ragModelId),
+    queryFn: () => aiApi.listRagDocuments(ragModelId),
+    staleTime: 30_000,
+    retry: false,
+    enabled: enabled && !!ragModelId,
+  });
+}
+
+export function useAiMcpConnectionsQuery(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.aiMcpConnections,
+    queryFn: aiApi.listMcpConnections,
+    staleTime: 30_000,
+    retry: false,
+    enabled,
+  });
+}
+
+export function useInvalidateAiQueries() {
+  const queryClient = useQueryClient();
+  return (keys: Array<'llm' | 'chatbots' | 'rag' | 'mcp'>) => {
+    const map = {
+      llm: queryKeys.aiLlmModels,
+      chatbots: queryKeys.aiChatbots,
+      rag: queryKeys.aiRagModels,
+      mcp: queryKeys.aiMcpConnections,
+    };
+    for (const key of keys) {
+      void queryClient.invalidateQueries({ queryKey: map[key] });
+    }
+  };
 }

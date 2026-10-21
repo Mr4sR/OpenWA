@@ -69,7 +69,8 @@
     "messageTester": "మెసేజ్ టెస్టర్",
     "infrastructure": "ఇన్‌ఫ్రాస్ట్రక్చర్",
     "plugins": "ప్లగిన్స్",
-    "logs": "లాగ్స్"
+    "logs": "లాగ్స్",
+    "aiIntegration": "AI ఇంటిగ్రేషన్"
   },
   "chats": {
     "media": {
@@ -1170,5 +1171,149 @@
       "current": "ఈ సెషన్"
     },
     "loading": "శోధిస్తోంది…"
+  },
+  "ai": {
+    "title": "AI ఇంటిగ్రేషన్",
+    "subtitle": "చాట్‌బాట్‌లు, LLM ప్రొవైడర్లు, vectorless RAG నాలెడ్జ్ మరియు MCP టూల్ సర్వర్లు",
+    "add": {
+      "chatbots": "చాట్‌బాట్ జోడించు",
+      "llm": "LLM మోడల్ జోడించు",
+      "rag": "RAG మోడల్ జోడించు",
+      "mcp": "MCP కనెక్షన్ జోడించు"
+    },
+    "tabs": {
+      "chatbots": "చాట్‌బాట్",
+      "llm": "AI LLM",
+      "rag": "RAG Vectorless",
+      "mcp": "MCP సర్వర్"
+    },
+    "actions": {
+      "edit": "ఎడిట్ చేయి",
+      "delete": "తొలగించు",
+      "enable": "ప్రారంభించు",
+      "disable": "నిలిపివేయి",
+      "expand": "నాలెడ్జ్‌ను చూపు"
+    },
+    "toasts": {
+      "created": "సృష్టించబడింది",
+      "updated": "సేవ్ చేయబడింది",
+      "deleted": "తొలగించబడింది",
+      "testOk": "కనెక్షన్ సరిగ్గా ఉంది",
+      "testFailed": "పరీక్ష విఫలమైంది: {{message}}",
+      "indexed": "ఇండెక్స్ నిర్మించబడింది"
+    },
+    "errors": {
+      "forbidden": "మీ API కీకి AI ఇంటిగ్రేషన్ సర్ఫేస్‌కు యాక్సెస్ లేదు"
+    },
+    "chatbots": {
+      "emptyTitle": "ఇంకా చాట్‌బాట్‌లు లేవు",
+      "emptyDescription": "ఒక చాట్‌బాట్ ఒక సెషన్‌కు వచ్చే సందేశాలకు LLMతో సమాధానం ఇస్తుంది. మొదట LLM మోడల్‌ను సృష్టించి, ఆపై సెషన్‌కు బాట్‌ను కట్టండి.",
+      "createTitle": "చాట్‌బాట్ జోడించు",
+      "editTitle": "చాట్‌బాట్ ఎడిట్ చేయి",
+      "deleteTitle": "చాట్‌బాట్ తొలగించు",
+      "deleteConfirm": "చాట్‌బాట్ {{name}}ను తొలగించాలా? ఇది వెంటనే సందేశాలకు సమాధానం ఇవ్వడం ఆపివేస్తుంది.",
+      "session": "సెషన్",
+      "selectSession": "సెషన్‌ను ఎంచుకోండి…",
+      "name": "పేరు",
+      "llmModel": "LLM మోడల్",
+      "selectLlm": "LLM మోడల్‌ను ఎంచుకోండి…",
+      "ragModel": "RAG నాలెడ్జ్",
+      "noRag": "ఏదీ లేదు",
+      "persona": "వ్యక్తిత్వం",
+      "personaPlaceholder": "మీరు … సపోర్ట్ ఏజెంట్ (ఐచ్ఛికం; మోడల్ వ్యక్తిత్వాన్ని భర్తీ చేస్తుంది)",
+      "chats": "చాట్‌లు",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (ఖాళీ = ప్రతి చాట్)",
+      "chatsHint": "కామాతో వేరు చేసిన chat idలు లేదా సాధారణ నంబర్లు. సెషన్‌లోని ప్రతి చాట్‌కు సమాధానం ఇవ్వడానికి ఖాళీగా వదిలేయండి.",
+      "allChats": "ప్రతి చాట్",
+      "cooldown": "కూల్‌డౌన్ (సె)",
+      "cooldownValue": "{{count}} సె",
+      "context": "చరిత్ర",
+      "enabled": "ప్రారంభించబడింది"
+    },
+    "llm": {
+      "emptyTitle": "ఇంకా LLM మోడల్‌లు లేవు",
+      "emptyDescription": "LLM మోడల్ అంటే OpenAI-అనుకూల endpoint: బేస్ URL, api key, మోడల్ id, శాంప్లింగ్ పారామీటర్లు మరియు ఐచ్ఛిక వ్యక్తిత్వం.",
+      "createTitle": "LLM మోడల్ జోడించు",
+      "editTitle": "LLM మోడల్ ఎడిట్ చేయి",
+      "deleteTitle": "LLM మోడల్ తొలగించు",
+      "deleteConfirm": "LLM మోడల్ {{name}}ను తొలగించాలా? దీన్ని ఉపయోగించే చాట్‌బాట్‌లు సమాధానం ఇవ్వడం ఆపివేస్తాయి.",
+      "name": "పేరు",
+      "endpoint": "Endpoint URL",
+      "endpointHint": "OpenAI-అనుకూల బేస్ URL; /chat/completions జోడించబడుతుంది.",
+      "modelId": "మోడల్ id",
+      "apiKey": "API కీ",
+      "apiKeyKeep": "నిల్వ చేసిన కీని ఉంచడానికి ఖాళీగా వదిలేయండి",
+      "persona": "వ్యక్తిత్వం",
+      "personaPlaceholder": "ప్రతి completionతో పంపబడే సిస్టమ్ ప్రాంప్ట్ (ఐచ్ఛికం)",
+      "parameters": "శాంప్లింగ్ పారామీటర్లు",
+      "temperature": "ఉష్ణోగ్రత",
+      "maxTokens": "గరిష్ఠ టోకెన్లు",
+      "test": "కనెక్షన్‌ను పరీక్షించు",
+      "lastTest": "చివరి పరీక్ష",
+      "testOk": "సరే"
+    },
+    "rag": {
+      "emptyTitle": "ఇంకా RAG మోడల్‌లు లేవు",
+      "emptyDescription": "RAG మోడల్ మీ నాలెడ్జ్‌ను (పదాలు, పత్రాలు, URLలు) LLM విశ్లేషించే ట్రీ ఇండెక్స్‌గా ఉంచుతుంది — vectorless, PageIndex శైలిలో.",
+      "createTitle": "RAG మోడల్ జోడించు",
+      "editTitle": "RAG మోడల్ ఎడిట్ చేయి",
+      "deleteTitle": "RAG మోడల్ తొలగించు",
+      "deleteConfirm": "RAG మోడల్ {{name}} మరియు దాని నాలెడ్జ్ మొత్తాన్ని తొలగించాలా?",
+      "name": "పేరు",
+      "scope": "యాక్టివ్ సెషన్‌లు",
+      "scopeAll": "అన్ని సెషన్‌లు",
+      "scopeSelected": "ఎంచుకున్న సెషన్‌లు",
+      "scopeNone": "ఎక్కడా లేదు (వేరు చేయబడింది)",
+      "sessionIds": "సెషన్ idలు",
+      "sessionIdsHint": "కామాతో వేరు చేసిన సెషన్ idలు, లేదా క్రింద టిక్ చేయండి",
+      "llmOverride": "విశ్లేషణ LLM",
+      "llmFromBot": "చాట్‌బాట్ LLMను ఉపయోగించు",
+      "topK": "పొందిన నోడ్‌లు",
+      "maxContextChars": "గరిష్ఠ కాంటెక్స్ట్ అక్షరాలు",
+      "vectorlessHint": "Vectorless: నాలెడ్జ్ ట్రీగా ఇండెక్స్ చేయబడి, LLM విశ్లేషణ (PageIndex శైలి) ద్వారా పొందబడుతుంది — ఎంబెడ్డింగ్‌లు లేవు, వెక్టర్ డేటాబేస్ లేదు.",
+      "documents": "ఎంట్రీలు",
+      "indexState": "ఇండెక్స్ నిర్మించబడింది",
+      "noIndex": "ఇండెక్స్ చేయబడలేదు",
+      "index": "ఇండెక్స్‌ను మళ్లీ నిర్మించు",
+      "needsIndex": "ఈ నాలెడ్జ్‌ను చాట్‌బాట్‌లకు అందుబాటులో ఉంచడానికి ఇండెక్స్ బిల్డ్‌ను రన్ చేయండి.",
+      "addEntry": "ఎంట్రీ జోడించు",
+      "sourceType": {
+        "text": "టెక్స్ట్",
+        "url": "URL",
+        "site": "సైట్",
+        "file": "ఫైల్"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "శీర్షిక (ఐచ్ఛికం)",
+      "contentPlaceholder": "పదాలు, సమాచారం, పేస్ట్ చేసిన పత్రం…",
+      "documentChars": "{{count}} అక్షరాలు",
+      "queryPlaceholder": "నాలెడ్జ్ బేస్‌ను అడగండి…",
+      "query": "పొందు",
+      "sourceTypeLabel": "మూల రకం"
+    },
+    "mcp": {
+      "emptyTitle": "ఇంకా MCP కనెక్షన్‌లు లేవు",
+      "emptyDescription": "క్రెడెన్షియల్స్‌తో లేదా లేకుండా MCP టూల్ సర్వర్‌ను (Streamable HTTP) కనెక్ట్ చేయండి; అది ప్రకటించే టూల్స్ AI ఫ్లోలకు అందుబాటులోకి వస్తాయి.",
+      "createTitle": "MCP కనెక్షన్ జోడించు",
+      "editTitle": "MCP కనెక్షన్ ఎడిట్ చేయి",
+      "deleteTitle": "MCP కనెక్షన్ తొలగించు",
+      "deleteConfirm": "MCP కనెక్షన్ {{name}}ను తొలగించాలా?",
+      "name": "పేరు",
+      "endpoint": "Endpoint URL",
+      "auth": "ప్రామాణీకరణ",
+      "authNone": "ఏదీ లేదు",
+      "authBearer": "Bearer టోకెన్",
+      "authHeader": "కస్టమ్ హెడర్",
+      "authHeaderName": "హెడర్ పేరు",
+      "credential": "క్రెడెన్షియల్",
+      "credentialKeep": "నిల్వ చేసిన క్రెడెన్షియల్‌ను ఉంచడానికి ఖాళీగా వదిలేయండి",
+      "timeout": "టైమ్‌అవుట్ (ms)",
+      "test": "కనెక్ట్ చేసి టూల్స్ జాబితా చూపు",
+      "lastTest": "చివరి పరీక్ష",
+      "toolCount": "{{count}} టూల్స్"
+    },
+    "common": {
+      "failed": "అనురోధం విఫలమైంది: {{message}}"
+    }
   }
 }

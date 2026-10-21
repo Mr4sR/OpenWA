@@ -7370,3 +7370,308 @@ When the queue is enabled, a non-2xx response, timeout (`WEBHOOK_TIMEOUT`, defau
 ### SSRF guard on registration
 
 Webhook URLs are validated at **registration time**, not just at delivery. When SSRF protection is enabled (the default), creating a webhook, or updating one to a different URL, with a URL that resolves to a private/internal/loopback address is rejected synchronously with `400 Bad Request` instead of failing silently later at delivery. The `SSRF_ALLOWED_HOSTS` escape-hatch applies equally to registration and delivery. Independently of the SSRF flag, a URL embedding credentials (`https://user:pass@host/hook`) is rejected with `400` — such credentials would otherwise be persisted and echoed into delivery logs and dead-letter rows. An update that re-sends the stored URL unchanged skips both checks, so a webhook whose host became blocked can still be deactivated or re-filtered; delivery still applies the SSRF guard. Operator-supplied custom headers that target reserved names (`Content-Type`, `User-Agent` or any `X-OpenWA-*`, in any letter case) are stripped, so a webhook config cannot forge the signature, event, or idempotency headers. A header map with two names that differ only in case is rejected with `400`. The connection-level names the HTTP client owns (`Connection`, `Content-Length`, `Expect`, `Keep-Alive`, `TE`, `Trailer`, `Transfer-Encoding`, `Upgrade`) are stripped as well, since setting one would fail or corrupt the delivery.
+
+### AI Integration
+
+AI Integration manages the gateway's AI surface: LLM provider connections, per-session chatbot
+instances, vectorless (PageIndex-style) RAG knowledge bases, and outbound MCP tool-server
+connections. See [32 - AI Integration](./32-ai-integration.md) for the design.
+
+#### GET /api/ai/llm-models
+
+List the configured LLM provider connections. The stored API key is never returned: each row
+carries `hasApiKey` plus a masked `apiKeyMasked`, and `hasHeaders` stands in for the write-only
+header map.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `AiLlmModel[]`
+
+#### GET /api/ai/llm-models/:id
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `AiLlmModel` (masked key)
+
+**Errors:** `404` unknown model
+
+#### POST /api/ai/llm-models
+
+Create an LLM provider connection. The endpoint must be http(s); `apiKey` and `headers` are
+stored write-only.
+
+**Auth:** API key (ADMIN)
+
+**Request** `CreateAiLlmModelDto` — `name` (unique), `endpointUrl`, optional `apiKey`, `model`,
+`persona`, `parameters` (temperature / maxTokens / topP / stop), `headers`, `enabled`.
+
+**Response** `201` — the created `AiLlmModel` (masked key).
+
+**Errors:** `400` invalid endpoint URL, or the `AI_LLM_MODELS_MAX` cap is reached
+
+#### PUT /api/ai/llm-models/:id
+
+Update a connection. An omitted `apiKey` keeps the stored one; an empty string removes it.
+
+**Auth:** API key (ADMIN)
+
+**Response** `200` — the updated `AiLlmModel` (masked key)
+
+**Errors:** `404` unknown model
+
+#### DELETE /api/ai/llm-models/:id
+
+**Auth:** API key (ADMIN)
+
+**Response** `204`
+
+**Errors:** `404` unknown model
+
+#### POST /api/ai/llm-models/:id/test
+
+Send one minimal completion through the provider and record the outcome as the row's
+`lastStatus`/`lastTestedAt` diagnostics (also audited as `ai_llm_model_tested`).
+
+**Auth:** API key (ADMIN)
+
+**Response** `200` — `{ ok, answer }`; `ok: false` carries the redacted provider error in
+`answer` (the route itself stays 200 so the dashboard can render the failure inline).
+
+#### GET /api/ai/chatbots
+
+List chatbot instances across sessions. Rows are scoped to the calling key's
+`allowedSessions`: a restricted key sees only the bots of its own sessions, and a
+`?sessionId=` filter outside the scope returns an empty list.
+
+**Auth:** API key (OPERATOR)
+
+**Query:** `sessionId` (optional)
+
+**Response** `200` — `AiChatbot[]`
+
+#### POST /api/sessions/:sessionId/ai-chatbots
+
+Create a chatbot for the session. Both referenced models must exist (`400` otherwise); the
+per-session cap is `ai.chatbotsMaxPerSession` (default 8).
+
+**Auth:** API key (OPERATOR)
+
+**Request** `CreateAiChatbotDto` — `name`, `llmModelId`, optional `ragModelId`, `persona`
+(overrides the model persona), `chatIds` (allowlist; null/empty answers every chat),
+`cooldownSeconds` (0–86400), `contextMessages` (0–20), `enabled`.
+
+**Response** `201` — `AiChatbot`
+
+**Errors:** `400` unknown LLM/RAG model, or the per-session cap is reached · `404` unknown session
+
+#### GET /api/sessions/:sessionId/ai-chatbots
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `AiChatbot[]` of this session
+
+#### GET /api/sessions/:sessionId/ai-chatbots/:chatbotId
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `AiChatbot`
+
+**Errors:** `404` unknown chatbot
+
+#### PUT /api/sessions/:sessionId/ai-chatbots/:chatbotId
+
+**Auth:** API key (OPERATOR)
+
+**Request** `UpdateAiChatbotDto` — any subset of the create fields.
+
+**Response** `200` — `AiChatbot`
+
+**Errors:** `404` unknown chatbot
+
+#### DELETE /api/sessions/:sessionId/ai-chatbots/:chatbotId
+
+**Auth:** API key (OPERATOR)
+
+**Response** `204`
+
+**Errors:** `404` unknown chatbot
+
+#### GET /api/ai/rag-models
+
+List the RAG models with their knowledge-entry counts and index state
+(`hasIndex`/`indexedAt`/`lastIndexError`). The tree index itself is summarized in
+`indexPreview` (node ids, titles, truncated summaries), not transferred whole.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `AiRagModel[]`
+
+#### GET /api/ai/rag-models/:id
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `AiRagModel`
+
+**Errors:** `404` unknown model
+
+#### POST /api/ai/rag-models
+
+**Auth:** API key (ADMIN)
+
+**Request** `CreateAiRagModelDto` — `name` (unique), optional `sessionScope`
+(`all` | `selected` | `none`), `sessionIds`, `llmModelId` (reasoning override), `topK` (1–10),
+`maxContextChars` (500–20000), `enabled`.
+
+**Response** `201` — `AiRagModel`
+
+#### PUT /api/ai/rag-models/:id
+
+Update the activation scope or the retrieval tuning. Changing `sessionScope` away from
+`selected` clears `sessionIds`.
+
+**Auth:** API key (ADMIN)
+
+**Response** `200` — `AiRagModel`
+
+**Errors:** `404` unknown model
+
+#### DELETE /api/ai/rag-models/:id
+
+Deletes the model and its knowledge entries. Chatbots bound to it keep running without
+knowledge (their replies note the missing model in diagnostics).
+
+**Auth:** API key (ADMIN)
+
+**Response** `204`
+
+**Errors:** `404` unknown model
+
+#### POST /api/ai/rag-models/:id/index
+
+Build (or rebuild) the PageIndex-style tree: segment the knowledge into leaves, group them,
+and summarize every node bottom-up with the model's LLM. LLM-mediated — the call can take
+minutes; the previous index stays live until a rebuild commits, and a failed build records
+`lastIndexError`.
+
+**Auth:** API key (ADMIN)
+
+**Response** `200` — the updated `AiRagModel`
+
+**Errors:** `400` no knowledge added, or the indexing LLM budget/call failed · `404` unknown model
+
+#### POST /api/ai/rag-models/:id/query
+
+The retrieval probe: walk the tree with LLM reasoning and return the cited leaf nodes with
+their raw source text plus the composed context — the exact injection a chatbot reply uses.
+
+**Auth:** API key (OPERATOR)
+
+**Request** `{ query }` (1–4000 chars)
+
+**Response** `200` — `{ query, nodes, context, warnings? }`; a model without an index answers
+`200` with empty `nodes`/`context` and a `warnings` note.
+
+**Errors:** `400` empty query · `404` unknown model
+
+#### GET /api/ai/rag-models/:id/documents
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `AiRagDocument[]` (content as a 400-char preview plus `contentLength`)
+
+#### POST /api/ai/rag-models/:id/documents
+
+Add a knowledge entry. `text` requires `content`; `url`/`site` require `sourceUrl` and are
+fetched immediately (the SSRF guard applies) so a dead link fails at add time.
+
+**Auth:** API key (ADMIN)
+
+**Request** `CreateAiRagDocumentDto` — `sourceType`, optional `title`, `sourceUrl`, `content`,
+`storageKey`.
+
+**Response** `201` — `AiRagDocument`
+
+**Errors:** `400` fetch failed or no extractable text · `404` unknown model
+
+#### PUT /api/ai/rag-models/:id/documents/:documentId
+
+**Auth:** API key (ADMIN)
+
+**Request** `UpdateAiRagDocumentDto` — `title`/`content`/`sourceUrl`.
+
+**Response** `200` — `AiRagDocument`
+
+**Errors:** `404` unknown entry
+
+#### DELETE /api/ai/rag-models/:id/documents/:documentId
+
+**Auth:** API key (ADMIN)
+
+**Response** `204`
+
+**Errors:** `404` unknown entry
+
+#### GET /api/ai/mcp-connections
+
+List the outbound MCP connections. The credential is never returned (`hasCredential` plus a
+masked `authCredentialMasked`); `hasHeaders` stands in for the write-only header map.
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `AiMcpConnection[]`
+
+#### GET /api/ai/mcp-connections/:id
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `AiMcpConnection` (masked credential)
+
+**Errors:** `404` unknown connection
+
+#### POST /api/ai/mcp-connections
+
+**Auth:** API key (ADMIN)
+
+**Request** `CreateAiMcpConnectionDto` — `name` (unique), `endpointUrl`, optional `authKind`
+(`none` | `bearer` | `header`), `authHeader` (header kind), `authCredential`, `headers`,
+`timeoutMs` (1000–120000), `enabled`.
+
+**Response** `201` — `AiMcpConnection` (masked credential)
+
+**Errors:** `400` invalid endpoint/header, or the `AI_MCP_CONNECTIONS_MAX` cap is reached
+
+#### PUT /api/ai/mcp-connections/:id
+
+**Auth:** API key (ADMIN)
+
+**Response** `200` — `AiMcpConnection`
+
+**Errors:** `404` unknown connection
+
+#### DELETE /api/ai/mcp-connections/:id
+
+**Auth:** API key (ADMIN)
+
+**Response** `204`
+
+**Errors:** `404` unknown connection
+
+#### POST /api/ai/mcp-connections/:id/test
+
+Connect, initialize, list the server's tools, disconnect — and record the outcome on the row's
+`lastStatus` (also audited as `ai_mcp_connection_tested`).
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `{ ok, serverName?, serverVersion?, tools: [{ name, description? }],
+error? }`; `ok: false` keeps the route at 200 so the dashboard can render the failure inline.
+
+#### GET /api/ai/mcp-connections/:id/tools
+
+A live tools/list call (a fresh connect per request).
+
+**Auth:** API key (OPERATOR)
+
+**Response** `200` — `{ tools: [{ name, description? }] }`
+
+**Errors:** `400` the server refused the connection

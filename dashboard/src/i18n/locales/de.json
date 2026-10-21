@@ -69,7 +69,8 @@
     "messageTester": "Nachrichtentester",
     "infrastructure": "Infrastruktur",
     "plugins": "Plugins",
-    "logs": "Protokolle"
+    "logs": "Protokolle",
+    "aiIntegration": "KI-Integration"
   },
   "chats": {
     "media": {
@@ -1170,5 +1171,149 @@
       "current": "Diese Sitzung"
     },
     "loading": "Suche läuft…"
+  },
+  "ai": {
+    "title": "KI-Integration",
+    "subtitle": "Chatbots, LLM-Anbieter, vektorloses RAG-Wissen und MCP-Tool-Server",
+    "add": {
+      "chatbots": "Chatbot hinzufügen",
+      "llm": "LLM-Modell hinzufügen",
+      "rag": "RAG-Modell hinzufügen",
+      "mcp": "MCP-Verbindung hinzufügen"
+    },
+    "tabs": {
+      "chatbots": "Chatbot",
+      "llm": "KI-LLM",
+      "rag": "RAG Vectorless",
+      "mcp": "MCP-Server"
+    },
+    "actions": {
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "enable": "Aktivieren",
+      "disable": "Deaktivieren",
+      "expand": "Wissen anzeigen"
+    },
+    "toasts": {
+      "created": "Erstellt",
+      "updated": "Gespeichert",
+      "deleted": "Gelöscht",
+      "testOk": "Verbindung OK",
+      "testFailed": "Test fehlgeschlagen: {{message}}",
+      "indexed": "Index erstellt"
+    },
+    "errors": {
+      "forbidden": "Dein API-Schlüssel hat keinen Zugriff auf den Bereich KI-Integration"
+    },
+    "chatbots": {
+      "emptyTitle": "Noch keine Chatbots",
+      "emptyDescription": "Ein Chatbot beantwortet die eingehenden Nachrichten einer Sitzung mit einem LLM. Erstelle zuerst ein LLM-Modell und binde dann einen Bot an die Sitzung.",
+      "createTitle": "Chatbot hinzufügen",
+      "editTitle": "Chatbot bearbeiten",
+      "deleteTitle": "Chatbot löschen",
+      "deleteConfirm": "Chatbot {{name}} löschen? Er wird sofort aufhören, Nachrichten zu beantworten.",
+      "session": "Sitzung",
+      "selectSession": "Sitzung auswählen…",
+      "name": "Name",
+      "llmModel": "LLM-Modell",
+      "selectLlm": "LLM-Modell auswählen…",
+      "ragModel": "RAG-Wissen",
+      "noRag": "Keines",
+      "persona": "Persona",
+      "personaPlaceholder": "Du bist der Support-Agent von… (optional; überschreibt die Persona des Modells)",
+      "chats": "Chats",
+      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (leer = jeder Chat)",
+      "chatsHint": "Chat-IDs durch Komma getrennt oder nur Zahlen. Leer lassen, um jeden Chat der Sitzung zu beantworten.",
+      "allChats": "Jeder Chat",
+      "cooldown": "Abklingzeit (s)",
+      "cooldownValue": "{{count}} s",
+      "context": "Verlauf",
+      "enabled": "Aktiviert"
+    },
+    "llm": {
+      "emptyTitle": "Noch keine LLM-Modelle",
+      "emptyDescription": "Ein LLM-Modell ist ein OpenAI-kompatibler Endpunkt: Basis-URL, API-Schlüssel, Modell-ID, Sampling-Parameter und eine optionale Persona.",
+      "createTitle": "LLM-Modell hinzufügen",
+      "editTitle": "LLM-Modell bearbeiten",
+      "deleteTitle": "LLM-Modell löschen",
+      "deleteConfirm": "LLM-Modell {{name}} löschen? Chatbots, die es verwenden, werden nicht mehr antworten.",
+      "name": "Name",
+      "endpoint": "Endpunkt-URL",
+      "endpointHint": "OpenAI-kompatible Basis-URL; /chat/completions wird angehängt.",
+      "modelId": "Modell-ID",
+      "apiKey": "API-Schlüssel",
+      "apiKeyKeep": "Leer lassen, um den gespeicherten Schlüssel beizubehalten",
+      "persona": "Persona",
+      "personaPlaceholder": "System-Prompt, der bei jeder Vervollständigung mitgesendet wird (optional)",
+      "parameters": "Sampling-Parameter",
+      "temperature": "Temperatur",
+      "maxTokens": "Max. Tokens",
+      "test": "Verbindung testen",
+      "lastTest": "Letzter Test",
+      "testOk": "OK"
+    },
+    "rag": {
+      "emptyTitle": "Noch keine RAG-Modelle",
+      "emptyDescription": "Ein RAG-Modell enthält dein Wissen (Wörter, Dokumente, URLs) als Baumindex, über den das LLM nachdenkt — vektorlos, im PageIndex-Stil.",
+      "createTitle": "RAG-Modell hinzufügen",
+      "editTitle": "RAG-Modell bearbeiten",
+      "deleteTitle": "RAG-Modell löschen",
+      "deleteConfirm": "RAG-Modell {{name}} und das gesamte zugehörige Wissen löschen?",
+      "name": "Name",
+      "scope": "Aktive Sitzungen",
+      "scopeAll": "Alle Sitzungen",
+      "scopeSelected": "Ausgewählte Sitzungen",
+      "scopeNone": "Nirgends (losgelöst)",
+      "sessionIds": "Sitzungs-IDs",
+      "sessionIdsHint": "Sitzungs-IDs durch Komma getrennt oder unten auswählen",
+      "llmOverride": "Denkendes LLM",
+      "llmFromBot": "Das LLM des Chatbots verwenden",
+      "topK": "Abgerufene Knoten",
+      "maxContextChars": "Max. Kontextzeichen",
+      "vectorlessHint": "Vektorlos: Wissen wird als Baum indexiert und vom Denken des LLM abgerufen (im PageIndex-Stil) — keine Embeddings, keine Vektordatenbank.",
+      "documents": "Einträge",
+      "indexState": "Index erstellt",
+      "noIndex": "Nicht indiziert",
+      "index": "Index neu erstellen",
+      "needsIndex": "Führe den Indexaufbau aus, um dieses Wissen für Chatbots verfügbar zu machen.",
+      "addEntry": "Eintrag hinzufügen",
+      "sourceType": {
+        "text": "Text",
+        "url": "URL",
+        "site": "Website",
+        "file": "Datei"
+      },
+      "sourceUrlPlaceholder": "https://…",
+      "titlePlaceholder": "Titel (optional)",
+      "contentPlaceholder": "Wörter, Informationen, eingefügtes Dokument…",
+      "documentChars": "{{count}} Zeichen",
+      "queryPlaceholder": "Die Wissensdatenbank fragen…",
+      "query": "Abrufen",
+      "sourceTypeLabel": "Quelltyp"
+    },
+    "mcp": {
+      "emptyTitle": "Noch keine MCP-Verbindungen",
+      "emptyDescription": "Verbinde einen MCP-Tool-Server (Streamable HTTP) mit oder ohne Zugangsdaten; die von ihm angebotenen Tools stehen KI-Abläufen zur Verfügung.",
+      "createTitle": "MCP-Verbindung hinzufügen",
+      "editTitle": "MCP-Verbindung bearbeiten",
+      "deleteTitle": "MCP-Verbindung löschen",
+      "deleteConfirm": "MCP-Verbindung {{name}} löschen?",
+      "name": "Name",
+      "endpoint": "Endpunkt-URL",
+      "auth": "Authentifizierung",
+      "authNone": "Keine",
+      "authBearer": "Bearer-Token",
+      "authHeader": "Eigener Header",
+      "authHeaderName": "Header-Name",
+      "credential": "Zugangsdaten",
+      "credentialKeep": "Leer lassen, um die gespeicherten Zugangsdaten beizubehalten",
+      "timeout": "Zeitlimit (ms)",
+      "test": "Verbinden und Tools auflisten",
+      "lastTest": "Letzter Test",
+      "toolCount": "{{count}} Tools"
+    },
+    "common": {
+      "failed": "Anfrage fehlgeschlagen: {{message}}"
+    }
   }
 }

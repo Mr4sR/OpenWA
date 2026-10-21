@@ -18,6 +18,7 @@ import { resolveFeatureFlags } from '../../config/feature-flags';
 import { StatusStoreService } from '../status-store/status-store.service';
 import { ChatMediaArchiveService } from '../chat-media/chat-media-archive.service';
 import { AutomationRulesService } from '../automation/automation-rules.service';
+import { AiChatbotService } from '../ai/ai-chatbot.service';
 import { buildIncomingStatus } from '../status-store/incoming-status';
 import type { StatusUpdate } from '../status-store/entities/status-update.entity';
 import {
@@ -255,6 +256,9 @@ export class MessageProjector {
     // Optional for the same reason. Absent simply means no autoreply rules are evaluated.
     @Optional()
     private readonly automationRules?: AutomationRulesService,
+    // Optional for the same reason. Absent simply means no chatbot instances are evaluated.
+    @Optional()
+    private readonly aiChatbots?: AiChatbotService,
   ) {
     this.mutationProjector = new MessageMutationProjector(
       this.messageRepository,
@@ -978,6 +982,9 @@ export class MessageProjector {
     // Autoreply rules ride the same at-most-once dispatch (the insert oracle above dedupes engine
     // re-fires) and stay fail-open like the webhook: a broken rule must never break the receive path.
     void this.automationRules?.evaluateInbound(id, announced).catch(() => undefined);
+    // AI chatbots ride the same at-most-once dispatch: the first matching bot answers, and a
+    // broken one must never break the receive path.
+    void this.aiChatbots?.evaluateInbound(id, announced).catch(() => undefined);
     // Emit real-time event to WebSocket clients
     this.eventsGateway.emitMessage(id, announced);
   }
