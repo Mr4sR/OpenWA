@@ -992,7 +992,22 @@
       "saveFailed": "Gagal Menyimpan"
     },
     "statusLoadError": "Gagal memuat status infrastruktur saat ini. Muat ulang untuk mencoba lagi.",
-    "configLoadError": "Gagal memuat konfigurasi tersimpan, jadi tidak dapat diedit di sini. Muat ulang untuk mencoba lagi."
+    "configLoadError": "Gagal memuat konfigurasi tersimpan, jadi tidak dapat diedit di sini. Muat ulang untuk mencoba lagi.",
+    "ai": {
+      "title": "Integrasi AI",
+      "mcpOn": "Server MCP aktif",
+      "mcpOff": "Server MCP mati",
+      "mcpToggle": "Aktifkan server MCP",
+      "mcpToggleHint": "Pasang server alat agen OpenWA di POST /mcp agar agen eksternal bisa menjalankan WhatsApp.",
+      "readonlyToggle": "Alat MCP hanya baca",
+      "readonlyToggleHint": "Hanya alat baca — tanpa kirim, tanpa ubah. Disarankan.",
+      "llmMax": "Maks model LLM",
+      "botsMax": "Maks bot / sesi",
+      "mcpMax": "Maks koneksi MCP",
+      "privateToggle": "Izinkan endpoint AI privat",
+      "privateToggleHint": "Izinkan panggilan AI menuju alamat privat (Ollama atau vLLM di jaringan Anda). Mati secara default: guard SSRF memblokirnya.",
+      "restartHint": "Perubahan berlaku setelah restart."
+    }
   },
   "plugins": {
     "title": "Plugin",

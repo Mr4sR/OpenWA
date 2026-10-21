@@ -31,6 +31,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { encodeGeneratedEnvValue, generatedEnvPath, readGeneratedEnv } from './generated-env';
 import {
+  applyAiSection,
   applyDatabaseSection,
   applyEngineSection,
   applyRedisSection,
@@ -92,6 +93,14 @@ interface SavedConfigResponse {
     s3CredentialsSet: boolean;
   };
   engine: { type: string; headless: boolean; sessionDataPath: string; browserArgs: string };
+  ai: {
+    mcpEnabled: boolean;
+    mcpReadonly: boolean;
+    llmModelsMax: number;
+    chatbotsMaxPerSession: number;
+    mcpConnectionsMax: number;
+    allowPrivateAiEndpoints: boolean;
+  };
 }
 
 @ApiTags('infrastructure')
@@ -177,6 +186,15 @@ export class InfraConfigController {
         headless: effective('PUPPETEER_HEADLESS') !== 'false',
         sessionDataPath: effective('SESSION_DATA_PATH') || '',
         browserArgs: effective('PUPPETEER_ARGS') || '',
+      },
+      ai: {
+        mcpEnabled: effective('MCP_ENABLED') === 'true',
+        // READONLY default true (read-only posture when unset — the MCP server's documented default).
+        mcpReadonly: effective('MCP_READONLY') !== 'false',
+        llmModelsMax: Number(effective('AI_LLM_MODELS_MAX')) || 50,
+        chatbotsMaxPerSession: Number(effective('AI_CHATBOTS_MAX_PER_SESSION')) || 8,
+        mcpConnectionsMax: Number(effective('AI_MCP_CONNECTIONS_MAX')) || 50,
+        allowPrivateAiEndpoints: (effective('SSRF_ALLOWED_HOSTS') ?? '').includes('*'),
       },
     };
   }
@@ -271,6 +289,10 @@ export class InfraConfigController {
 
     if (config.engine) {
       applyEngineSection(config.engine, existing, ctx, this.engineFactory);
+    }
+
+    if (config.ai) {
+      applyAiSection(config.ai, existing, ctx);
     }
   }
 

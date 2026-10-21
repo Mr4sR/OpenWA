@@ -25361,6 +25361,35 @@
           }
         }
       },
+      "AiConfigDto": {
+        "type": "object",
+        "properties": {
+          "mcpEnabled": {
+            "type": "boolean",
+            "description": "Expose the OpenWA MCP server (agent tool server) at POST /mcp"
+          },
+          "mcpReadonly": {
+            "type": "boolean",
+            "description": "Serve only read-only MCP tools (no sends, no mutations)"
+          },
+          "llmModelsMax": {
+            "type": "number",
+            "description": "Max LLM provider connections"
+          },
+          "chatbotsMaxPerSession": {
+            "type": "number",
+            "description": "Max chatbot instances per session"
+          },
+          "mcpConnectionsMax": {
+            "type": "number",
+            "description": "Max outbound MCP server connections"
+          },
+          "allowPrivateAiEndpoints": {
+            "type": "boolean",
+            "description": "Allow outbound AI calls to private/loopback addresses (a self-hosted Ollama or vLLM on the same network). Off by default: the SSRF guard blocks them."
+          }
+        }
+      },
       "SaveConfigDto": {
         "type": "object",
         "properties": {
@@ -25378,6 +25407,9 @@
           },
           "engine": {
             "$ref": "#/components/schemas/EngineConfigDto"
+          },
+          "ai": {
+            "$ref": "#/components/schemas/AiConfigDto"
           }
         }
       },

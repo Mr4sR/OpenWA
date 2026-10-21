@@ -992,7 +992,22 @@
       "saveFailed": "Kaydetme Başarısız"
     },
     "statusLoadError": "Mevcut altyapı durumu yüklenemedi. Yeniden denemek için sayfayı yenileyin.",
-    "configLoadError": "Kayıtlı yapılandırma yüklenemedi, bu yüzden burada düzenlenemiyor. Yeniden denemek için sayfayı yenileyin."
+    "configLoadError": "Kayıtlı yapılandırma yüklenemedi, bu yüzden burada düzenlenemiyor. Yeniden denemek için sayfayı yenileyin.",
+    "ai": {
+      "title": "Yapay Zekâsı",
+      "mcpOn": "MCP sunucusu açık",
+      "mcpOff": "MCP sunucusu kapalı",
+      "mcpToggle": "MCP sunucusunu yayınla",
+      "mcpToggleHint": "Harici ajanların WhatsApp kullanabilmesi için OpenWA ajan araç sunucusunu POST /mcp adresine bağla.",
+      "readonlyToggle": "Yalnızca okuma MCP araçları",
+      "readonlyToggleHint": "Yalnızca okuma araçları — gönderim ve değişiklik yok. Önerilir.",
+      "llmMax": "Maks. LLM modeli",
+      "botsMax": "Oturum başına maks. bot",
+      "mcpMax": "Maks. MCP bağlantısı",
+      "privateToggle": "Özel AI uç noktalarına izin ver",
+      "privateToggleHint": "AI çağrılarının özel adreslere gitmesine izin verir (ağınızdaki kendi barındırdığınız Ollama veya vLLM). Varsayılan olarak kapalı: SSRF koruması engeller.",
+      "restartHint": "Değişiklikler yeniden başlatmadan sonra uygulanır."
+    }
   },
   "plugins": {
     "title": "Eklentiler",

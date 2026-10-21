@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-import { jsonColumnType } from '../../../common/utils/column-types';
+import { DateTransformer } from '../../../common/transformers/date.transformer';
+import { dateColumnType, jsonColumnType } from '../../../common/utils/column-types';
 
 /** Longest display name. */
 export const AI_RAG_NAME_MAX_LENGTH = 100;
@@ -64,7 +65,7 @@ export class AiRagModel {
   index!: Record<string, unknown> | null;
 
   /** When the last successful (re)index finished; null while never indexed. */
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: dateColumnType(), nullable: true, transformer: DateTransformer })
   indexedAt!: Date | null;
 
   /** Redacted failure text of the last failed (re)index. */

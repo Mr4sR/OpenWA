@@ -41,11 +41,21 @@ export interface EngineConfig {
   browserArgs: string;
 }
 
+export interface AiInfraConfig {
+  mcpEnabled: boolean;
+  mcpReadonly: boolean;
+  llmModelsMax: number;
+  chatbotsMaxPerSession: number;
+  mcpConnectionsMax: number;
+  allowPrivateAiEndpoints: boolean;
+}
+
 export interface InfraConfigForm {
   dbConfig: DatabaseConfig;
   redisConfig: RedisConfig;
   storageConfig: StorageConfig;
   engineConfig: EngineConfig;
+  aiConfig: AiInfraConfig;
   redisEnabled: boolean;
   queueEnabled: boolean;
   setRedisEnabled: (enabled: boolean) => void;
@@ -56,6 +66,7 @@ export interface InfraConfigForm {
   updateRedisConfig: (key: keyof RedisConfig, value: string | boolean) => void;
   updateStorageConfig: (key: keyof StorageConfig, value: string | boolean) => void;
   updateEngineConfig: (key: keyof EngineConfig, value: string | boolean) => void;
+  updateAiConfig: (key: keyof AiInfraConfig, value: string | number | boolean) => void;
   buildSavePayload: () => SaveConfigPayload;
 }
 
@@ -114,6 +125,14 @@ export function useInfraConfigForm(
     browserArgs: '--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu',
   });
 
+  const [aiConfig, setAiConfig] = useState<AiInfraConfig>({
+    mcpEnabled: false,
+    mcpReadonly: true,
+    llmModelsMax: 50,
+    chatbotsMaxPerSession: 8,
+    mcpConnectionsMax: 50,
+    allowPrivateAiEndpoints: false,
+  });
   const [redisEnabled, setRedisEnabledState] = useState(false);
   const [queueEnabled, setQueueEnabled] = useState(false);
 
@@ -199,6 +218,18 @@ export function useInfraConfigForm(
       sessionDataPath: savedConfig.engine.sessionDataPath || prev.sessionDataPath,
       browserArgs: savedConfig.engine.browserArgs || prev.browserArgs,
     }));
+    // A gateway older than the AI section serves no `ai` block: keep the useState defaults
+    // instead of crashing the whole Infrastructure page on hydration.
+    if (savedConfig.ai) {
+      setAiConfig({
+        mcpEnabled: savedConfig.ai.mcpEnabled,
+        mcpReadonly: savedConfig.ai.mcpReadonly,
+        llmModelsMax: savedConfig.ai.llmModelsMax,
+        chatbotsMaxPerSession: savedConfig.ai.chatbotsMaxPerSession,
+        mcpConnectionsMax: savedConfig.ai.mcpConnectionsMax,
+        allowPrivateAiEndpoints: savedConfig.ai.allowPrivateAiEndpoints,
+      });
+    }
   }, [savedConfig]);
 
   // Lock the editable form once both sources have seeded it, so later background refetches only refresh
@@ -233,6 +264,8 @@ export function useInfraConfigForm(
     if (key === 'type') engineTouched.current = true;
     setEngineConfig(prev => ({ ...prev, [key]: value }));
   };
+  const updateAiConfig = (key: keyof AiInfraConfig, value: string | number | boolean) =>
+    setAiConfig(prev => ({ ...prev, [key]: value }));
 
   // Disabling Redis also disables the queue, since queue processing depends on it.
   const setRedisEnabled = (enabled: boolean) => {
@@ -273,13 +306,14 @@ export function useInfraConfigForm(
       !(engineHydrated.current && !engineTouched.current && infraStatus?.envPinned?.includes('ENGINE_TYPE'))
         ? { ...engineConfig }
         : { ...engineConfig, type: undefined },
+    ai: { ...aiConfig },
   });
-
   return {
     dbConfig,
     redisConfig,
     storageConfig,
     engineConfig,
+    aiConfig,
     redisEnabled,
     queueEnabled,
     setRedisEnabled,
@@ -289,6 +323,7 @@ export function useInfraConfigForm(
     updateRedisConfig,
     updateStorageConfig,
     updateEngineConfig,
+    updateAiConfig,
     buildSavePayload,
   };
 }

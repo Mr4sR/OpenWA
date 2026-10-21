@@ -998,7 +998,22 @@
       "importTooLarge": "Il backup supera il limite della richiesta. Aumenta BODY_SIZE_LIMIT sul server e riprova."
     },
     "statusLoadError": "Impossibile caricare lo stato attuale dell'infrastruttura. Aggiorna per riprovare.",
-    "configLoadError": "Impossibile caricare la configurazione salvata, quindi non è modificabile qui. Aggiorna per riprovare."
+    "configLoadError": "Impossibile caricare la configurazione salvata, quindi non è modificabile qui. Aggiorna per riprovare.",
+    "ai": {
+      "title": "Integrazione IA",
+      "mcpOn": "Server MCP attivo",
+      "mcpOff": "Server MCP disattivato",
+      "mcpToggle": "Espone il server MCP",
+      "mcpToggleHint": "Monta il server degli strumenti agente di OpenWA su POST /mcp perché gli agenti esterni pilotino WhatsApp.",
+      "readonlyToggle": "Strumenti MCP in sola lettura",
+      "readonlyToggleHint": "Espone solo strumenti di lettura: nessun invio, nessuna modifica. Consigliato.",
+      "llmMax": "Max modelli LLM",
+      "botsMax": "Max bot per sessione",
+      "mcpMax": "Max connessioni MCP",
+      "privateToggle": "Consenti endpoint IA privati",
+      "privateToggleHint": "Consente alle chiamate IA di raggiungere indirizzi privati (un Ollama o vLLM self-hosted sulla tua rete). Disattivato per impostazione predefinita: la guardia SSRF li blocca.",
+      "restartHint": "Le modifiche si applicano dopo il riavvio."
+    }
   },
   "plugins": {
     "title": "Plugin",

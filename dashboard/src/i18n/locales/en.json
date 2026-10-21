@@ -992,7 +992,22 @@
       "saveFailed": "Save Failed"
     },
     "statusLoadError": "Couldn't load the current infrastructure status. Refresh to try again.",
-    "configLoadError": "Couldn't load the saved configuration, so it can't be edited here. Refresh to try again."
+    "configLoadError": "Couldn't load the saved configuration, so it can't be edited here. Refresh to try again.",
+    "ai": {
+      "title": "AI Integration",
+      "mcpOn": "MCP server on",
+      "mcpOff": "MCP server off",
+      "mcpToggle": "Expose the MCP server",
+      "mcpToggleHint": "Mount the OpenWA agent tool server at POST /mcp so external agents can drive WhatsApp.",
+      "readonlyToggle": "Read-only MCP tools",
+      "readonlyToggleHint": "Expose only read tools — no sends, no mutations. Recommended.",
+      "llmMax": "Max LLM models",
+      "botsMax": "Max bots / session",
+      "mcpMax": "Max MCP connections",
+      "privateToggle": "Allow private AI endpoints",
+      "privateToggleHint": "Let AI calls reach private addresses (a self-hosted Ollama or vLLM on your network). Off by default: the SSRF guard blocks them.",
+      "restartHint": "Changes apply after a restart."
+    }
   },
   "plugins": {
     "title": "Plugins",

@@ -992,7 +992,22 @@
       "importTooLarge": "備份超出請求大小限制。請在伺服器上調高 BODY_SIZE_LIMIT 後重試。"
     },
     "statusLoadError": "無法載入目前的基礎設施狀態。請重新整理以重試。",
-    "configLoadError": "無法載入已儲存的設定，因此無法在此編輯。請重新整理以重試。"
+    "configLoadError": "無法載入已儲存的設定，因此無法在此編輯。請重新整理以重試。",
+    "ai": {
+      "title": "AI 整合",
+      "mcpOn": "MCP 服務已開啟",
+      "mcpOff": "MCP 服務已關閉",
+      "mcpToggle": "開放 MCP 服務",
+      "mcpToggleHint": "將 OpenWA 代理工具服務掛載到 POST /mcp，讓外部代理可以操作 WhatsApp。",
+      "readonlyToggle": "MCP 僅唯讀工具",
+      "readonlyToggleHint": "只開放唯讀工具——不發送、不修改。建議。",
+      "llmMax": "LLM 模型上限",
+      "botsMax": "每工作階段機器人上限",
+      "mcpMax": "MCP 連線上限",
+      "privateToggle": "允許內網 AI 端點",
+      "privateToggleHint": "允許 AI 呼叫存取內網位址（例如自架 Ollama 或 vLLM）。預設關閉：SSRF 防護會攔截。",
+      "restartHint": "變更在重新啟動後生效。"
+    }
   },
   "plugins": {
     "title": "外掛",

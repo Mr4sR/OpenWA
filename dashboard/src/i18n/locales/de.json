@@ -992,7 +992,22 @@
       "saveFailed": "Speichern fehlgeschlagen"
     },
     "statusLoadError": "Der aktuelle Infrastrukturstatus konnte nicht geladen werden. Aktualisiere die Seite und versuche es erneut.",
-    "configLoadError": "Die gespeicherte Konfiguration konnte nicht geladen werden und lässt sich hier daher nicht bearbeiten. Aktualisiere die Seite und versuche es erneut."
+    "configLoadError": "Die gespeicherte Konfiguration konnte nicht geladen werden und lässt sich hier daher nicht bearbeiten. Aktualisiere die Seite und versuche es erneut.",
+    "ai": {
+      "title": "KI-Integration",
+      "mcpOn": "MCP-Server an",
+      "mcpOff": "MCP-Server aus",
+      "mcpToggle": "MCP-Server bereitstellen",
+      "mcpToggleHint": "Mountet den OpenWA-Agent-Toolserver unter POST /mcp, damit externe Agenten WhatsApp steuern können.",
+      "readonlyToggle": "Nur Lese-MCP-Tools",
+      "readonlyToggleHint": "Nur Lese-Tools — keine sends, keine Änderungen. Empfohlen.",
+      "llmMax": "Max. LLM-Modelle",
+      "botsMax": "Max. Bots / Sitzung",
+      "mcpMax": "Max. MCP-Verbindungen",
+      "privateToggle": "Private KI-Endpunkte erlauben",
+      "privateToggleHint": "KI-Aufrufe zu privaten Adressen erlauben (ein selbst gehostetes Ollama oder vLLM im eigenen Netz). Standardmäßig aus: der SSRF-Schutz blockiert sie.",
+      "restartHint": "Änderungen werden nach einem Neustart wirksam."
+    }
   },
   "plugins": {
     "title": "Plugins",

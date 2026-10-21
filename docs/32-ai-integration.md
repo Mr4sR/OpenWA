@@ -110,15 +110,28 @@ Mutations land in the audit log under the `ai_llm_model_*`, `ai_chatbot_*`, `ai_
 
 ## 32.4 Configuration
 
-```bash
-# AI_LLM_MODELS_MAX=50              # max LLM provider connections (default 50)
-# AI_CHATBOTS_MAX_PER_SESSION=8     # max chatbot instances per session (default 8)
-# AI_MCP_CONNECTIONS_MAX=50         # max outbound MCP server connections (default 50)
-```
+Two layers, and they are deliberately different:
 
-A create at/over a cap gets `400`; existing rows are grandfathered; `0` disables the cap.
-Caps live in `src/config/configuration.ts` under the `ai` key and `.env.example` documents
-them (see the AI INTEGRATION banner).
+**Per-instance configuration** (which LLM, which chatbot, which knowledge, which MCP server) is
+**rows**, managed in the *AI Integration* page and the `/api/ai/*` routes. It needs no restart.
+
+**Deployment-level flags and caps** are **environment-shaped** — they are read at boot (the MCP
+server module is mounted or not by a flag) — so they live in the *Infrastructure* page next to the
+database, Redis, storage and engine settings, and apply after the restart that page already offers:
+
+| Setting | Env key | Meaning |
+| --- | --- | --- |
+| Expose the MCP server | `MCP_ENABLED` | Mount the OpenWA agent tool server at `POST /mcp` |
+| Read-only MCP tools | `MCP_READONLY` | Expose only read tools (default) |
+| Max LLM models | `AI_LLM_MODELS_MAX` | Cap on provider connections (default 50) |
+| Max bots / session | `AI_CHATBOTS_MAX_PER_SESSION` | Cap on chatbot instances per session (default 8) |
+| Max MCP connections | `AI_MCP_CONNECTIONS_MAX` | Cap on outbound MCP servers (default 50) |
+| Allow private AI endpoints | `SSRF_ALLOWED_HOSTS=*` | Let AI calls reach a self-hosted Ollama/vLLM on your network |
+
+Saving writes `data/.env.generated` (the same file every other Infrastructure section uses) and
+the page's restart flow applies it. A create at/over a cap gets `400`; existing rows are
+grandfathered; `0` disables the cap. Caps live in `src/config/configuration.ts` under the `ai`
+key, and `.env.example` documents them under the AI INTEGRATION banner.
 
 ## 32.5 Security notes
 

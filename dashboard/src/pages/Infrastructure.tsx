@@ -10,6 +10,7 @@ import {
   Loader2,
   CheckCircle,
   Cpu,
+  Bot,
   AlertTriangle,
   Download,
   Upload,
@@ -820,6 +821,106 @@ export function Infrastructure() {
                 )}
               </>
             )}
+          </div>
+        </section>
+
+        {/* AI Integration — boot flags and caps. Per-model configuration lives in AI Integration page. */}
+        <section className="infra-card">
+          <div className="card-header">
+            <div className="header-left">
+              <Bot size={20} />
+              <h2>{t('infrastructure.ai.title')}</h2>
+            </div>
+            <span className={`status-indicator ${configForm.aiConfig.mcpEnabled ? 'connected' : 'sqlite'}`}>
+              ● {configForm.aiConfig.mcpEnabled ? t('infrastructure.ai.mcpOn') : t('infrastructure.ai.mcpOff')}
+            </span>
+          </div>
+
+          <div className="config-form">
+            <div className="toggle-row">
+              <div className="toggle-info">
+                <span id="toggle-ai-mcp">{t('infrastructure.ai.mcpToggle')}</span>
+                <small>{t('infrastructure.ai.mcpToggleHint')}</small>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  aria-labelledby="toggle-ai-mcp"
+                  checked={configForm.aiConfig.mcpEnabled}
+                  onChange={e => configForm.updateAiConfig('mcpEnabled', e.target.checked)}
+                />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+
+            {configForm.aiConfig.mcpEnabled && (
+              <div className="toggle-row">
+                <div className="toggle-info">
+                  <span id="toggle-ai-ro">{t('infrastructure.ai.readonlyToggle')}</span>
+                  <small>{t('infrastructure.ai.readonlyToggleHint')}</small>
+                </div>
+                <label className="toggle-switch">
+                  <input
+                    type="checkbox"
+                    aria-labelledby="toggle-ai-ro"
+                    checked={configForm.aiConfig.mcpReadonly}
+                    onChange={e => configForm.updateAiConfig('mcpReadonly', e.target.checked)}
+                  />
+                  <span className="toggle-slider" />
+                </label>
+              </div>
+            )}
+
+            <div className="form-row">
+              <div className="form-group small">
+                <label htmlFor="infra-ai-1">{t('infrastructure.ai.llmMax')}</label>
+                <input
+                  id="infra-ai-1"
+                  type="number"
+                  min={0}
+                  value={configForm.aiConfig.llmModelsMax}
+                  onChange={e => configForm.updateAiConfig('llmModelsMax', Number(e.target.value) || 0)}
+                />
+              </div>
+              <div className="form-group small">
+                <label htmlFor="infra-ai-2">{t('infrastructure.ai.botsMax')}</label>
+                <input
+                  id="infra-ai-2"
+                  type="number"
+                  min={0}
+                  value={configForm.aiConfig.chatbotsMaxPerSession}
+                  onChange={e => configForm.updateAiConfig('chatbotsMaxPerSession', Number(e.target.value) || 0)}
+                />
+              </div>
+              <div className="form-group small">
+                <label htmlFor="infra-ai-3">{t('infrastructure.ai.mcpMax')}</label>
+                <input
+                  id="infra-ai-3"
+                  type="number"
+                  min={0}
+                  value={configForm.aiConfig.mcpConnectionsMax}
+                  onChange={e => configForm.updateAiConfig('mcpConnectionsMax', Number(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <div className="toggle-row">
+              <div className="toggle-info">
+                <span id="toggle-ai-private">{t('infrastructure.ai.privateToggle')}</span>
+                <small>{t('infrastructure.ai.privateToggleHint')}</small>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  aria-labelledby="toggle-ai-private"
+                  checked={configForm.aiConfig.allowPrivateAiEndpoints}
+                  onChange={e => configForm.updateAiConfig('allowPrivateAiEndpoints', e.target.checked)}
+                />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+
+            <p className="muted-hint">{t('infrastructure.ai.restartHint')}</p>
           </div>
         </section>
       </div>

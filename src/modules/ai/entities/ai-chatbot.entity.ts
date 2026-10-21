@@ -9,7 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Session } from '../../session/entities/session.entity';
-import { jsonColumnType } from '../../../common/utils/column-types';
+import { DateTransformer } from '../../../common/transformers/date.transformer';
+import { dateColumnType, jsonColumnType } from '../../../common/utils/column-types';
 
 /** Longest display name. */
 export const AI_CHATBOT_NAME_MAX_LENGTH = 100;
@@ -85,7 +86,7 @@ export class AiChatbot {
   enabled!: boolean;
 
   /** Diagnostics: the last time this bot answered any chat. */
-  @Column({ type: 'datetime', nullable: true })
+  @Column({ type: dateColumnType(), nullable: true, transformer: DateTransformer })
   lastRepliedAt!: Date | null;
 
   /** Free-form diagnostics of the last failing reply (redacted error text). */

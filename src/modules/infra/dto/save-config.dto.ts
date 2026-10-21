@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 
 /**
@@ -177,6 +177,60 @@ export class EngineConfigDto {
   browserArgs?: string;
 }
 
+/**
+ * AI Integration settings. The per-model configuration (LLM connections, chatbots, RAG knowledge,
+ * MCP servers) lives in its own tables and its own dashboard page; what belongs HERE is the
+ * deployment-level switch and the resource caps, because both are read at BOOT (the MCP server
+ * module is mounted or not by a flag) and are therefore env-shaped like every other infra setting.
+ */
+export class AiConfigDto {
+  @ApiPropertyOptional({
+    description: 'Expose the OpenWA MCP server (agent tool server) at POST /mcp',
+  })
+  @ToStrictBoolean()
+  @IsOptional()
+  @IsBoolean()
+  mcpEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Serve only read-only MCP tools (no sends, no mutations)',
+  })
+  @ToStrictBoolean()
+  @IsOptional()
+  @IsBoolean()
+  mcpReadonly?: boolean;
+
+  @ApiPropertyOptional({ description: 'Max LLM provider connections' })
+  @ToStrictNumber()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  llmModelsMax?: number;
+
+  @ApiPropertyOptional({ description: 'Max chatbot instances per session' })
+  @ToStrictNumber()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  chatbotsMaxPerSession?: number;
+
+  @ApiPropertyOptional({ description: 'Max outbound MCP server connections' })
+  @ToStrictNumber()
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  mcpConnectionsMax?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Allow outbound AI calls to private/loopback addresses (a self-hosted Ollama or vLLM on the same network). Off by default: the SSRF guard blocks them.',
+  })
+  @ToStrictBoolean()
+  @IsOptional()
+  @IsBoolean()
+  allowPrivateAiEndpoints?: boolean;
+}
+
 export class SaveConfigDto {
   @ApiPropertyOptional({ type: () => DatabaseConfigDto })
   @IsOptional()
@@ -207,4 +261,10 @@ export class SaveConfigDto {
   @ValidateNested()
   @Type(() => EngineConfigDto)
   engine?: EngineConfigDto;
+
+  @ApiPropertyOptional({ type: () => AiConfigDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AiConfigDto)
+  ai?: AiConfigDto;
 }

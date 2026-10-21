@@ -992,7 +992,22 @@
       "importTooLarge": "备份超出请求大小限制。请在服务器上调高 BODY_SIZE_LIMIT 后重试。"
     },
     "statusLoadError": "无法加载当前基础设施状态。请刷新重试。",
-    "configLoadError": "无法加载已保存的配置，因此无法在此编辑。请刷新重试。"
+    "configLoadError": "无法加载已保存的配置，因此无法在此编辑。请刷新重试。",
+    "ai": {
+      "title": "AI 集成",
+      "mcpOn": "MCP 服务已开启",
+      "mcpOff": "MCP 服务已关闭",
+      "mcpToggle": "开放 MCP 服务",
+      "mcpToggleHint": "将 OpenWA 代理工具服务挂载到 POST /mcp，让外部代理可以操作 WhatsApp。",
+      "readonlyToggle": "MCP 仅只读工具",
+      "readonlyToggleHint": "只开放只读工具——不发送、不修改。推荐。",
+      "llmMax": "LLM 模型上限",
+      "botsMax": "每会话机器人上限",
+      "mcpMax": "MCP 连接上限",
+      "privateToggle": "允许内网 AI 端点",
+      "privateToggleHint": "允许 AI 调用访问内网地址（例如自建 Ollama 或 vLLM）。默认关闭：SSRF 防护会拦截。",
+      "restartHint": "更改在重启后生效。"
+    }
   },
   "plugins": {
     "title": "插件",

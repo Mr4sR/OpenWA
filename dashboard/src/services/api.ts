@@ -645,6 +645,15 @@ export interface SavedConfig {
     s3CredentialsSet: boolean;
   };
   engine: { type: string; headless: boolean; sessionDataPath: string; browserArgs: string };
+  /** AI Integration boot flags and resource caps. */
+  ai: {
+    mcpEnabled: boolean;
+    mcpReadonly: boolean;
+    llmModelsMax: number;
+    chatbotsMaxPerSession: number;
+    mcpConnectionsMax: number;
+    allowPrivateAiEndpoints: boolean;
+  };
 }
 
 export interface SaveConfigPayload {
@@ -686,6 +695,14 @@ export interface SaveConfigPayload {
     headless?: boolean;
     sessionDataPath?: string;
     browserArgs?: string;
+  };
+  ai?: {
+    mcpEnabled?: boolean;
+    mcpReadonly?: boolean;
+    llmModelsMax?: number;
+    chatbotsMaxPerSession?: number;
+    mcpConnectionsMax?: number;
+    allowPrivateAiEndpoints?: boolean;
   };
 }
 
