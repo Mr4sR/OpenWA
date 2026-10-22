@@ -2052,16 +2052,22 @@ test('an enabled chatbot renders an AI on chip per chat, and clicking it mutes t
   const { container } = renderChats();
 
   await screen.findByText('Alice');
-  // The list renders newest-first, so anchor to Alice's row rather than "the first chip".
+  // The list renders newest-first, so anchor to Alice's row rather than "the first chip". The
+  // chip only renders once the switch states have been read — before that it stays hidden
+  // instead of painting a default ON over a conversation that may be muted on the server.
   const aliceRow = await waitFor(() => {
     const rows = Array.from(container.querySelectorAll('.chat-item-card'));
     const found = rows.find(r => r.querySelector('.chat-item-name')?.textContent === 'Alice');
     assert.ok(found, 'Alice chat row did not render');
     return found as HTMLElement;
   });
-  const chip = aliceRow.querySelector('.chat-ai-toggle') as HTMLElement;
-  assert.ok(chip, 'the AI chip did not render on the chat row');
-  assert.match(chip.className, /on/, 'the chip defaults to ON while the bot is enabled');
+  assert.ok(!aliceRow.querySelector('.chat-ai-toggle'), 'no chip before the switch states arrive');
+  const chip = (await waitFor(() => {
+    const found = aliceRow.querySelector('.chat-ai-toggle') as HTMLElement | null;
+    assert.ok(found, 'the AI chip did not render on the chat row');
+    return found;
+  })) as HTMLElement;
+  assert.match(chip.className, /on/, 'an unmuted conversation shows ON once the states arrive');
   assert.match(chip.textContent ?? '', /AI on/);
 
   rtl.fireEvent.click(chip);
@@ -2120,8 +2126,13 @@ test('a failed mute save reverts the chip to the server state', async () => {
     assert.ok(found, 'Alice chat row did not render');
     return found as HTMLElement;
   });
-  const chip = aliceRow.querySelector('.chat-ai-toggle') as HTMLElement;
-  assert.ok(chip, 'the AI chip did not render');
+  // The chip waits for the state read even when that read FAILS: the sidebar treats a failed read
+  // as "loaded" (fail-open to the default ON), because there is nothing better to show.
+  const chip = (await waitFor(() => {
+    const found = aliceRow.querySelector('.chat-ai-toggle') as HTMLElement | null;
+    assert.ok(found, 'the AI chip did not render');
+    return found;
+  })) as HTMLElement;
   assert.match(chip.className, /on/);
 
   rtl.fireEvent.click(chip);

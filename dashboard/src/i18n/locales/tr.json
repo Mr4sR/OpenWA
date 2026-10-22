@@ -49,7 +49,8 @@
     "unknownError": "Bilinmeyen hata",
     "retry": "Yeniden Dene",
     "yes": "Evet",
-    "no": "Hayır"
+    "no": "Hayır",
+    "panelResize": "Paneli yeniden boyutlandır"
   },
   "theme": {
     "light": "Açık",
@@ -1208,7 +1209,8 @@
       "chatbots": "Sohbet Botu",
       "llm": "AI LLM",
       "rag": "Vectorsüz RAG",
-      "mcp": "MCP Sunucusu"
+      "mcp": "MCP Sunucusu",
+      "playground": "Playground"
     },
     "actions": {
       "edit": "Düzenle",
@@ -1345,6 +1347,30 @@
     },
     "common": {
       "failed": "İstek başarısız: {{message}}"
+    },
+    "status": {
+      "enabled": "Etkin",
+      "disabled": "Devre dışı"
+    },
+    "playground": {
+      "title": "Playground",
+      "bot": "Sohbet Botu",
+      "selectBot": "Bir sohbet botu seçin…",
+      "emptyTitle": "Henüz test edilecek bir şey yok",
+      "emptyDescription": "Bir sohbet botu oluşturup etkinleştirin, sonra bir WhatsApp mesajı göndermeden burada deneyin.",
+      "llm": "LLM modeli",
+      "rag": "Bilgi",
+      "missingLlm": "bulunamadı",
+      "inactiveWarning": "Bu sohbet botu devre dışı — burada yanıt almak için etkinleştirin (veya başka bir tane seçin).",
+      "hint": "Botun sohbette vereceği yanıtı görmek için bir mesaj gönderin — WhatsApp'a hiçbir şey gönderilmez.",
+      "you": "Siz",
+      "copy": "Yanıtı kopyala",
+      "sources": "Kaynaklar",
+      "thinking": "Düşünüyor…",
+      "inputLabel": "Mesaj",
+      "inputPlaceholder": "Botu test etmek için bir mesaj yazın…",
+      "send": "Gönder",
+      "note": "Yanıtlar gerçekten üretilir (LLM + bilgi) ama hiçbir sohbete iletilmez."
     }
   }
 }

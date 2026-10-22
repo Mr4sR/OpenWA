@@ -51,7 +51,8 @@
     "hideApiKey": "Ocultar chave API",
     "retry": "Tentar novamente",
     "yes": "Sim",
-    "no": "Não"
+    "no": "Não",
+    "panelResize": "Redimensionar painel"
   },
   "theme": {
     "light": "Claro",
@@ -1214,7 +1215,8 @@
       "chatbots": "Chatbot",
       "llm": "LLM de IA",
       "rag": "RAG Vectorless",
-      "mcp": "Servidor MCP"
+      "mcp": "Servidor MCP",
+      "playground": "Playground"
     },
     "actions": {
       "edit": "Editar",
@@ -1351,6 +1353,30 @@
     },
     "common": {
       "failed": "Falha na solicitação: {{message}}"
+    },
+    "status": {
+      "enabled": "Ativo",
+      "disabled": "Inativo"
+    },
+    "playground": {
+      "title": "Playground",
+      "bot": "Chatbot",
+      "selectBot": "Selecione um chatbot…",
+      "emptyTitle": "Nada para testar ainda",
+      "emptyDescription": "Crie e ative um chatbot e volte aqui para testá-lo sem enviar uma mensagem do WhatsApp.",
+      "llm": "Modelo LLM",
+      "rag": "Conhecimento",
+      "missingLlm": "não encontrado",
+      "inactiveWarning": "Este chatbot está inativo — ative-o (ou escolha outro) para responder aqui.",
+      "hint": "Envie uma mensagem para ver a resposta que o bot daria num chat — nada é enviado ao WhatsApp.",
+      "you": "Você",
+      "copy": "Copiar resposta",
+      "sources": "Fontes",
+      "thinking": "Pensando…",
+      "inputLabel": "Mensagem",
+      "inputPlaceholder": "Digite uma mensagem para testar o bot…",
+      "send": "Enviar",
+      "note": "As respostas são geradas de verdade (LLM + conhecimento), mas nunca entregues a nenhum chat."
     }
   }
 }

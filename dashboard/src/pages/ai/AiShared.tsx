@@ -5,12 +5,23 @@ import type { TFunction } from 'i18next';
 import type { AiChatbot, AiLlmModel, AiMcpConnection, AiRagDocument, AiRagNode } from '../../services/api';
 
 /**
- * Shared presentational pieces of the AI Integration page. The four sections (chatbots, LLM
+ * Shared presentational pieces of the AI Integration page. The resource sections (chatbots, LLM
  * models, RAG models, MCP connections) render the same card shape and differ only in the metadata
- * rows and the actions, so the card chrome lives here once.
+ * rows and the actions, so the card chrome lives here once; the Playground tab reuses the card too.
  */
 
-export type AiSectionKey = 'chatbots' | 'llm' | 'rag' | 'mcp';
+/**
+ * The enable/disable dot: green when the instance is live, red when it is off. Rendered next to
+ * every card title and in the Playground header so the state is visible at a glance, not only
+ * through the toggle button glyph.
+ */
+export function AiStatusDot({ enabled, label }: { enabled: boolean; label?: string }) {
+  const { t } = useTranslation();
+  const text = label ?? (enabled ? t('ai.status.enabled') : t('ai.status.disabled'));
+  return <span className={`ai-status-dot ${enabled ? 'ok' : 'fail'}`} role="img" aria-label={text} title={text} />;
+}
+
+export type AiSectionKey = 'chatbots' | 'llm' | 'rag' | 'mcp' | 'playground';
 
 export function AiSectionTabs({
   active,
@@ -26,6 +37,7 @@ export function AiSectionTabs({
     { key: 'llm', label: t('ai.tabs.llm') },
     { key: 'rag', label: t('ai.tabs.rag') },
     { key: 'mcp', label: t('ai.tabs.mcp') },
+    { key: 'playground', label: t('ai.tabs.playground') },
   ];
   return (
     <div className="ai-tabs" role="tablist">
@@ -49,11 +61,14 @@ export function AiCard({
   title,
   icon,
   actions,
+  enabled,
   children,
 }: {
   title: string;
   icon: ReactNode;
   actions?: ReactNode;
+  /** When given, a green/red enable dot renders before the title. */
+  enabled?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -61,6 +76,7 @@ export function AiCard({
       <div className="ai-card-header">
         <div className="ai-card-title-row">
           <span className="ai-card-icon">{icon}</span>
+          {enabled !== undefined && <AiStatusDot enabled={enabled} />}
           <span className="ai-card-title">{title}</span>
         </div>
         <div className="ai-card-actions">{actions}</div>
@@ -95,17 +111,15 @@ export function AiToggleActions({
   extra?: ReactNode;
 }) {
   const { t } = useTranslation();
+  const toggleLabel = enabled
+    ? `${t('ai.status.enabled')} — ${t('ai.actions.disable')}`
+    : `${t('ai.status.disabled')} — ${t('ai.actions.enable')}`;
   return (
     <>
       {extra}
       {canWrite && (
         <>
-          <button
-            type="button"
-            className="icon-btn"
-            title={enabled ? t('ai.actions.disable') : t('ai.actions.enable')}
-            onClick={onToggle}
-          >
+          <button type="button" className="icon-btn" title={toggleLabel} aria-label={toggleLabel} onClick={onToggle}>
             {enabled ? '⏸' : '▶'}
           </button>
           <button type="button" className="icon-btn" title={t('ai.actions.edit')} onClick={onEdit}>

@@ -4,6 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { nextReconnectState } from '../utils/reconnectState';
 import { applyIncomingToChatList, promoteChatWithSnippet } from '../utils/chatList';
 import { aiApi, type AiChatbot } from '../services/api';
+import { usePaneResizer } from '../hooks/usePaneResizer';
 // Per-session cache of the chat-id list the AI states query resolves against. It is refreshed
 // wherever the sidebar's chatIds memo refreshes, so the query key stays stable per render cycle.
 const ALL_CHAT_IDS = new Map<string, string[]>();
@@ -135,6 +136,26 @@ export function Chats() {
   // Sessions list & active session
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+  // VS Code-style drag handle for the sidebar width; dbl-click/Enter resets, size persists.
+  const pane = usePaneResizer(t('common.panelResize'), { cssVar: '--chats-list-w', storageKey: 'openwa_chatsListW' });
+  const { containerRef: chatsLayoutRef, sashProps: chatSashProps } = pane;
+
+  // The composer needs ~244px (64px min input + 40px send + paddings); below that two panes clip
+  // the send button with no scrollbar to recover it. A viewport media query cannot know the room's
+  // real width once the chat list is user-resizable, so watch the room itself and flip the layout
+  // to the stacked single-pane mode (same behavior as phones) when it starves.
+  const [narrowRoom, setNarrowRoom] = useState(false);
+  const roomRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const room = roomRef.current;
+    if (!room) return;
+    const observer = new ResizeObserver(entries => {
+      const width = entries[0]?.contentRect.width ?? room.clientWidth;
+      setNarrowRoom(width < 245);
+    });
+    observer.observe(room);
+    return () => observer.disconnect();
+  }, []);
 
   // Per-chat AI switches: the session's enabled chatbots + which chats they are muted in.
   // The sidebar shows a small ON/OFF chip per conversation; default ON when the bot is enabled.
@@ -147,12 +168,19 @@ export function Chats() {
     select: (bots: AiChatbot[]) => bots.filter(b => b.sessionId === selectedSessionId && b.enabled),
   });
   const aiChatbots = aiChatbotsQuery.data ?? [];
+  // Gated on the bot list having LOADED, not on its derived length: with the derived gate, the very
+  // first render of a session that HAS bots fires the states query with an empty fallback list
+  // ([] -> enabled), and when the bot list then lands non-empty the query key did not move — the
+  // switch states stay unloaded, every chip renders its default ON, and a muted conversation looks
+  // unmuted until the next unrelated refetch. Same trap on a session flip: the old session's list
+  // lingers while the new session's query is in flight.
+  const statesGateReady = !!selectedSessionId && aiChatbotsQuery.isSuccess && aiChatbots.length > 0;
 
   const aiStatesQuery = useQuery({
     queryKey: ['ai', 'chat-states', selectedSessionId, chatIdsKey(selectedSessionId)],
     queryFn: () =>
       aiApi.getChatStates(selectedSessionId, ALL_CHAT_IDS.get(selectedSessionId) ?? []),
-    enabled: !!selectedSessionId && aiChatbots.length > 0,
+    enabled: statesGateReady,
     staleTime: 30_000,
   });
   // A state read that SETTLES must not clobber an optimistic flip. `data` stays cached across
@@ -1164,7 +1192,10 @@ export function Chats() {
           </p>
         </div>
       ) : (
-        <div className={`chats-layout ${activeChat || activeChannel || activeStatusGroup ? 'has-active-chat' : ''}`}>
+        <div
+          ref={chatsLayoutRef}
+          className={`chats-layout ${narrowRoom ? 'narrow-room' : ''} ${activeChat || activeChannel || activeStatusGroup ? 'has-active-chat' : ''}`}
+        >
           {/* LEFT SIDEBAR: session & chat rooms */}
           <ChatSidebar
             sessions={sessions}
@@ -1187,6 +1218,7 @@ export function Chats() {
               onToggleAi: (chatbotId, chatId, chatbotDisabled) => {
                 void toggleChatAi(chatbotId, chatId, chatbotDisabled);
               },
+              aiSwitchesLoaded: statesGateReady && (aiStatesQuery.isSuccess || aiStatesQuery.isError),
             }}
             channelsTab={{
               engineLoading: engineType === null,
@@ -1206,7 +1238,9 @@ export function Chats() {
           />
 
           {/* RIGHT VIEW: active chat room */}
-          <main className="chats-room">
+          <main ref={roomRef} className="chats-room">
+            {/* VS Code-style drag handle on the chat list's trailing edge; dbl-click/Enter resets. */}
+            <div {...chatSashProps} />
             {activeChat ? (
               <div className="room-container">
                 {/* Room header */}

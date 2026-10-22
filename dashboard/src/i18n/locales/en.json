@@ -31,6 +31,7 @@
     "disconnected": "Disconnected",
     "never": "Never",
     "justNow": "Just now",
+    "panelResize": "Resize panel",
     "minAgo": "{{count}} min ago",
     "minAgo_other": "{{count}} min ago",
     "hoursAgo": "{{count}} hour ago",
@@ -1204,18 +1205,19 @@
       "rag": "Add RAG model",
       "mcp": "Add MCP connection"
     },
-    "tabs": {
-      "chatbots": "Chatbot",
-      "llm": "AI LLM",
-      "rag": "RAG Vectorless",
-      "mcp": "MCP Server"
-    },
     "actions": {
       "edit": "Edit",
       "delete": "Delete",
       "enable": "Enable",
       "disable": "Disable",
       "expand": "Show knowledge"
+    },
+    "tabs": {
+      "chatbots": "Chatbot",
+      "llm": "AI LLM",
+      "rag": "RAG Vectorless",
+      "mcp": "MCP Server",
+      "playground": "Playground"
     },
     "toasts": {
       "created": "Created",
@@ -1345,6 +1347,30 @@
     },
     "common": {
       "failed": "Request failed: {{message}}"
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "playground": {
+      "title": "Playground",
+      "bot": "Chatbot",
+      "selectBot": "Select a chatbot…",
+      "emptyTitle": "Nothing to test yet",
+      "emptyDescription": "Create a chatbot and enable it, then come back here to try it without sending a WhatsApp message.",
+      "llm": "LLM model",
+      "rag": "Knowledge",
+      "missingLlm": "not found",
+      "inactiveWarning": "This chatbot is disabled — enable it (or pick another) to get answers here.",
+      "hint": "Send a message to see the answer the bot would give in a chat — nothing is sent to WhatsApp.",
+      "you": "You",
+      "copy": "Copy reply",
+      "sources": "Sources",
+      "thinking": "Thinking…",
+      "inputLabel": "Message",
+      "inputPlaceholder": "Type a message to test the bot…",
+      "send": "Send",
+      "note": "Replies are produced for real (LLM + knowledge) but never delivered to any chat."
     }
   }
 }

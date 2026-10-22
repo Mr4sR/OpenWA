@@ -1,11 +1,17 @@
+/* Nav width is user-resizable (usePaneResizer): the default and clamp bounds live here and a
+   dragged width overrides --sidebar-w inline on .layout. Everything below composes the var. */
 .layout {
+  --sidebar-w: 260px;
+  --sidebar-w-min: 200px;
+  --sidebar-w-max: 420px;
+
   display: flex;
   min-height: 100vh;
 }
 
 /* ==================== Sidebar ==================== */
 .sidebar {
-  width: 260px;
+  width: var(--sidebar-w);
   background: var(--bg-white);
   border-right: 1px solid var(--border);
   display: flex;
@@ -310,8 +316,8 @@
 /* ==================== Main Content ==================== */
 .main-content {
   flex: 1;
-  margin-left: 260px;
-  width: calc(100% - 260px);
+  margin-left: var(--sidebar-w);
+  width: calc(100% - var(--sidebar-w));
   background: var(--bg-light);
   min-height: 100vh;
   overflow-x: hidden;

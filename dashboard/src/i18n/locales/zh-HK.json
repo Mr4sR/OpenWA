@@ -49,7 +49,8 @@
     "unknownError": "未知錯誤",
     "retry": "重試",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "panelResize": "調整面板大小"
   },
   "theme": {
     "light": "淺色",
@@ -1208,7 +1209,8 @@
       "chatbots": "聊天機械人",
       "llm": "AI LLM",
       "rag": "無向量 RAG",
-      "mcp": "MCP 伺服器"
+      "mcp": "MCP 伺服器",
+      "playground": "測試台"
     },
     "actions": {
       "edit": "編輯",
@@ -1345,6 +1347,30 @@
     },
     "common": {
       "failed": "請求失敗：{{message}}"
+    },
+    "status": {
+      "enabled": "已啟用",
+      "disabled": "已停用"
+    },
+    "playground": {
+      "title": "Playground",
+      "bot": "聊天機械人",
+      "selectBot": "選擇一個聊天機械人…",
+      "emptyTitle": "暫無可測試的機械人",
+      "emptyDescription": "建立聊天機械人並啟用它，然後回到這裡在不發送 WhatsApp 訊息的情況下試用。",
+      "llm": "LLM 模型",
+      "rag": "知識",
+      "missingLlm": "未找到",
+      "inactiveWarning": "此聊天機械人已停用 — 請啟用它（或選擇其他機械人）以在此獲得回覆。",
+      "hint": "發送訊息即可查看機械人在聊天中會給出的回覆 — 不會向 WhatsApp 發送任何內容。",
+      "you": "你",
+      "copy": "複製回覆",
+      "sources": "來源",
+      "thinking": "思考中…",
+      "inputLabel": "訊息",
+      "inputPlaceholder": "輸入訊息以測試機械人…",
+      "send": "發送",
+      "note": "回覆會真實產生（LLM + 知識），但絕不會投遞到任何聊天。"
     }
   }
 }

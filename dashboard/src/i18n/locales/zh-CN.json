@@ -49,7 +49,8 @@
     "unknownError": "未知错误",
     "retry": "重试",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "panelResize": "调整面板大小"
   },
   "theme": {
     "light": "浅色",
@@ -1208,7 +1209,8 @@
       "chatbots": "聊天机器人",
       "llm": "AI LLM",
       "rag": "无向量 RAG",
-      "mcp": "MCP 服务器"
+      "mcp": "MCP 服务器",
+      "playground": "测试台"
     },
     "actions": {
       "edit": "编辑",
@@ -1345,6 +1347,30 @@
     },
     "common": {
       "failed": "请求失败：{{message}}"
+    },
+    "status": {
+      "enabled": "已启用",
+      "disabled": "已停用"
+    },
+    "playground": {
+      "title": "Playground",
+      "bot": "聊天机器人",
+      "selectBot": "选择一个聊天机器人…",
+      "emptyTitle": "暂无可测试的机器人",
+      "emptyDescription": "创建一个聊天机器人并启用它，然后回到这里在不发送 WhatsApp 消息的情况下试用。",
+      "llm": "LLM 模型",
+      "rag": "知识",
+      "missingLlm": "未找到",
+      "inactiveWarning": "此聊天机器人已停用 — 请启用它（或选择其他机器人）以在此获得回复。",
+      "hint": "发送消息即可查看机器人在聊天中会给出的回复 — 不会向 WhatsApp 发送任何内容。",
+      "you": "你",
+      "copy": "复制回复",
+      "sources": "来源",
+      "thinking": "思考中…",
+      "inputLabel": "消息",
+      "inputPlaceholder": "输入消息以测试机器人…",
+      "send": "发送",
+      "note": "回复会真实生成（LLM + 知识），但绝不会投递到任何聊天。"
     }
   }
 }

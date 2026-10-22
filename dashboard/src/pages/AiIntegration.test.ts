@@ -30,6 +30,9 @@ function installFetchStub(): void {
     if (path === '/api/ai/chatbots') return Promise.resolve(jsonResponse(chatbotList));
     if (path === '/api/ai/rag-models') return Promise.resolve(jsonResponse(ragList));
     if (path === '/api/ai/mcp-connections') return Promise.resolve(jsonResponse(mcpList));
+    if (/^\/api\/sessions\/[^/]+\/ai-chatbots\/[^/]+\/test$/.test(path)) {
+      return Promise.resolve(jsonResponse({ ok: true, reply: 'Test reply', sources: [], warnings: [] }));
+    }
     return Promise.resolve(jsonResponse({ message: `unstubbed ${path}` }, 404));
   }) as typeof fetch;
 }
@@ -92,12 +95,13 @@ const llmRow = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
-test('the page renders its four tabs', async () => {
+test('the page renders its five tabs', async () => {
   renderPage();
   await rtl.screen.findByRole('tab', { name: 'Chatbot' });
   rtl.screen.getByRole('tab', { name: 'AI LLM' });
   rtl.screen.getByRole('tab', { name: 'RAG Vectorless' });
   rtl.screen.getByRole('tab', { name: 'MCP Server' });
+  rtl.screen.getByRole('tab', { name: 'Playground' });
 });
 
 test('an empty chatbot list shows the empty state, and the add action opens the create modal', async () => {
@@ -152,3 +156,51 @@ test('a 403 on the AI reads shows the permission banner', async () => {
   await rtl.screen.findByRole('alert');
   rtl.screen.getByText(/no access to the AI Integration surface/);
 });
+
+test('chatbot and LLM cards carry the green/red enable dot', async () => {
+  chatbotList = [chatbotRow({ enabled: true })];
+  llmList = [{ ...llmRow, enabled: false }];
+  renderPage();
+  await rtl.screen.findByText('Support bot');
+  const okDots = rtl.screen.getAllByRole('img').filter(dot => dot.className.includes('ok'));
+  assert.equal(okDots.length, 1);
+  assert.equal(okDots[0].getAttribute('aria-label'), 'Enabled');
+
+  rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: 'AI LLM' }));
+  await rtl.screen.findByText('OpenAI production');
+  const failDots = rtl.screen.getAllByRole('img').filter(dot => dot.className.includes('fail'));
+  assert.equal(failDots.length, 1);
+  assert.equal(failDots[0].getAttribute('aria-label'), 'Disabled');
+});
+
+test('the playground sends a message and renders the answer without WhatsApp', async () => {
+  chatbotList = [chatbotRow({ enabled: true })];
+  llmList = [llmRow];
+  renderPage();
+  await rtl.screen.findByText('No chatbots yet');
+  rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: 'Playground' }));
+
+  const input = await rtl.screen.findByLabelText('Message');
+  rtl.fireEvent.change(input, { target: { value: 'Hello bot' } });
+  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Send' }));
+
+  await rtl.screen.findByText('Test reply');
+  rtl.screen.getByText('Hello bot');
+});
+
+function chatbotRow(overrides: { enabled: boolean }) {
+  return {
+    id: 'bot-1',
+    sessionId: 's1',
+    name: 'Support bot',
+    llmModelId: 'm1',
+    ragModelId: null,
+    persona: null,
+    replyGroups: false,
+    lastRepliedAt: null,
+    lastError: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}

@@ -49,7 +49,8 @@
     "unknownError": "Kesalahan tidak diketahui",
     "retry": "Coba lagi",
     "yes": "Ya",
-    "no": "Tidak"
+    "no": "Tidak",
+    "panelResize": "Ubah ukuran panel"
   },
   "theme": {
     "light": "Terang",
@@ -1208,7 +1209,8 @@
       "chatbots": "Chatbot",
       "llm": "AI LLM",
       "rag": "RAG Vectorless",
-      "mcp": "Server MCP"
+      "mcp": "Server MCP",
+      "playground": "Playground"
     },
     "actions": {
       "edit": "Ubah",
@@ -1345,6 +1347,30 @@
     },
     "common": {
       "failed": "Permintaan gagal: {{message}}"
+    },
+    "status": {
+      "enabled": "Aktif",
+      "disabled": "Nonaktif"
+    },
+    "playground": {
+      "title": "Playground",
+      "bot": "Chatbot",
+      "selectBot": "Pilih chatbot…",
+      "emptyTitle": "Belum ada yang bisa diuji",
+      "emptyDescription": "Buat chatbot dan aktifkan, lalu kembali ke sini untuk mencobanya tanpa mengirim pesan WhatsApp.",
+      "llm": "Model LLM",
+      "rag": "Pengetahuan",
+      "missingLlm": "tidak ditemukan",
+      "inactiveWarning": "Chatbot ini nonaktif — aktifkan (atau pilih yang lain) agar bisa menjawab di sini.",
+      "hint": "Kirim pesan untuk melihat jawaban yang akan diberikan bot di chat — tidak ada yang dikirim ke WhatsApp.",
+      "you": "Anda",
+      "copy": "Salin balasan",
+      "sources": "Sumber",
+      "thinking": "Berpikir…",
+      "inputLabel": "Pesan",
+      "inputPlaceholder": "Tulis pesan untuk menguji bot…",
+      "send": "Kirim",
+      "note": "Balasan dihasilkan sungguhan (LLM + pengetahuan) tetapi tidak pernah dikirim ke obrolan mana pun."
     }
   }
 }

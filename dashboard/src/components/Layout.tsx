@@ -25,7 +25,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
-import { useRole, type UserRole } from '../hooks/useRole';
+import { usePaneResizer } from '../hooks/usePaneResizer';
 import { languageOptions, resolveSupportedLanguage, rtlLanguages, type SupportedLanguage } from '../i18n';
 import { healthApi, infraApi } from '../services/api';
 import './Layout.css';
@@ -72,6 +72,12 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  // VS Code-style nav width: drag the sidebar's inner edge, double-click/Enter restores 260px.
+  // Collapsing still wins (72px); the saved width returns when the nav is expanded again.
+  const { containerRef: layoutRef, sashProps: navSashProps } = usePaneResizer(t('common.panelResize'), {
+    cssVar: '--sidebar-w',
+    storageKey: 'openwa_nav_width',
+  });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   // Show the build-time version immediately, then replace it with the live running version from the
   // backend so a stale-built bundle can't display the wrong number. Falls back silently on error.
@@ -168,7 +174,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
   const isRtl = rtlLanguages.includes(currentLang);
 
   return (
-    <div className="layout">
+    <div className="layout" ref={layoutRef}>
       {isMobile && (
         <header className="mobile-header">
           <button className="mobile-menu-btn" onClick={toggleMobile} aria-label={t('common.expand')}>
@@ -222,6 +228,9 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
             )}
           </button>
         )}
+
+        {/* The sash lives on the sidebar's trailing edge and straddles the fixed nav's boundary. */}
+        {!isMobile && !isCollapsed && <div {...navSashProps} />}
 
         <nav className="sidebar-nav">
           {navItems.map(({ to, icon: Icon, key }) => {

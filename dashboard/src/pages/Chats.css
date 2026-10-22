@@ -1,13 +1,22 @@
+/* Full-viewport page: dvh tracks mobile browser chrome; .chats-layout then fills what's left, so
+   the chat area uses all the vertical space the header does not need (the request: taller list). */
 .chats-page {
-  padding: 2rem;
+  padding: 1.5rem 2rem;
   width: 100%;
-  height: calc(100vh - 4rem);
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
 }
 
+/* Chat list width: user-resizable via the .pane-sash between the panes (usePaneResizer). The
+   defaults here are also the drag clamp bounds; a saved/dragged width overrides --chats-list-w
+   inline on .chats-layout. */
 .chats-page .chats-layout {
+  --chats-list-w: 320px;
+  --chats-list-w-min: 220px;
+  --chats-list-w-max: 560px;
+
   display: flex;
   flex: 1;
   min-height: 0;
@@ -16,15 +25,38 @@
   border-radius: 16px;
   overflow: hidden;
   box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06));
-  height: calc(100vh - 12rem);
+  /* Fill the page instead of the old 12rem-capped box: header + padding take their natural
+     height and the rounded panel consumes everything left, however tall the viewport is. */
+  height: auto;
   margin-top: 1rem;
+  position: relative;
+}
+
+/* The sash renders as the room's first child (inside .chats-room so it sits above the scroll
+   area) and lies on the room's leading border — the same 1px divider as the list's inline-end. */
+.chats-page .chats-room > .pane-sash {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  translate: -50% 0;
+  z-index: 5;
+  height: 100%;
+}
+
+.chats-page .has-active-chat .chats-room > .pane-sash {
+  display: none;
+}
+
+/* Keep the room's own content clear of the hit zone (extension of the divider, not layout). */
+.chats-page .chats-room {
+  position: relative;
 }
 
 /* =============================================================================
    SIDEBAR: Left Column
    ============================================================================= */
 .chats-page .chats-sidebar {
-  width: 320px;
+  width: var(--chats-list-w);
   border-inline-end: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -1020,12 +1052,19 @@
 @media (max-width: 768px) {
   .chats-page {
     padding: 1rem;
+    /* The mobile shell adds its own 3.5rem header on top of the page. */
     height: calc(100dvh - 3.5rem);
   }
 
   .chats-page .chats-layout {
     flex-direction: column;
-    height: calc(100vh - 7rem);
+    /* Same flex fill as desktop; no viewport arithmetic to drift out of sync. */
+    height: auto;
+  }
+
+  /* No dragging while the panes stack; the single-pane swap below owns the screen. */
+  .chats-page .chats-room > .pane-sash {
+    display: none;
   }
 
   /* Single-pane on mobile: the list and the open conversation each take the full panel
@@ -1058,36 +1097,38 @@
   }
 }
 
-/* Between the mobile breakpoint and 889px the two-pane layout leaves the room narrower than the
-   composer's 244px minimum, so the send button fell outside the panel's clip with no scrollbar to
-   recover it. In that band the panes swap one at a time instead, the way they already do on a phone.
-   Bounded on both sides on purpose: at 768px and below the mobile shell owns the layout, and from 890px
-   the room fits the composer again. The room is `viewport - 646`, so the bound is 646 + 244 - 1; it
-   moves if the composer's own minimum does. Keyed to the navigation as well as the viewport, because
-   that arithmetic only holds while the nav is expanded; collapsed it already fits and none of this
-   should apply. `.main-content.expanded` is Layout's class for the COLLAPSED nav. */
-@media (min-width: 769px) and (max-width: 889px) {
-  .main-content:not(.expanded) .chats-page .chats-layout {
-    flex-direction: column;
-  }
+/* The composer needs a ~244px-wide room (64px min input + send button + paddings). At mid widths
+   — viewport 769–889px with the expanded nav — two panes starve the room, so the panes used to
+   swap one at a time from a viewport band media query. With the list now user-resizable, viewport
+   media queries can no longer know the room's real width, so Chats.tsx watches the room with a
+   ResizeObserver and flips the .narrow-room class when it drops below the composer minimum: from
+   a narrow viewport OR from the user dragging the list wide. The panes then stack and swap, and
+   the drag handle hides with them. Container queries cannot do this: their rules cannot restyle
+   the container's own ancestors (a .chats-layout direction change would never apply). */
+.chats-page .chats-layout.narrow-room {
+  flex-direction: column;
+}
 
-  .main-content:not(.expanded) .chats-page .chats-sidebar {
-    width: 100%;
-    height: 100%;
-    border-inline-end: none;
-  }
+.chats-page .chats-layout.narrow-room .chats-sidebar {
+  width: 100%;
+  height: 100%;
+  border-inline-end: none;
+}
 
-  .main-content:not(.expanded) .chats-page .chats-layout.has-active-chat .chats-sidebar {
-    display: none;
-  }
+.chats-page .chats-layout.narrow-room.has-active-chat .chats-sidebar {
+  display: none;
+}
 
-  .main-content:not(.expanded) .chats-page .chats-layout:not(.has-active-chat) .chats-room {
-    display: none;
-  }
+.chats-page .chats-layout.narrow-room:not(.has-active-chat) .chats-room {
+  display: none;
+}
 
-  .main-content:not(.expanded) .chats-page .room-back {
-    display: inline-flex;
-  }
+.chats-page .chats-layout.narrow-room .room-back {
+  display: inline-flex;
+}
+
+.chats-page .narrow-room .chats-room > .pane-sash {
+  display: none;
 }
 
 /* =============================================================================

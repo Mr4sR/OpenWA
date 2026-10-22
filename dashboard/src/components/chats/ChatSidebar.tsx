@@ -29,6 +29,12 @@ interface ChatSidebarProps {
     aiOverrides?: Record<string, string[]>;
     /** Flip one (chatbot, chat) switch; flipped to enabled = remove the override. */
     onToggleAi?: (chatbotId: string, chatId: string, chatbotDisabled: boolean) => void;
+    /**
+     * True once the server's switch states have been read (success or failure). Before that the
+     * chips render nothing rather than their default ON: a default ON painted over an unread state
+     * is what made a saved mute look lost after a refresh.
+     */
+    aiSwitchesLoaded?: boolean;
   };
   channelsTab: {
     engineLoading: boolean;
@@ -99,7 +105,7 @@ function ChatSidebar({
             {chat.kind !== 'individual' && chat.kind !== 'unknown' && (
               <span className={`chat-kind-badge kind-${chat.kind}`}>{t(`chats.kind.${chat.kind}`)}</span>
             )}
-            {chatsTab.aiChatbots && chatsTab.aiChatbots.length > 0 && (
+            {chatsTab.aiSwitchesLoaded && chatsTab.aiChatbots && chatsTab.aiChatbots.length > 0 && (
               <span className="chat-ai-toggles">
                 {chatsTab.aiChatbots.map(bot => {
                   const off = (chatsTab.aiOverrides?.[chat.id] ?? []).includes(bot.id);

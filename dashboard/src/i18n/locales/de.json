@@ -49,7 +49,8 @@
     "unknownError": "Unbekannter Fehler",
     "retry": "Erneut versuchen",
     "yes": "Ja",
-    "no": "Nein"
+    "no": "Nein",
+    "panelResize": "Panelgröße ändern"
   },
   "theme": {
     "light": "Hell",
@@ -1208,7 +1209,8 @@
       "chatbots": "Chatbot",
       "llm": "KI-LLM",
       "rag": "RAG Vectorless",
-      "mcp": "MCP-Server"
+      "mcp": "MCP-Server",
+      "playground": "Playground"
     },
     "actions": {
       "edit": "Bearbeiten",
@@ -1345,6 +1347,30 @@
     },
     "common": {
       "failed": "Anfrage fehlgeschlagen: {{message}}"
+    },
+    "status": {
+      "enabled": "Aktiv",
+      "disabled": "Inaktiv"
+    },
+    "playground": {
+      "title": "Playground",
+      "bot": "Chatbot",
+      "selectBot": "Chatbot auswählen…",
+      "emptyTitle": "Noch nichts zu testen",
+      "emptyDescription": "Erstellen und aktivieren Sie einen Chatbot und testen Sie ihn hier, ohne eine WhatsApp-Nachricht zu senden.",
+      "llm": "LLM-Modell",
+      "rag": "Wissen",
+      "missingLlm": "nicht gefunden",
+      "inactiveWarning": "Dieser Chatbot ist inaktiv — aktivieren Sie ihn (oder wählen Sie einen anderen).",
+      "hint": "Senden Sie eine Nachricht und sehen Sie die Antwort, die der Bot im Chat geben würde — nichts wird an WhatsApp gesendet.",
+      "you": "Sie",
+      "copy": "Antwort kopieren",
+      "sources": "Quellen",
+      "thinking": "Denkt nach…",
+      "inputLabel": "Nachricht",
+      "inputPlaceholder": "Nachricht zum Testen des Bots schreiben…",
+      "send": "Senden",
+      "note": "Antworten werden echt erzeugt (LLM + Wissen), aber nie an einen Chat zugestellt."
     }
   }
 }

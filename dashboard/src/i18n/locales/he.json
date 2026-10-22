@@ -53,7 +53,8 @@
     "unknownError": "שגיאה לא ידועה",
     "retry": "נסה שוב",
     "yes": "כן",
-    "no": "לא"
+    "no": "לא",
+    "panelResize": "שינוי גודל הפאנל"
   },
   "theme": {
     "light": "בהיר",
@@ -1221,7 +1222,8 @@
       "chatbots": "צ׳אטבוט",
       "llm": "AI LLM",
       "rag": "RAG ללא־וקטורים",
-      "mcp": "שרת MCP"
+      "mcp": "שרת MCP",
+      "playground": "Playground"
     },
     "actions": {
       "edit": "עריכה",
@@ -1358,6 +1360,30 @@
     },
     "common": {
       "failed": "הבקשה נכשלה: {{message}}"
+    },
+    "status": {
+      "enabled": "פעיל",
+      "disabled": "כבוי"
+    },
+    "playground": {
+      "title": "Playground",
+      "bot": "צ׳אטבוט",
+      "selectBot": "בחר צ׳אטבוט…",
+      "emptyTitle": "אין עדיין מה לבדוק",
+      "emptyDescription": "צור צ׳אטבוט והפעל אותו, ואז חזור לכאן כדי לנסות אותו בלי לשלוח הודעת WhatsApp.",
+      "llm": "מודל LLM",
+      "rag": "ידע",
+      "missingLlm": "לא נמצא",
+      "inactiveWarning": "הצ׳אטבוט הזה כבוי — הפעל אותו (או בחר אחר) כדי לקבל כאן תשובות.",
+      "hint": "שלח הודעה כדי לראות את התשובה שהבוט היה נותן בצ׳אט — שום דבר לא נשלח ל־WhatsApp.",
+      "you": "אתה",
+      "copy": "העתק תשובה",
+      "sources": "מקורות",
+      "thinking": "חושב…",
+      "inputLabel": "הודעה",
+      "inputPlaceholder": "כתוב הודעה כדי לבדוק את הבוט…",
+      "send": "שלח",
+      "note": "התשובות נוצרות באמת (LLM + ידע) אך לעולם לא נמסרות לאף צ׳אט."
     }
   }
 }
