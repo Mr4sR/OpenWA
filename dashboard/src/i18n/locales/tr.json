@@ -47,7 +47,9 @@
     "refresh": "Yenile",
     "errorGeneric": "Bir hata oluştu",
     "unknownError": "Bilinmeyen hata",
-    "retry": "Yeniden Dene"
+    "retry": "Yeniden Dene",
+    "yes": "Evet",
+    "no": "Hayır"
   },
   "theme": {
     "light": "Açık",
@@ -202,6 +204,12 @@
       "delivered": "İletildi",
       "read": "Okundu",
       "failed": "Başarısız"
+    },
+    "ai": {
+      "on": "YZ açık",
+      "off": "YZ kapalı",
+      "onHint": "{{bot}} için YZ yanıtlıyor — bu sohbeti sessize almak için tıklayın",
+      "offHint": "{{bot}} için YZ sessize alındı — yeniden açmak için tıklayın"
     }
   },
   "errorBoundary": {
@@ -1231,19 +1239,15 @@
       "selectSession": "Bir oturum seçin…",
       "name": "Ad",
       "llmModel": "LLM modeli",
-      "selectLlm": "Bir LLM modeli seçin…",
       "ragModel": "RAG bilgisi",
       "noRag": "Yok",
       "persona": "Persona",
-      "personaPlaceholder": "Destek temsilcisisiniz… (isteğe bağlı; model personayı geçersiz kılar)",
-      "chats": "Sohbetler",
-      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (boş = tüm sohbetler)",
-      "chatsHint": "Virgülle ayrılmış sohbet kimlikleri veya çıplak numaralar. Oturumun tüm sohbetlerini yanıtlamak için boş bırakın.",
-      "allChats": "Tüm sohbetler",
-      "cooldown": "Bekleme süresi (sn)",
-      "cooldownValue": "{{count}} sn",
-      "context": "Geçmiş",
-      "enabled": "Etkin"
+      "personaPlaceholder": "ACME destek Agent’sin. Kısa, samimi ve müşterinin dilinde yanıtla. Fiyat sorulursa acme.example/pricing sayfasına yönlendir.",
+      "enabled": "Etkin",
+      "replyGroups": "Grup sohbetlerinde yanıtla",
+      "replyGroupsHint": "Varsayılan olarak kapalı: grupta bot tüm üyelerin önünde konuşur. Bot etkinken birebir sohbetler her zaman yanıtlanır — konuşma başına anahtarlar Chats sayfasındadır.",
+      "groups": "Grup yanıtları",
+      "selectLlm": "Bir LLM modeli seçin…"
     },
     "llm": {
       "emptyTitle": "Henüz LLM modeli yok",
@@ -1258,8 +1262,6 @@
       "modelId": "Model kimliği",
       "apiKey": "API anahtarı",
       "apiKeyKeep": "Depolanmış anahtarı korumak için boş bırakın",
-      "persona": "Persona",
-      "personaPlaceholder": "Her tamamlamayla gönderilen sistem komutu (isteğe bağlı)",
       "parameters": "Örnekleme parametreleri",
       "temperature": "Sıcaklık",
       "maxTokens": "Maks. token",
@@ -1304,7 +1306,17 @@
       "documentChars": "{{count}} karakter",
       "queryPlaceholder": "Bilgi tabanına sorun…",
       "query": "Getir",
-      "sourceTypeLabel": "Kaynak türü"
+      "sourceTypeLabel": "Kaynak türü",
+      "colSource": "Kaynak",
+      "colTitle": "Başlık",
+      "colSize": "Boyut",
+      "colStatus": "Durum",
+      "docTable": "Bilgi girdileri",
+      "statusReady": "Hazır",
+      "statusPending": "Bekliyor",
+      "statusProcessing": "Alınıyor…",
+      "statusFailed": "Başarısız",
+      "asyncHint": "URL/site/dosya kaynakları arka planda alınır — işlem bitince rozet Hazır olur."
     },
     "mcp": {
       "emptyTitle": "Henüz MCP bağlantısı yok",
@@ -1325,7 +1337,11 @@
       "timeout": "Zaman aşımı (ms)",
       "test": "Bağlan ve araçları listele",
       "lastTest": "Son test",
-      "toolCount": "{{count}} araç"
+      "toolCount": "{{count}} araç",
+      "transport": "Taşıma",
+      "transportStreamable": "Streamable HTTP (modern)",
+      "transportSse": "SSE (eski sunucular)",
+      "transportHint": "Sunucu Streamable HTTP desteklemiyorsa yalnızca SSE kullanın."
     },
     "common": {
       "failed": "İstek başarısız: {{message}}"

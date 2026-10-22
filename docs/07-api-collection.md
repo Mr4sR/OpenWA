@@ -1466,7 +1466,7 @@ curl "$BASE/api/infra/export-data" \
 
 #### POST /api/infra/import-data
 
-Replace all Data DB rows with a prior export (destructive, all-or-nothing). Every one of the 16 migration tables is emptied first, so a key you omit restores **empty** rather than untouched — send a body produced by `GET /api/infra/export-data`, not a hand-built subset. All 16 keys are shown below for that reason.
+Replace all Data DB rows with a prior export (destructive, all-or-nothing). Every one of the 22 migration tables is emptied first, so a key you omit restores **empty** rather than untouched — send a body produced by `GET /api/infra/export-data`, not a hand-built subset. All 22 keys are shown below for that reason.
 
 ```bash
 curl -X POST "$BASE/api/infra/import-data" \
@@ -1478,7 +1478,7 @@ curl -X POST "$BASE/api/infra/import-data" \
       "webhooks": [], "messages": [], "messageBatches": [], "templates": [], "baileysStoredMessages": [],
       "lidMappings": [], "chatStates": [], "pluginInstances": [], "conversationMappings": [], "ingressEvents": [],
       "webhookDeliveryFailures": [], "webhookOutboxEvents": [], "integrationDeliveryFailures": [], "statusUpdates": [],
-      "automationRules": []
+      "automationRules": [],"aiLlmModels": [],"aiChatbots": [],"aiChatOverrides": [],"aiRagModels": [],"aiRagDocuments": [],"aiMcpConnections": []
     }
   }'
 ```

@@ -51,7 +51,9 @@
     "refresh": "רענון",
     "errorGeneric": "אירעה שגיאה",
     "unknownError": "שגיאה לא ידועה",
-    "retry": "נסה שוב"
+    "retry": "נסה שוב",
+    "yes": "כן",
+    "no": "לא"
   },
   "theme": {
     "light": "בהיר",
@@ -213,6 +215,12 @@
       "delivered": "נמסר",
       "read": "נקרא",
       "failed": "נכשל"
+    },
+    "ai": {
+      "on": "AI פועל",
+      "off": "AI כבוי",
+      "onHint": "AI עונה עבור {{bot}} — לחץ כדי להשתיק את הצ׳ט הזה",
+      "offHint": "AI מושתק עבור {{bot}} — לחץ כדי להפעיל מחדש"
     }
   },
   "errorBoundary": {
@@ -1244,19 +1252,15 @@
       "selectSession": "בחרו סשן…",
       "name": "שם",
       "llmModel": "מודל LLM",
-      "selectLlm": "בחרו מודל LLM…",
       "ragModel": "ידע RAG",
       "noRag": "ללא",
       "persona": "פרסונה",
-      "personaPlaceholder": "אתם סוכן התמיכה של… (אופציונלי; דורס את הפרסונה של המודל)",
-      "chats": "צ׳אטים",
-      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (ריק = כל הצ׳אטים)",
-      "chatsHint": "מזהי צ׳אט או מספרים בלבד, מופרדים בפסיקים. השאירו ריק כדי לענות לכל צ׳אט בסשן.",
-      "allChats": "כל הצ׳אטים",
-      "cooldown": "זמן שהות (שנ׳)",
-      "cooldownValue": "{{count}} שנ׳",
-      "context": "היסטוריה",
-      "enabled": "מופעל"
+      "personaPlaceholder": "את/ה סוכן התמיכה של ACME. ענה בקצרה, בנימוס ובשפת הלקוח. לשאלות מחיר — הפנה ל־acme.example/pricing.",
+      "enabled": "מופעל",
+      "replyGroups": "תשובות בקבוצות",
+      "replyGroupsHint": "כבוי כברירת מחדל: בקבוצה הבוט מדבר מול כל החברים. צ׳אטים אישיים נענים תמיד כל עוד הבוט מופעל — המתגים לכל שיחה נמצאים בעמוד Chats.",
+      "groups": "תשובות קבוצה",
+      "selectLlm": "בחר מודל LLM…"
     },
     "llm": {
       "emptyTitle": "אין עדיין מודלי LLM",
@@ -1271,8 +1275,6 @@
       "modelId": "מזהה מודל",
       "apiKey": "מפתח API",
       "apiKeyKeep": "השאירו ריק כדי לשמור על המפתח השמור",
-      "persona": "פרסונה",
-      "personaPlaceholder": "הנחיית מערכת שנשלחת עם כל completion (אופציונלי)",
       "parameters": "פרמטרי דגימה",
       "temperature": "טמפרטורה",
       "maxTokens": "מקסימום טוקנים",
@@ -1317,7 +1319,17 @@
       "documentChars": "{{count}} תווים",
       "queryPlaceholder": "שאלו את בסיס הידע…",
       "query": "שליפה",
-      "sourceTypeLabel": "סוג מקור"
+      "sourceTypeLabel": "סוג מקור",
+      "colSource": "מקור",
+      "colTitle": "כותרת",
+      "colSize": "גודל",
+      "colStatus": "מצב",
+      "docTable": "רשומות ידע",
+      "statusReady": "מוכן",
+      "statusPending": "ממתין",
+      "statusProcessing": "נטען…",
+      "statusFailed": "נכשל",
+      "asyncHint": "מקורות URL/אתר/קובץ נאספים ברקע — התג הופך למוכן כשמסתיים."
     },
     "mcp": {
       "emptyTitle": "אין עדיין חיבורי MCP",
@@ -1338,7 +1350,11 @@
       "timeout": "פסק זמן (מילישניות)",
       "test": "התחברות ורשימת כלים",
       "lastTest": "בדיקה אחרונה",
-      "toolCount": "{{count}} כלים"
+      "toolCount": "{{count}} כלים",
+      "transport": "תעבורה",
+      "transportStreamable": "Streamable HTTP (מודרני)",
+      "transportSse": "SSE (שרתים ישנים)",
+      "transportHint": "השתמש ב־SSE רק אם השרת אינו תומך ב־Streamable HTTP."
     },
     "common": {
       "failed": "הבקשה נכשלה: {{message}}"

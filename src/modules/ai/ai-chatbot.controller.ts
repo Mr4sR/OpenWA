@@ -1,11 +1,29 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  NotFoundException,
+  Param,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RequireRole, CurrentApiKey } from '../auth/decorators/auth.decorators';
 import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 import { AiChatbotService } from './ai-chatbot.service';
 import { AiLlmModelsService } from './ai-llm-models.service';
 import { AiRagService } from './ai-rag.service';
-import { AiChatbotResponseDto, CreateAiChatbotDto, UpdateAiChatbotDto } from './dto/ai-chatbot.dto';
+import {
+  AiChatbotResponseDto,
+  AiChatStateDto,
+  CreateAiChatbotDto,
+  SetAiChatOverrideDto,
+  UpdateAiChatbotDto,
+} from './dto/ai-chatbot.dto';
 import { AiRagModelResponseDto } from './dto/ai-rag-model.dto';
 
 /**
@@ -119,6 +137,58 @@ export class AiIntegrationController {
       return AiChatbotResponseDto.fromEntities(await this.chatbots.findAll(sessionId));
     }
     return AiChatbotResponseDto.fromEntities(await this.chatbots.findAllForSessions(allowed));
+  }
+
+  /**
+   * The AI switches of one session's conversations, for the Chats page: which bots are switched
+   * OFF per chat. Chats without an entry are ON (the bot's own `enabled` state governs them).
+   */
+  @Get('chat-states')
+  @RequireRole(ApiKeyRole.OPERATOR)
+  @ApiOperation({ summary: "Per-chat AI switch state for the session's conversations (Chats page)" })
+  @ApiQuery({ name: 'sessionId', required: true, description: 'Session ID' })
+  @ApiQuery({ name: 'chatIds', required: true, description: 'Comma-separated chat ids to resolve' })
+  @ApiResponse({ status: 200, description: 'Map of chatId -> chatbotIds switched OFF for that chat.' })
+  async chatStates(
+    @CurrentApiKey() apiKey?: ApiKey,
+    @Query('sessionId') sessionId?: string,
+    @Query('chatIds') chatIds?: string,
+  ): Promise<{ overrides: Record<string, string[]> }> {
+    if (!sessionId || !chatIds) return { overrides: {} };
+    const allowed = apiKey?.allowedSessions ?? null;
+    if (allowed != null && allowed.length > 0 && !allowed.includes(sessionId)) return { overrides: {} };
+    const ids = chatIds
+      .split(',')
+      .map(c => c.trim())
+      .filter(Boolean)
+      .slice(0, 200);
+    const map = await this.chatbots.getChatOverrides(sessionId, ids);
+    const overrides: Record<string, string[]> = {};
+    for (const [chatId, botIds] of map) overrides[chatId] = botIds;
+    return { overrides };
+  }
+
+  /** Flip ONE (chatbot, chat) switch from the Chats page. The bot must be inside the caller's session fence. */
+  @Post('chat-state')
+  @RequireRole(ApiKeyRole.OPERATOR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Flip the per-chat AI switch of one chatbot for one conversation' })
+  @ApiResponse({ status: 200, description: 'The switch was stored, or removed when enabling.', type: AiChatStateDto })
+  @ApiResponse({ status: 404, description: 'No such chatbot.' })
+  async setChatState(
+    @Body() dto: SetAiChatOverrideDto,
+    @CurrentApiKey() apiKey?: ApiKey,
+  ): Promise<AiChatStateDto> {
+    const chatbot = (await this.chatbots.findAllForSessions(apiKey?.allowedSessions ?? null)).find(
+      candidate => candidate.id === dto.chatbotId,
+    );
+    if (!chatbot) throw new NotFoundException(`Chatbot ${dto.chatbotId} not found`);
+    await this.chatbots.setChatOverride(chatbot.sessionId, dto.chatbotId, dto.chatId, dto.chatbotDisabled);
+    return AiChatStateDto.fromRow({
+      chatbotId: dto.chatbotId,
+      chatId: dto.chatId,
+      chatbotDisabled: dto.chatbotDisabled,
+    });
   }
 
   @Get('rag-models')

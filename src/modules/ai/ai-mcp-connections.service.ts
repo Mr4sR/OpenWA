@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { createLogger } from '../../common/services/logger.service';
 import { redactSsrfError, resolveSafeFetchTarget } from '../../common/security/ssrf-guard';
 import { sanitizeHeaderMap } from './ai-secrets';
@@ -72,6 +73,7 @@ export class AiMcpConnectionsService {
     const connection = this.repository.create({
       name: dto.name,
       endpointUrl: dto.endpointUrl.replace(/\/+$/, ''),
+      transport: dto.transport ?? 'streamable-http',
       authKind: dto.authKind ?? 'none',
       // A named header only makes sense with the header auth kind; keep the default otherwise.
       authHeader,
@@ -104,6 +106,7 @@ export class AiMcpConnectionsService {
       assertHttpUrl(dto.endpointUrl);
       connection.endpointUrl = dto.endpointUrl.replace(/\/+$/, '');
     }
+    if (dto.transport !== undefined) connection.transport = dto.transport;
     if (dto.authKind !== undefined) {
       connection.authKind = dto.authKind;
       // Switching away from header auth re-homes the stored credential to the bearer slot's
@@ -217,9 +220,14 @@ export class AiMcpConnectionsService {
       throw new Error(`MCP endpoint refused by the SSRF guard: ${redactSsrfError(error)}`);
     }
     const client = new Client({ name: 'openwa', version: '1.0.0' });
-    const transport = new StreamableHTTPClientTransport(new URL(connection.endpointUrl), {
-      requestInit: { headers: baseHeaders(connection) },
-    });
+    const transport =
+      connection.transport === 'sse'
+        ? new SSEClientTransport(new URL(connection.endpointUrl), {
+            requestInit: { headers: baseHeaders(connection) },
+          })
+        : new StreamableHTTPClientTransport(new URL(connection.endpointUrl), {
+            requestInit: { headers: baseHeaders(connection) },
+          });
     try {
       await client.connect(transport, { timeout: connection.timeoutMs });
       return client;

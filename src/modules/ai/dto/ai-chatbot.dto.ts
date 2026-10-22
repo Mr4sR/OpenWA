@@ -1,16 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Expose, plainToInstance } from 'class-transformer';
-import { IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min, ValidateIf } from 'class-validator';
+import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 import { MaxCodePoints } from '../../../common/validation/max-code-points';
 import { NoNulCharacter } from '../../../common/validation/no-nul-character';
-import { normalizeChatAllowList } from '../../../common/security/chat-scope';
-import {
-  AI_CHATBOT_NAME_MAX_LENGTH,
-  AI_CHATBOT_REPLY_MAX_LENGTH,
-  AiChatbot,
-  CHATBOT_CONTEXT_MAX,
-} from '../entities/ai-chatbot.entity';
+import { AI_CHATBOT_NAME_MAX_LENGTH, AI_CHATBOT_REPLY_MAX_LENGTH, AiChatbot } from '../entities/ai-chatbot.entity';
 
 export const AI_COOLDOWN_MAX_SECONDS = 86_400;
 
@@ -33,7 +27,8 @@ export class CreateAiChatbotDto {
   ragModelId?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Persona for THIS bot; overrides the LLM model persona when set',
+    description:
+      'The persona: the system prompt sent with every completion. Leave empty for a plain assistant. This is the ONLY persona — the LLM connection carries none.',
     maxLength: AI_CHATBOT_REPLY_MAX_LENGTH,
   })
   @IsOptional()
@@ -44,41 +39,13 @@ export class CreateAiChatbotDto {
 
   @ApiPropertyOptional({
     description:
-      'Chat allowlist: only these chats of the session are answered (JIDs or bare phone numbers). Null/empty answers every chat.',
-    example: ['628123456789@c.us'],
-    type: [String],
-    nullable: true,
+      'Answer group chats too. Off by default: in a group the bot speaks in front of every member. Individual chats are always answered while the bot is enabled.',
+    default: false,
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  chatIds?: string[] | null;
-
-  @ApiPropertyOptional({
-    description: 'Quiet period per chat, in seconds, after the bot answers (default 60, 0 disables)',
-    default: 60,
-    minimum: 0,
-    maximum: AI_COOLDOWN_MAX_SECONDS,
-  })
-  @IsOptional()
-  @ToStrictNumber()
-  @IsInt()
-  @Min(0)
-  @Max(AI_COOLDOWN_MAX_SECONDS)
-  cooldownSeconds?: number;
-
-  @ApiPropertyOptional({
-    description: 'Prior chat messages included as conversation history (default 8, 0-20)',
-    default: 8,
-    minimum: 0,
-    maximum: CHATBOT_CONTEXT_MAX,
-  })
-  @IsOptional()
-  @ToStrictNumber()
-  @IsInt()
-  @Min(0)
-  @Max(CHATBOT_CONTEXT_MAX)
-  contextMessages?: number;
+  @ToStrictBoolean()
+  @IsBoolean()
+  replyGroups?: boolean;
 
   @ApiPropertyOptional({ description: 'Whether the bot is active', default: true })
   @IsOptional()
@@ -107,34 +74,18 @@ export class UpdateAiChatbotDto {
   @IsString()
   ragModelId?: string | null;
 
-  @ApiPropertyOptional({ description: 'Persona; null falls back to the LLM model persona', nullable: true })
+  @ApiPropertyOptional({ description: 'The persona (system prompt); an empty string clears it' })
   @ValidateIf((o: UpdateAiChatbotDto) => o.persona !== undefined)
   @IsString()
   @MaxCodePoints(AI_CHATBOT_REPLY_MAX_LENGTH)
   @NoNulCharacter()
   persona?: string | null;
 
-  @ApiPropertyOptional({ description: 'Chat allowlist; null/empty answers every chat', nullable: true })
-  @ValidateIf((o: UpdateAiChatbotDto) => o.chatIds !== undefined)
-  @IsArray()
-  @IsString({ each: true })
-  chatIds?: string[] | null;
-
-  @ApiPropertyOptional({ description: 'Quiet period per chat in seconds', minimum: 0, maximum: AI_COOLDOWN_MAX_SECONDS })
-  @ValidateIf((o: UpdateAiChatbotDto) => o.cooldownSeconds !== undefined)
-  @ToStrictNumber()
-  @IsInt()
-  @Min(0)
-  @Max(AI_COOLDOWN_MAX_SECONDS)
-  cooldownSeconds?: number;
-
-  @ApiPropertyOptional({ description: 'Conversation history length', minimum: 0, maximum: CHATBOT_CONTEXT_MAX })
-  @ValidateIf((o: UpdateAiChatbotDto) => o.contextMessages !== undefined)
-  @ToStrictNumber()
-  @IsInt()
-  @Min(0)
-  @Max(CHATBOT_CONTEXT_MAX)
-  contextMessages?: number;
+  @ApiPropertyOptional({ description: 'Answer group chats too', default: false })
+  @ValidateIf((o: UpdateAiChatbotDto) => o.replyGroups !== undefined)
+  @ToStrictBoolean()
+  @IsBoolean()
+  replyGroups?: boolean;
 
   @ApiPropertyOptional({ description: 'Whether the bot is active' })
   @ValidateIf((o: UpdateAiChatbotDto) => o.enabled !== undefined)
@@ -169,16 +120,8 @@ export class AiChatbotResponseDto {
   persona!: string | null;
 
   @Expose()
-  @ApiProperty({ nullable: true, type: [String] })
-  chatIds!: string[] | null;
-
-  @Expose()
   @ApiProperty()
-  cooldownSeconds!: number;
-
-  @Expose()
-  @ApiProperty()
-  contextMessages!: number;
+  replyGroups!: boolean;
 
   @Expose()
   @ApiProperty()
@@ -209,7 +152,48 @@ export class AiChatbotResponseDto {
   }
 }
 
-/** Qualify bare numbers so a saved allowlist entry matches the chats it must answer. */
-export function normalizeChatbotChatIds(list: string[] | null | undefined): string[] | null {
-  return normalizeChatAllowList(list);
+/**
+ * The per-chat switch the Chats page writes. `chatbotDisabled: true` means "this bot stays out of
+ * this conversation", even though the bot itself is enabled for the session.
+ */
+export class SetAiChatOverrideDto {
+  @ApiProperty({ description: 'The chatbot the switch belongs to (`ai_chatbots.id`)' })
+  @IsString()
+  @IsNotEmpty()
+  chatbotId!: string;
+
+  @ApiProperty({ description: 'The chat id exactly as the inbound path carries it' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  @NoNulCharacter()
+  chatId!: string;
+
+  @ApiProperty({ description: 'True = the bot stays silent in this chat', default: false })
+  @ToStrictBoolean()
+  @IsBoolean()
+  chatbotDisabled!: boolean;
+}
+
+/** The state of one conversation for the Chats page: which bots answer it, and which do not. */
+export class AiChatStateDto {
+  @Expose()
+  @ApiProperty()
+  chatbotId!: string;
+
+  @Expose()
+  @ApiProperty()
+  chatId!: string;
+
+  @Expose()
+  @ApiProperty({ description: 'True = the bot is switched off for this chat' })
+  chatbotDisabled!: boolean;
+
+  static fromRow(row: { chatbotId: string; chatId: string; chatbotDisabled: boolean }): AiChatStateDto {
+    const dto = new AiChatStateDto();
+    dto.chatbotId = row.chatbotId;
+    dto.chatId = row.chatId;
+    dto.chatbotDisabled = row.chatbotDisabled;
+    return dto;
+  }
 }

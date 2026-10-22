@@ -35,6 +35,10 @@ export class AiMcpConnection {
   @Column({ type: 'varchar', length: AI_MCP_ENDPOINT_MAX_LENGTH })
   endpointUrl!: string;
 
+  /** `streamable-http` (the modern transport) or `sse` (the legacy EventSource transport). */
+  @Column({ type: 'varchar', length: 20, default: 'streamable-http' })
+  transport!: 'streamable-http' | 'sse';
+
   @Column({ type: 'varchar', length: 10, default: 'none' })
   authKind!: AiMcpAuthKind;
 

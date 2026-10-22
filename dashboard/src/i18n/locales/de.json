@@ -47,7 +47,9 @@
     "refresh": "Aktualisieren",
     "errorGeneric": "Ein Fehler ist aufgetreten",
     "unknownError": "Unbekannter Fehler",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "yes": "Ja",
+    "no": "Nein"
   },
   "theme": {
     "light": "Hell",
@@ -202,6 +204,12 @@
       "delivered": "Zugestellt",
       "read": "Gelesen",
       "failed": "Fehlgeschlagen"
+    },
+    "ai": {
+      "on": "KI an",
+      "off": "KI aus",
+      "onHint": "KI antwortet für {{bot}} — klicken, um diesen Chat stummzuschalten",
+      "offHint": "KI ist für {{bot}} stummgeschaltet — klicken, um sie wieder zu aktivieren"
     }
   },
   "errorBoundary": {
@@ -1231,19 +1239,15 @@
       "selectSession": "Sitzung auswählen…",
       "name": "Name",
       "llmModel": "LLM-Modell",
-      "selectLlm": "LLM-Modell auswählen…",
       "ragModel": "RAG-Wissen",
       "noRag": "Keines",
       "persona": "Persona",
-      "personaPlaceholder": "Du bist der Support-Agent von… (optional; überschreibt die Persona des Modells)",
-      "chats": "Chats",
-      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (leer = jeder Chat)",
-      "chatsHint": "Chat-IDs durch Komma getrennt oder nur Zahlen. Leer lassen, um jeden Chat der Sitzung zu beantworten.",
-      "allChats": "Jeder Chat",
-      "cooldown": "Abklingzeit (s)",
-      "cooldownValue": "{{count}} s",
-      "context": "Verlauf",
-      "enabled": "Aktiviert"
+      "personaPlaceholder": "Sie sind der Support-Agent von ACME. Antworten Sie kurz, freundlich und in der Sprache des Kunden. Bei Preisen auf acme.example/pricing verweisen.",
+      "enabled": "Aktiviert",
+      "replyGroups": "In Gruppen antworten",
+      "replyGroupsHint": "Standardmäßig aus: In einer Gruppe spricht der Bot vor allen Mitgliedern. Einzelchats werden immer beantwortet, solange der Bot aktiv ist — die Schalter pro Unterhaltung liegen auf der Chats-Seite.",
+      "groups": "Gruppen-Antworten",
+      "selectLlm": "LLM-Modell wählen…"
     },
     "llm": {
       "emptyTitle": "Noch keine LLM-Modelle",
@@ -1258,8 +1262,6 @@
       "modelId": "Modell-ID",
       "apiKey": "API-Schlüssel",
       "apiKeyKeep": "Leer lassen, um den gespeicherten Schlüssel beizubehalten",
-      "persona": "Persona",
-      "personaPlaceholder": "System-Prompt, der bei jeder Vervollständigung mitgesendet wird (optional)",
       "parameters": "Sampling-Parameter",
       "temperature": "Temperatur",
       "maxTokens": "Max. Tokens",
@@ -1304,7 +1306,17 @@
       "documentChars": "{{count}} Zeichen",
       "queryPlaceholder": "Die Wissensdatenbank fragen…",
       "query": "Abrufen",
-      "sourceTypeLabel": "Quelltyp"
+      "sourceTypeLabel": "Quelltyp",
+      "colSource": "Quelle",
+      "colTitle": "Titel",
+      "colSize": "Größe",
+      "colStatus": "Status",
+      "docTable": "Wissenseinträge",
+      "statusReady": "Fertig",
+      "statusPending": "Wartet",
+      "statusProcessing": "Wird verarbeitet…",
+      "statusFailed": "Fehlgeschlagen",
+      "asyncHint": "URL/Website/Datei-Quellen werden im Hintergrund geladen — das Badge wird Fertig, wenn es erledigt ist."
     },
     "mcp": {
       "emptyTitle": "Noch keine MCP-Verbindungen",
@@ -1325,7 +1337,11 @@
       "timeout": "Zeitlimit (ms)",
       "test": "Verbinden und Tools auflisten",
       "lastTest": "Letzter Test",
-      "toolCount": "{{count}} Tools"
+      "toolCount": "{{count}} Tools",
+      "transport": "Transport",
+      "transportStreamable": "Streamable HTTP (modern)",
+      "transportSse": "SSE (ältere Server)",
+      "transportHint": "Nur SSE verwenden, wenn der Server kein Streamable HTTP unterstützt."
     },
     "common": {
       "failed": "Anfrage fehlgeschlagen: {{message}}"

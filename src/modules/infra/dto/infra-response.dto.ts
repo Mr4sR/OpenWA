@@ -433,6 +433,12 @@ export class MigrationTablesDto {
   @ApiProperty({ type: [Object] }) integrationDeliveryFailures!: object[];
   @ApiProperty({ type: [Object] }) statusUpdates!: object[];
   @ApiProperty({ type: [Object] }) automationRules!: object[];
+  @ApiProperty({ type: [Object] }) aiLlmModels!: object[];
+  @ApiProperty({ type: [Object] }) aiChatbots!: object[];
+  @ApiProperty({ type: [Object] }) aiChatOverrides!: object[];
+  @ApiProperty({ type: [Object] }) aiRagModels!: object[];
+  @ApiProperty({ type: [Object] }) aiRagDocuments!: object[];
+  @ApiProperty({ type: [Object] }) aiMcpConnections!: object[];
 }
 
 /** Row count per table, with the same keys as {@link MigrationTablesDto}. */
@@ -453,6 +459,12 @@ export class TableCountsDto {
   @ApiProperty({ example: 0 }) integrationDeliveryFailures!: number;
   @ApiProperty({ example: 5 }) statusUpdates!: number;
   @ApiProperty({ example: 2 }) automationRules!: number;
+  @ApiProperty({ example: 1 }) aiLlmModels!: number;
+  @ApiProperty({ example: 2 }) aiChatbots!: number;
+  @ApiProperty({ example: 0 }) aiChatOverrides!: number;
+  @ApiProperty({ example: 1 }) aiRagModels!: number;
+  @ApiProperty({ example: 3 }) aiRagDocuments!: number;
+  @ApiProperty({ example: 1 }) aiMcpConnections!: number;
 }
 
 export class OmittedInlineMediaDto {

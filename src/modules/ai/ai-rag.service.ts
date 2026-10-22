@@ -186,37 +186,74 @@ export class AiRagService {
     input: { sourceType: string; title: string | null; sourceUrl: string | null; content: string | null; storageKey: string | null },
   ): Promise<AiRagDocument> {
     await this.assertModel(ragModelId);
-    let content = input.content ?? null;
-    if (input.sourceType === 'url' || input.sourceType === 'site') {
-      if (!input.sourceUrl) throw new BadRequestException('A url/site entry requires sourceUrl');
-      // Fetched eagerly: the index build reads stored text only, so a dead link fails here where
-      // the operator can fix it, not at reply time.
-      content = await this.fetchUrlText(input.sourceUrl);
-    }
-    if (input.sourceType === 'file') {
-      if (!input.storageKey) throw new BadRequestException('A file entry requires storageKey');
-      if (!content) content = await this.readStoredFile(input.storageKey);
-    }
-    if (input.sourceType === 'text' && !content?.trim()) {
+    const sourceType = input.sourceType as AiRagDocument['sourceType'];
+    // A text entry is its own content and becomes ready immediately. A url/site/file entry is
+    // ingested in the BACKGROUND — the row lands right away as `pending` (the dashboard shows the
+    // badge and polls), so a slow site never wedges the HTTP request that adds it.
+    const needsIngestion = sourceType !== 'text';
+    if (sourceType === 'text' && !input.content?.trim()) {
       throw new BadRequestException('A text entry requires content');
     }
-    if (!content?.trim()) {
-      throw new BadRequestException('The entry has no extractable text content');
+    if ((sourceType === 'url' || sourceType === 'site') && !input.sourceUrl) {
+      throw new BadRequestException('A url/site entry requires sourceUrl');
     }
-    const document = this.documentsRepository.create({
-      ragModelId,
-      sourceType: input.sourceType as AiRagDocument['sourceType'],
-      title: input.title?.trim() || null,
-      sourceUrl: input.sourceUrl ?? null,
-      content,
-      storageKey: input.storageKey ?? null,
-      metadata: { contentLength: content.length, fetchedAt: input.sourceType === 'text' ? null : new Date().toISOString() },
-    });
-    const saved = await this.documentsRepository.save(document);
+    if (sourceType === 'file' && !input.storageKey && !input.content) {
+      throw new BadRequestException('A file entry requires storageKey or content');
+    }
+    const document = await this.documentsRepository.save(
+      this.documentsRepository.create({
+        ragModelId,
+        sourceType,
+        title: input.title?.trim() || null,
+        sourceUrl: input.sourceUrl ?? null,
+        content: input.content ?? null,
+        storageKey: input.storageKey ?? null,
+        status: needsIngestion ? 'pending' : 'ready',
+        metadata: needsIngestion ? null : { contentLength: input.content?.length ?? 0 },
+      }),
+    );
+    if (needsIngestion) {
+      // Fire-and-forget: the row is already stored as pending; any failure is recorded on the
+      // row (status=failed + statusError) instead of failing the HTTP add.
+      void this.ingestDocument(document.id).catch(() => undefined);
+    }
     void this.audit.logInfo(AuditAction.AI_RAG_DOCUMENT_CREATED, {
-      metadata: { ragModelId, ragDocumentId: saved.id, sourceType: saved.sourceType },
+      metadata: { ragModelId, ragDocumentId: document.id, sourceType },
     });
-    return saved;
+    return document;
+  }
+
+  /**
+   * The background half of an async knowledge add: fetch/extract the text and mark the row ready,
+   * or mark it failed with the reason. Runs outside the request that created the row.
+   */
+  private async ingestDocument(documentId: string): Promise<void> {
+    const document = await this.documentsRepository.findOne({ where: { id: documentId } });
+    if (!document) return;
+    document.status = 'processing';
+    await this.documentsRepository.save(document);
+    try {
+      let content: string | null = null;
+      if (document.sourceType === 'url' || document.sourceType === 'site') {
+        content = await this.fetchUrlText(document.sourceUrl!);
+      } else if (document.sourceType === 'file') {
+        content = document.content ?? (document.storageKey ? await this.readStoredFile(document.storageKey) : null);
+      }
+      if (!content?.trim()) throw new Error('no text could be extracted from the source');
+      document.content = content;
+      document.status = 'ready';
+      document.statusError = null;
+      document.metadata = {
+        ...(document.metadata ?? {}),
+        contentLength: content.length,
+        ingestedAt: new Date().toISOString(),
+      };
+      await this.documentsRepository.save(document);
+    } catch (error) {
+      document.status = 'failed';
+      document.statusError = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+      await this.documentsRepository.save(document).catch(() => undefined);
+    }
   }
 
   async updateDocument(

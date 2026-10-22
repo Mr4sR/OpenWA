@@ -55,7 +55,9 @@
     "refresh": "تحديث",
     "errorGeneric": "حدث خطأ",
     "unknownError": "خطأ غير معروف",
-    "retry": "إعادة المحاولة"
+    "retry": "إعادة المحاولة",
+    "yes": "نعم",
+    "no": "لا"
   },
   "theme": {
     "light": "فاتح",
@@ -223,6 +225,12 @@
       "delivered": "تم التسليم",
       "read": "تمت القراءة",
       "failed": "فشل"
+    },
+    "ai": {
+      "on": "الذكي مفعل",
+      "off": "الذكي متوقف",
+      "onHint": "الذكي الاصطناعي يجيب لـ {{bot}} — انقر لكتم هذه المحادثة",
+      "offHint": "الذكي الاصطناعي مكتوم لـ {{bot}} — انقر لإعادة تفعيله"
     }
   },
   "errorBoundary": {
@@ -1256,19 +1264,15 @@
       "selectSession": "اختر جلسة…",
       "name": "الاسم",
       "llmModel": "نموذج LLM",
-      "selectLlm": "اختر نموذج LLM…",
       "ragModel": "معرفة RAG",
       "noRag": "بلا",
       "persona": "الشخصية",
-      "personaPlaceholder": "أنت موظف الدعم الخاص بـ… (اختياري؛ يتجاوز شخصية النموذج)",
-      "chats": "الدردشات",
-      "chatsPlaceholder": "628123456789@c.us، 1203…@g.us (فارغ = كل الدردشات)",
-      "chatsHint": "معرفات دردشة أو أرقام مجردة، مفصولة بفواصل. اتركه فارغاً للرد على كل دردشات الجلسة.",
-      "allChats": "كل الدردشات",
-      "cooldown": "فترة التهدئة (ث)",
-      "cooldownValue": "{{count}} ث",
-      "context": "السجل",
-      "enabled": "ممكّن"
+      "personaPlaceholder": "أنت وكيل دعم ACME. أجب باختصار وبودّ وبلغة العميل. عند السؤال عن الأسعار وجّهه إلى acme.example/pricing.",
+      "enabled": "ممكّن",
+      "replyGroups": "الرد في المجموعات",
+      "replyGroupsHint": "معطّل افتراضيًا: في المجموعة يتحدث البوت أمام كل الأعضاء. المحادثات الفردية تُجاب دائمًا ما دام البوت مفعّلًا — مفاتيح كل محادثة في صفحة Chats.",
+      "groups": "ردود المجموعات",
+      "selectLlm": "اختر نموذج LLM…"
     },
     "llm": {
       "emptyTitle": "لا توجد نماذج LLM بعد",
@@ -1283,8 +1287,6 @@
       "modelId": "معرف النموذج",
       "apiKey": "مفتاح API",
       "apiKeyKeep": "اتركه فارغاً للاحتفاظ بالمفتاح المخزّن",
-      "persona": "الشخصية",
-      "personaPlaceholder": "أمر النظام المُرسل مع كل إكمال (اختياري)",
       "parameters": "معاملات أخذ العينات",
       "temperature": "درجة الحرارة",
       "maxTokens": "الحد الأقصى للرموز",
@@ -1329,7 +1331,17 @@
       "documentChars": "{{count}} حرفاً",
       "queryPlaceholder": "اسأل قاعدة المعرفة…",
       "query": "استرجاع",
-      "sourceTypeLabel": "نوع المصدر"
+      "sourceTypeLabel": "نوع المصدر",
+      "colSource": "المصدر",
+      "colTitle": "العنوان",
+      "colSize": "الحجم",
+      "colStatus": "الحالة",
+      "docTable": "مدخلات المعرفة",
+      "statusReady": "جاهز",
+      "statusPending": "قيد الانتظار",
+      "statusProcessing": "قيد المعالجة…",
+      "statusFailed": "فشل",
+      "asyncHint": "تُجلب مصادر URL/الموقع/الملف في الخلفية — تتحول الشارة إلى جاهز عند الانتهاء."
     },
     "mcp": {
       "emptyTitle": "لا توجد اتصالات MCP بعد",
@@ -1350,7 +1362,11 @@
       "timeout": "المهلة (مللي ثانية)",
       "test": "الاتصال وسرد الأدوات",
       "lastTest": "آخر اختبار",
-      "toolCount": "{{count}} أداة"
+      "toolCount": "{{count}} أداة",
+      "transport": "الناقل",
+      "transportStreamable": "Streamable HTTP (حديث)",
+      "transportSse": "SSE (خوادم قديمة)",
+      "transportHint": "استخدم SSE فقط إذا كان الخادم لا يدعم Streamable HTTP."
     },
     "common": {
       "failed": "فشل الطلب: {{message}}"

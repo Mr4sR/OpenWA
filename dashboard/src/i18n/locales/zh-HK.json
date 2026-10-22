@@ -47,7 +47,9 @@
     "refresh": "重新整理",
     "errorGeneric": "發生錯誤",
     "unknownError": "未知錯誤",
-    "retry": "重試"
+    "retry": "重試",
+    "yes": "是",
+    "no": "否"
   },
   "theme": {
     "light": "淺色",
@@ -202,6 +204,12 @@
       "delivered": "已送達",
       "read": "已讀",
       "failed": "傳送失敗"
+    },
+    "ai": {
+      "on": "AI 已開啟",
+      "off": "AI 已關閉",
+      "onHint": "AI 正在為 {{bot}} 回覆 — 點擊可靜音此會話",
+      "offHint": "{{bot}} 的 AI 已靜音 — 點擊重新開啟"
     }
   },
   "errorBoundary": {
@@ -1231,19 +1239,15 @@
       "selectSession": "選擇一個工作階段…",
       "name": "名稱",
       "llmModel": "LLM 模型",
-      "selectLlm": "選擇一個 LLM 模型…",
       "ragModel": "RAG 知識庫",
       "noRag": "無",
       "persona": "人設",
-      "personaPlaceholder": "你是……的客戶服務專員（可選；將覆蓋模型人設）",
-      "chats": "聊天",
-      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us（留空 = 所有聊天）",
-      "chatsHint": "以逗號分隔的聊天 ID 或純數字號碼。留空則回應該工作階段的所有聊天。",
-      "allChats": "所有聊天",
-      "cooldown": "冷卻時間（秒）",
-      "cooldownValue": "{{count}} 秒",
-      "context": "歷史",
-      "enabled": "已啟用"
+      "personaPlaceholder": "你是 ACME 的客服專員。簡潔、友善，用客戶的語言回答。問價格時引導到 acme.example/pricing。",
+      "enabled": "已啟用",
+      "replyGroups": "在群組中回覆",
+      "replyGroupsHint": "預設關閉：在群組中機器人會在所有成員面前發言。機器人啟用時私訊總是回覆 — 每個會話的開關在 Chats 頁面。",
+      "groups": "群組回覆",
+      "selectLlm": "選擇 LLM 模型…"
     },
     "llm": {
       "emptyTitle": "尚未有任何 LLM 模型",
@@ -1258,8 +1262,6 @@
       "modelId": "模型 ID",
       "apiKey": "API 金鑰",
       "apiKeyKeep": "留空則保留已儲存的金鑰",
-      "persona": "人設",
-      "personaPlaceholder": "隨每次補全一併傳送的系統提示詞（可選）",
       "parameters": "取樣參數",
       "temperature": "溫度",
       "maxTokens": "最大 token 數",
@@ -1304,7 +1306,17 @@
       "documentChars": "{{count}} 個字元",
       "queryPlaceholder": "向知識庫提問…",
       "query": "擷取",
-      "sourceTypeLabel": "來源類型"
+      "sourceTypeLabel": "來源類型",
+      "colSource": "來源",
+      "colTitle": "標題",
+      "colSize": "大小",
+      "colStatus": "狀態",
+      "docTable": "知識條目",
+      "statusReady": "就緒",
+      "statusPending": "等待中",
+      "statusProcessing": "擷取中…",
+      "statusFailed": "失敗",
+      "asyncHint": "URL/網站/檔案來源在背景擷取 — 完成後徽標變為就緒。"
     },
     "mcp": {
       "emptyTitle": "尚未有任何 MCP 連線",
@@ -1325,7 +1337,11 @@
       "timeout": "逾時（毫秒）",
       "test": "連線並列出工具",
       "lastTest": "上次測試",
-      "toolCount": "{{count}} 個工具"
+      "toolCount": "{{count}} 個工具",
+      "transport": "傳輸方式",
+      "transportStreamable": "Streamable HTTP（現代）",
+      "transportSse": "SSE（舊伺服器）",
+      "transportHint": "僅當伺服器不支援 Streamable HTTP 時使用 SSE。"
     },
     "common": {
       "failed": "請求失敗：{{message}}"

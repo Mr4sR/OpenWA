@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import {
@@ -170,9 +170,7 @@ function ChatbotsSection({
       llmModelId: chatbot.llmModelId,
       ragModelId: chatbot.ragModelId ?? '',
       persona: chatbot.persona ?? '',
-      chatIdsText: (chatbot.chatIds ?? []).join(', '),
-      cooldownSeconds: chatbot.cooldownSeconds,
-      contextMessages: chatbot.contextMessages,
+      replyGroups: chatbot.replyGroups,
       enabled: chatbot.enabled,
     });
   };
@@ -215,8 +213,7 @@ function ChatbotsSection({
                   label={t('ai.chatbots.ragModel')}
                   value={bot.ragModelId ? ragModels.find(m => m.id === bot.ragModelId)?.name ?? '—' : t('ai.chatbots.noRag')}
                 />
-                <AiMetaItem label={t('ai.chatbots.chats')} value={bot.chatIds?.length ? bot.chatIds.join(', ') : t('ai.chatbots.allChats')} />
-                <AiMetaItem label={t('ai.chatbots.cooldown')} value={t('ai.chatbots.cooldownValue', { count: bot.cooldownSeconds })} />
+                <AiMetaItem label={t('ai.chatbots.groups')} value={bot.replyGroups ? t('common.yes') : t('common.no')} />
               </div>
               {bot.persona && <p className="hint">{bot.persona.slice(0, 160)}</p>}
               {bot.lastError && (
@@ -300,9 +297,7 @@ interface AiChatbotDraft {
   llmModelId: string;
   ragModelId: string;
   persona: string;
-  chatIdsText: string;
-  cooldownSeconds: number;
-  contextMessages: number;
+  replyGroups: boolean;
   enabled: boolean;
 }
 
@@ -312,9 +307,7 @@ const EMPTY_CHATBOT: AiChatbotDraft = {
   llmModelId: '',
   ragModelId: '',
   persona: '',
-  chatIdsText: '',
-  cooldownSeconds: 60,
-  contextMessages: 8,
+  replyGroups: false,
   enabled: true,
 };
 
@@ -324,12 +317,7 @@ function toChatbotPayload(draft: AiChatbotDraft) {
     llmModelId: draft.llmModelId,
     ragModelId: draft.ragModelId || null,
     persona: draft.persona.trim() || null,
-    chatIds: draft.chatIdsText
-      .split(',')
-      .map(entry => entry.trim())
-      .filter(entry => entry.length > 0),
-    cooldownSeconds: draft.cooldownSeconds,
-    contextMessages: draft.contextMessages,
+    replyGroups: draft.replyGroups,
     enabled: draft.enabled,
   };
 }
@@ -428,43 +416,21 @@ function ChatbotModal({
       <label htmlFor="ai-cb-persona">{t('ai.chatbots.persona')}</label>
       <textarea
         id="ai-cb-persona"
+        className="ai-persona-input"
+        rows={6}
         value={draft.persona}
         placeholder={t('ai.chatbots.personaPlaceholder')}
         onChange={e => setDraft({ ...draft, persona: e.target.value })}
       />
-      <label htmlFor="ai-cb-chats">{t('ai.chatbots.chats')}</label>
-      <input
-        id="ai-cb-chats"
-        type="text"
-        value={draft.chatIdsText}
-        placeholder={t('ai.chatbots.chatsPlaceholder')}
-        onChange={e => setDraft({ ...draft, chatIdsText: e.target.value })}
-      />
-      <span className="hint">{t('ai.chatbots.chatsHint')}</span>
-      <div className="ai-field-row">
-        <div>
-          <label htmlFor="ai-cb-cooldown">{t('ai.chatbots.cooldown')}</label>
-          <input
-            id="ai-cb-cooldown"
-            type="number"
-            min={0}
-            max={86400}
-            value={draft.cooldownSeconds}
-            onChange={e => setDraft({ ...draft, cooldownSeconds: Number(e.target.value) || 0 })}
-          />
-        </div>
-        <div>
-          <label htmlFor="ai-cb-context">{t('ai.chatbots.context')}</label>
-          <input
-            id="ai-cb-context"
-            type="number"
-            min={0}
-            max={20}
-            value={draft.contextMessages}
-            onChange={e => setDraft({ ...draft, contextMessages: Number(e.target.value) || 0 })}
-          />
-        </div>
-      </div>
+      <label className="ai-checkbox-row">
+        <input
+          type="checkbox"
+          checked={draft.replyGroups}
+          onChange={e => setDraft({ ...draft, replyGroups: e.target.checked })}
+        />
+        {t('ai.chatbots.replyGroups')}
+      </label>
+      <span className="hint">{t('ai.chatbots.replyGroupsHint')}</span>
       <label className="ai-checkbox-row">
         <input
           type="checkbox"
@@ -545,7 +511,7 @@ function LlmSection({
                   void runMutation(t, toast, () => aiApi.updateLlmModel(model.id, { enabled: !model.enabled }), 'ai.toasts.updated', invalidate, ['llm'])
                 }
                 onEdit={() => {
-                  setDraft({ name: model.name, endpointUrl: model.endpointUrl, model: model.model, persona: model.persona ?? '', parameters: model.parameters ?? {} });
+                  setDraft({ name: model.name, endpointUrl: model.endpointUrl, model: model.model, parameters: model.parameters ?? {} });
                   setNewKey('');
                   setEditing(model);
                 }}
@@ -559,7 +525,6 @@ function LlmSection({
               <AiMetaItem label={t('ai.llm.apiKey')} value={model.apiKeyMasked ?? '—'} code />
               <AiMetaItem label={t('ai.llm.lastTest')} value={<AiLlmStatusCell model={model} t={t} />} />
             </div>
-            {model.persona && <p className="hint">{model.persona.slice(0, 160)}</p>}
           </AiCard>
         ))
       )}
@@ -582,12 +547,18 @@ function LlmSection({
                 className="btn-primary"
                 disabled={!draft.name.trim() || !draft.endpointUrl.trim()}
                 onClick={async () => {
+                  const parameters = {
+                    ...draft.parameters,
+                    // Empty number fields fall back to the advertised defaults at save time, so a
+                    // row created from a bare form still carries sensible sampling values.
+                    temperature: draft.parameters.temperature ?? LLM_PARAM_DEFAULTS.temperature,
+                    maxTokens: draft.parameters.maxTokens ?? LLM_PARAM_DEFAULTS.maxTokens,
+                  };
                   const base = {
                     name: draft.name.trim(),
                     endpointUrl: draft.endpointUrl.trim(),
                     model: draft.model.trim(),
-                    persona: draft.persona.trim() || null,
-                    parameters: draft.parameters,
+                    parameters,
                   };
                   const body = newKey ? { ...base, apiKey: newKey } : base;
                   const ok = editing
@@ -634,13 +605,6 @@ function LlmSection({
             value={draft.model}
             onChange={e => setDraft({ ...draft, model: e.target.value })}
           />
-          <label htmlFor="ai-llm-persona">{t('ai.llm.persona')}</label>
-          <textarea
-            id="ai-llm-persona"
-            value={draft.persona}
-            placeholder={t('ai.llm.personaPlaceholder')}
-            onChange={e => setDraft({ ...draft, persona: e.target.value })}
-          />
           <span className="ai-subhead">{t('ai.llm.parameters')}</span>
           <div className="ai-field-row">
             <div>
@@ -651,6 +615,7 @@ function LlmSection({
                 step="0.1"
                 min={0}
                 max={2}
+                placeholder="0.7"
                 value={draft.parameters.temperature ?? ''}
                 onChange={e =>
                   setDraft({
@@ -666,6 +631,7 @@ function LlmSection({
                 id="ai-llm-maxtok"
                 type="number"
                 min={1}
+                placeholder="1024"
                 value={draft.parameters.maxTokens ?? ''}
                 onChange={e =>
                   setDraft({
@@ -710,11 +676,13 @@ interface LlmDraft {
   name: string;
   endpointUrl: string;
   model: string;
-  persona: string;
   parameters: { temperature?: number; maxTokens?: number; topP?: number; stop?: string[] };
 }
 
-const EMPTY_LLM: LlmDraft = { name: '', endpointUrl: '', model: '', persona: '', parameters: {} };
+const EMPTY_LLM: LlmDraft = { name: '', endpointUrl: '', model: '', parameters: {} };
+
+/** The defaults the placeholders advertise; a create without explicit values saves them. */
+const LLM_PARAM_DEFAULTS = { temperature: 0.7, maxTokens: 1024 };
 
 // ── RAG models ────────────────────────────────────────────────────────────────────────────────
 
@@ -754,6 +722,22 @@ function RagSection({
       setDocsLoading(false);
     }
   };
+
+  // While an entry is ingesting (pending/processing), poll its model's document list so the
+  // status badges move on their own. Stops when every entry settles.
+  useEffect(() => {
+    if (!expanded) return;
+    const ingesting = () =>
+      documents.some(d => d.status === 'pending' || d.status === 'processing');
+    if (!ingesting()) return;
+    const timer = setInterval(() => {
+      aiApi
+        .listRagDocuments(expanded)
+        .then(next => setDocuments(next))
+        .catch(() => undefined);
+    }, 2500);
+    return () => clearInterval(timer);
+  }, [expanded, documents]);
 
   const toggleExpand = (id: string) => {
     if (expanded === id) {
@@ -878,8 +862,7 @@ function RagSection({
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <AiDocumentEditor
-                      model={model}
-                      documents={documents}
+                                            documents={documents}
                       canWrite={canWrite}
                       t={t}
                       onAdd={payload => {
@@ -1175,6 +1158,7 @@ function McpSection({
                   setDraft({
                     name: connection.name,
                     endpointUrl: connection.endpointUrl,
+                    transport: connection.transport,
                     authKind: connection.authKind,
                     authHeader: connection.authHeader,
                     timeoutMs: connection.timeoutMs,
@@ -1188,6 +1172,7 @@ function McpSection({
           >
             <div className="ai-meta">
               <AiMetaItem label={t('ai.mcp.endpoint')} value={connection.endpointUrl} code />
+              <AiMetaItem label={t('ai.mcp.transport')} value={connection.transport} code />
               <AiMetaItem
                 label={t('ai.mcp.auth')}
                 value={connection.authKind === 'none' ? t('ai.mcp.authNone') : `${connection.authKind} · ${connection.authCredentialMasked ?? '—'}`}
@@ -1226,6 +1211,7 @@ function McpSection({
                   const base = {
                     name: draft.name.trim(),
                     endpointUrl: draft.endpointUrl.trim(),
+                    transport: draft.transport,
                     authKind: draft.authKind,
                     authHeader: draft.authKind === 'header' ? draft.authHeader.trim() : 'X-API-Key',
                     timeoutMs: draft.timeoutMs,
@@ -1256,6 +1242,16 @@ function McpSection({
             value={draft.endpointUrl}
             onChange={e => setDraft({ ...draft, endpointUrl: e.target.value })}
           />
+          <label htmlFor="ai-mcp-transport">{t('ai.mcp.transport')}</label>
+          <select
+            id="ai-mcp-transport"
+            value={draft.transport}
+            onChange={e => setDraft({ ...draft, transport: e.target.value as typeof draft.transport })}
+          >
+            <option value="streamable-http">{t('ai.mcp.transportStreamable')}</option>
+            <option value="sse">{t('ai.mcp.transportSse')}</option>
+          </select>
+          <span className="hint">{t('ai.mcp.transportHint')}</span>
           <label htmlFor="ai-mcp-auth">{t('ai.mcp.auth')}</label>
           <select
             id="ai-mcp-auth"
@@ -1334,9 +1330,17 @@ function McpSection({
 interface McpDraft {
   name: string;
   endpointUrl: string;
+  transport: 'streamable-http' | 'sse';
   authKind: 'none' | 'bearer' | 'header';
   authHeader: string;
   timeoutMs: number;
 }
 
-const EMPTY_MCP: McpDraft = { name: '', endpointUrl: '', authKind: 'none', authHeader: 'X-API-Key', timeoutMs: 30000 };
+const EMPTY_MCP: McpDraft = {
+  name: '',
+  endpointUrl: '',
+  transport: 'streamable-http',
+  authKind: 'none',
+  authHeader: 'X-API-Key',
+  timeoutMs: 30000,
+};

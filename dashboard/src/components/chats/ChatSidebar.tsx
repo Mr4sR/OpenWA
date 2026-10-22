@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, CircleDashed, Loader2, Megaphone, Plus, Search } from 'lucide-react';
+import { AlertCircle, Bot, CircleDashed, Loader2, Megaphone, Plus, Search } from 'lucide-react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { Channel, Chat, ContactStatusGroup, Session } from '../../services/api';
 import { useRole } from '../../hooks/useRole';
@@ -23,6 +23,12 @@ interface ChatSidebarProps {
     activeChatId?: string;
     pictures?: Record<string, string | null>;
     onSelectChat: (chat: Chat) => void;
+    /** The session's enabled chatbots (id + whether group replies are on) — empty hides the AI toggle. */
+    aiChatbots?: Array<{ id: string; name: string }>;
+    /** chatId -> chatbot ids switched OFF for that conversation. */
+    aiOverrides?: Record<string, string[]>;
+    /** Flip one (chatbot, chat) switch; flipped to enabled = remove the override. */
+    onToggleAi?: (chatbotId: string, chatId: string, chatbotDisabled: boolean) => void;
   };
   channelsTab: {
     engineLoading: boolean;
@@ -92,6 +98,34 @@ function ChatSidebar({
             </span>
             {chat.kind !== 'individual' && chat.kind !== 'unknown' && (
               <span className={`chat-kind-badge kind-${chat.kind}`}>{t(`chats.kind.${chat.kind}`)}</span>
+            )}
+            {chatsTab.aiChatbots && chatsTab.aiChatbots.length > 0 && (
+              <span className="chat-ai-toggles">
+                {chatsTab.aiChatbots.map(bot => {
+                  const off = (chatsTab.aiOverrides?.[chat.id] ?? []).includes(bot.id);
+                  return (
+                    <button
+                      key={bot.id}
+                      type="button"
+                      className={`chat-ai-toggle ${off ? 'off' : 'on'}`}
+                      title={
+                        off
+                          ? t('chats.ai.offHint', { bot: bot.name })
+                          : t('chats.ai.onHint', { bot: bot.name })
+                      }
+                      aria-pressed={!off}
+                      aria-label={`${bot.name}: ${off ? t('chats.ai.off') : t('chats.ai.on')} — ${chat.name || chat.id}`}
+                      onClick={e => {
+                        e.stopPropagation();
+                        chatsTab.onToggleAi?.(bot.id, chat.id, !off);
+                      }}
+                    >
+                      <Bot size={12} />
+                      <span>{off ? t('chats.ai.off') : t('chats.ai.on')}</span>
+                    </button>
+                  );
+                })}
+              </span>
             )}
             {/* Ternary, not `&&`: a chat with no messages carries timestamp 0, and React
                 renders the number 0 as text — so `0 && <span/>` painted a literal "0"

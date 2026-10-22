@@ -47,7 +47,9 @@
     "refresh": "Refresh",
     "errorGeneric": "An error occurred",
     "unknownError": "Unknown error",
-    "retry": "Retry"
+    "retry": "Retry",
+    "yes": "Yes",
+    "no": "No"
   },
   "theme": {
     "light": "Light",
@@ -202,6 +204,12 @@
       "delivered": "Delivered",
       "read": "Read",
       "failed": "Failed"
+    },
+    "ai": {
+      "on": "AI on",
+      "off": "AI off",
+      "onHint": "AI is answering for {{bot}} — click to mute this chat",
+      "offHint": "AI is muted for {{bot}} — click to answer with AI again"
     }
   },
   "errorBoundary": {
@@ -1231,19 +1239,15 @@
       "selectSession": "Select a session…",
       "name": "Name",
       "llmModel": "LLM model",
-      "selectLlm": "Select an LLM model…",
       "ragModel": "RAG knowledge",
       "noRag": "None",
       "persona": "Persona",
-      "personaPlaceholder": "You are the support agent of… (optional; overrides the model persona)",
-      "chats": "Chats",
-      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (empty = every chat)",
-      "chatsHint": "Comma-separated chat ids or bare numbers. Leave empty to answer every chat of the session.",
-      "allChats": "Every chat",
-      "cooldown": "Cooldown (s)",
-      "cooldownValue": "{{count}} s",
-      "context": "History",
-      "enabled": "Enabled"
+      "personaPlaceholder": "You are the support agent of ACME. Be brief, friendly, and answer in the customer’s language. If asked about prices, point to acme.example/pricing.",
+      "enabled": "Enabled",
+      "replyGroups": "Reply in group chats",
+      "replyGroupsHint": "Off by default: in a group the bot speaks in front of every member. Individual chats are always answered while the bot is enabled — per-conversation switches live on the Chats page.",
+      "groups": "Group replies",
+      "selectLlm": "Select an LLM model…"
     },
     "llm": {
       "emptyTitle": "No LLM models yet",
@@ -1258,8 +1262,6 @@
       "modelId": "Model id",
       "apiKey": "API key",
       "apiKeyKeep": "Leave empty to keep the stored key",
-      "persona": "Persona",
-      "personaPlaceholder": "System prompt sent with every completion (optional)",
       "parameters": "Sampling parameters",
       "temperature": "Temperature",
       "maxTokens": "Max tokens",
@@ -1304,7 +1306,17 @@
       "documentChars": "{{count}} chars",
       "queryPlaceholder": "Ask the knowledge base…",
       "query": "Retrieve",
-      "sourceTypeLabel": "Source type"
+      "sourceTypeLabel": "Source type",
+      "colSource": "Source",
+      "colTitle": "Title",
+      "colSize": "Size",
+      "colStatus": "Status",
+      "docTable": "Knowledge entries",
+      "statusReady": "Ready",
+      "statusPending": "Pending",
+      "statusProcessing": "Ingesting…",
+      "statusFailed": "Failed",
+      "asyncHint": "URL/site/file sources are fetched in the background — the badge turns Ready when done."
     },
     "mcp": {
       "emptyTitle": "No MCP connections yet",
@@ -1325,7 +1337,11 @@
       "timeout": "Timeout (ms)",
       "test": "Connect and list tools",
       "lastTest": "Last test",
-      "toolCount": "{{count}} tools"
+      "toolCount": "{{count}} tools",
+      "transport": "Transport",
+      "transportStreamable": "Streamable HTTP (modern)",
+      "transportSse": "SSE (legacy servers)",
+      "transportHint": "Use SSE only if the server does not support Streamable HTTP."
     },
     "common": {
       "failed": "Request failed: {{message}}"

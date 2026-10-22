@@ -47,7 +47,9 @@
     "refresh": "Muat ulang",
     "errorGeneric": "Terjadi kesalahan",
     "unknownError": "Kesalahan tidak diketahui",
-    "retry": "Coba lagi"
+    "retry": "Coba lagi",
+    "yes": "Ya",
+    "no": "Tidak"
   },
   "theme": {
     "light": "Terang",
@@ -202,6 +204,12 @@
       "delivered": "Diterima",
       "read": "Dibaca",
       "failed": "Gagal"
+    },
+    "ai": {
+      "on": "AI aktif",
+      "off": "AI nonaktif",
+      "onHint": "AI menjawab untuk {{bot}} — klik untuk membisukan percakapan ini",
+      "offHint": "AI dibisukan untuk {{bot}} — klik untuk mengaktifkan lagi"
     }
   },
   "errorBoundary": {
@@ -1231,19 +1239,15 @@
       "selectSession": "Pilih sesi…",
       "name": "Nama",
       "llmModel": "Model LLM",
-      "selectLlm": "Pilih model LLM…",
       "ragModel": "Pengetahuan RAG",
       "noRag": "Tidak ada",
       "persona": "Persona",
-      "personaPlaceholder": "Anda adalah agen dukungan dari… (opsional; menimpa persona model)",
-      "chats": "Chat",
-      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (kosong = semua chat)",
-      "chatsHint": "Id chat atau nomor, dipisah koma. Biarkan kosong untuk menjawab semua chat di sesi.",
-      "allChats": "Semua chat",
-      "cooldown": "Jeda (detik)",
-      "cooldownValue": "{{count}} dtk",
-      "context": "Riwayat",
-      "enabled": "Aktif"
+      "personaPlaceholder": "Anda adalah agen dukungan ACME. Jawab singkat, ramah, dalam bahasa pelanggan. Jika ditanya harga, arahkan ke acme.example/pricing.",
+      "enabled": "Aktif",
+      "replyGroups": "Balas di grup",
+      "replyGroupsHint": "Matik secara default: di grup bot bicara di depan semua anggota. Chat individual selalu dijawab selama bot aktif — saklar per percakapan ada di halaman Chats.",
+      "groups": "Balasan grup",
+      "selectLlm": "Pilih model LLM…"
     },
     "llm": {
       "emptyTitle": "Belum ada model LLM",
@@ -1258,8 +1262,6 @@
       "modelId": "Id model",
       "apiKey": "API key",
       "apiKeyKeep": "Biarkan kosong untuk mempertahankan key tersimpan",
-      "persona": "Persona",
-      "personaPlaceholder": "System prompt yang dikirim pada setiap completion (opsional)",
       "parameters": "Parameter sampling",
       "temperature": "Temperature",
       "maxTokens": "Token maks",
@@ -1304,7 +1306,17 @@
       "documentChars": "{{count}} karakter",
       "queryPlaceholder": "Tanya basis pengetahuan…",
       "query": "Ambil",
-      "sourceTypeLabel": "Jenis sumber"
+      "sourceTypeLabel": "Jenis sumber",
+      "colSource": "Sumber",
+      "colTitle": "Judul",
+      "colSize": "Ukuran",
+      "colStatus": "Status",
+      "docTable": "Entri pengetahuan",
+      "statusReady": "Siap",
+      "statusPending": "Menunggu",
+      "statusProcessing": "Memproses…",
+      "statusFailed": "Gagal",
+      "asyncHint": "Sumber URL/situs/berkas diproses di latar belakang — badge berubah Siap saat selesai."
     },
     "mcp": {
       "emptyTitle": "Belum ada koneksi MCP",
@@ -1325,7 +1337,11 @@
       "timeout": "Timeout (ms)",
       "test": "Sambung dan lihat alat",
       "lastTest": "Tes terakhir",
-      "toolCount": "{{count}} alat"
+      "toolCount": "{{count}} alat",
+      "transport": "Transport",
+      "transportStreamable": "Streamable HTTP (modern)",
+      "transportSse": "SSE (server lama)",
+      "transportHint": "Gunakan SSE hanya jika server tidak mendukung Streamable HTTP."
     },
     "common": {
       "failed": "Permintaan gagal: {{message}}"

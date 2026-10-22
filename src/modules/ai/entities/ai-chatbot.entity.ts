@@ -19,22 +19,14 @@ export const AI_CHATBOT_NAME_MAX_LENGTH = 100;
 export const AI_CHATBOT_REPLY_MAX_LENGTH = 4096;
 
 /**
- * Longest per-chat conversation history kept for the system prompt (in messages). Bounds the token
- * spend of one reply: history beyond the newest N turns is dropped, oldest first.
- */
-export const CHATBOT_CONTEXT_MAX = 20;
-
-/**
  * One chatbot instance: the binding between the inbound messages of ONE WhatsApp session and
- * everything the reply needs — an LLM model, an optional RAG model, the persona prompt and the
- * chat fence the bot is allowed to speak in.
+ * everything the reply needs — an LLM model, an optional RAG model and the persona prompt.
  *
- * `sessionId` is varchar to match `sessions.id` (the same reasoning as `webhooks.sessionId`);
- * `chatIds` is the per-instance allowlist, independent of any API key scope — null/empty answers
- * every chat of the session (channel / broadcast / status never answered, like the automation rules).
+ * `sessionId` is varchar to match `sessions.id` (the same reasoning as `webhooks.sessionId`).
  *
- * `lastRepliedAt` per (chatbot, chat) cooldown lives in-process (see AiChatbotService); only the
- * most recent send time is persisted, for diagnostics.
+ * Which chats the bot answers is per-chat state on the Chats page (`ai_chat_overrides`, keyed
+ * `(chatbotId, chatId)`): the default is ON-for-every-chat when the bot is enabled, and the
+ * operator turns a specific conversation off from the chat list instead of typing JIDs here.
  */
 @Entity('ai_chatbots')
 @Index('IDX_ai_chatbots_sessionId', ['sessionId'])
@@ -60,27 +52,20 @@ export class AiChatbot {
   @Column({ type: 'varchar', length: 36, nullable: true })
   ragModelId!: string | null;
 
-  /** Optional persona; overrides the LLM model's own persona when set (chatbot wins). */
+  /**
+   * The persona: the system prompt sent with every completion. THE one persona — the LLM model
+   * row carries none, so there is exactly one place to edit it (chatbot) for the selected brain.
+   */
   @Column({ type: 'text', nullable: true })
   persona!: string | null;
 
   /**
-   * Chat allowlist. Null or empty answers every chat of the session; non-null filters the inbound
-   * messages the bot reacts to. WhatsApp JIDs or bare phone numbers (qualified to `<digits>@c.us`
-   * on save, like the chat-scope list).
+   * Answer group chats too. Off by default: a bot that speaks in a group answers in front of
+   * every member (and can ping-pong with another bot in the group), which is a conscious opt-in.
+   * Channels / broadcast lists / status are never answered.
    */
-  @Column({ type: 'simple-array', nullable: true })
-  chatIds!: string[] | null;
-
-  /** A chat the bot answered stays silent for this long (per chat), 0 disables. */
-  @Column({ type: 'int', default: 60 })
-  cooldownSeconds!: number;
-
-  /**
-   * How many prior messages of the chat ride along as conversation history (default 8, 0 disables).
-   */
-  @Column({ type: 'int', default: 8 })
-  contextMessages!: number;
+  @Column({ type: 'boolean', default: false })
+  replyGroups!: boolean;
 
   @Column({ type: 'boolean', default: true })
   enabled!: boolean;
@@ -92,10 +77,6 @@ export class AiChatbot {
   /** Free-form diagnostics of the last failing reply (redacted error text). */
   @Column({ type: 'text', nullable: true })
   lastError!: string | null;
-
-  /** Operator tuning recorded verbatim, e.g. which RAG node citations were last used. */
-  @Column({ type: jsonColumnType(), nullable: true })
-  metadata!: Record<string, unknown> | null;
 
   @CreateDateColumn()
   createdAt!: Date;

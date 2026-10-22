@@ -334,6 +334,19 @@ export const EXPORT_TABLES: AnyExportTable[] = [
   // rule with it — exporting and re-inserting it is not optional, or a restore silently destroys
   // every autoreply rule.
   defineExportTable({ key: 'automationRules', table: 'automation_rules', optional: true, sessionFk: true }),
+
+  // AI Integration. ai_chatbots + ai_chat_overrides carry an FK to sessions / ai_chatbots
+  // respectively: a chatbot dies with its session (CASCADE), and an override dies with its
+  // chatbot — so the chatbot rows MUST be exported, or a restore silently deletes every bot
+  // (the FK to a missing ai_chatbots row fails the re-insert). The resources the bots reference
+  // (ai_llm_models, ai_rag_models with their ai_rag_documents, ai_mcp_connections) are
+  // account-wide: exported like templates so a restore reproduces the full AI setup.
+  defineExportTable({ key: 'aiLlmModels', table: 'ai_llm_models', optional: true }),
+  defineExportTable({ key: 'aiChatbots', table: 'ai_chatbots', optional: true, sessionFk: true }),
+  defineExportTable({ key: 'aiChatOverrides', table: 'ai_chat_overrides', optional: true }),
+  defineExportTable({ key: 'aiRagModels', table: 'ai_rag_models', optional: true }),
+  defineExportTable({ key: 'aiRagDocuments', table: 'ai_rag_documents', optional: true }),
+  defineExportTable({ key: 'aiMcpConnections', table: 'ai_mcp_connections', optional: true }),
 ];
 
 /**

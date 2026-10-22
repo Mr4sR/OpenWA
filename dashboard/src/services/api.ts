@@ -1565,7 +1565,6 @@ export interface AiLlmModel {
   hasApiKey: boolean;
   apiKeyMasked: string | null;
   model: string;
-  persona: string | null;
   parameters: { temperature?: number; maxTokens?: number; topP?: number; stop?: string[] } | null;
   hasHeaders: boolean;
   enabled: boolean;
@@ -1595,9 +1594,7 @@ export interface AiChatbot {
   llmModelId: string;
   ragModelId: string | null;
   persona: string | null;
-  chatIds: string[] | null;
-  cooldownSeconds: number;
-  contextMessages: number;
+  replyGroups: boolean;
   enabled: boolean;
   lastRepliedAt: string | null;
   lastError: string | null;
@@ -1610,9 +1607,7 @@ export interface AiChatbotPayload {
   llmModelId: string;
   ragModelId?: string | null;
   persona?: string | null;
-  chatIds?: string[] | null;
-  cooldownSeconds?: number;
-  contextMessages?: number;
+  replyGroups?: boolean;
   enabled?: boolean;
 }
 
@@ -1663,6 +1658,8 @@ export interface AiRagDocument {
   sourceType: 'text' | 'url' | 'site' | 'file';
   title: string | null;
   sourceUrl: string | null;
+  status: 'ready' | 'pending' | 'processing' | 'failed';
+  statusError: string | null;
   contentPreview: string | null;
   contentLength: number;
   metadata: Record<string, unknown> | null;
@@ -1690,6 +1687,7 @@ export interface AiMcpConnection {
   id: string;
   name: string;
   endpointUrl: string;
+  transport: 'streamable-http' | 'sse';
   authKind: 'none' | 'bearer' | 'header';
   authHeader: string;
   hasCredential: boolean;
@@ -1712,6 +1710,7 @@ export interface AiMcpConnection {
 export interface AiMcpConnectionPayload {
   name: string;
   endpointUrl: string;
+  transport?: 'streamable-http' | 'sse';
   authKind?: 'none' | 'bearer' | 'header';
   authHeader?: string;
   /** Omit on update to keep the stored credential; `''` removes it. */
@@ -1777,4 +1776,15 @@ export const aiApi = {
     ),
   listMcpTools: (id: string) =>
     request<{ tools: AiMcpTool[] }>(`/ai/mcp-connections/${id}/tools`),
+
+  // Per-chat AI switches (the Chats page): which bots are muted in which conversation.
+  getChatStates: (sessionId: string, chatIds: string[]) =>
+    request<{ overrides: Record<string, string[]> }>(
+      `/ai/chat-states?sessionId=${encodeURIComponent(sessionId)}&chatIds=${encodeURIComponent(chatIds.join(','))}`,
+    ),
+  setChatState: (body: { chatbotId: string; chatId: string; chatbotDisabled: boolean }) =>
+    request<{ chatbotId: string; chatId: string; chatbotDisabled: boolean }>('/ai/chat-state', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };

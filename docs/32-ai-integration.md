@@ -13,7 +13,7 @@
 | Component | Status | Location |
 | --- | --- | --- |
 | LLM provider connections (OpenAI-compatible) | ✅ Implemented | `src/modules/ai/ai-llm-models.service.ts` |
-| Chatbot instances + inbound evaluation | ✅ Implemented | `src/modules/ai/ai-chatbot.service.ts` |
+| Chatbot instances + per-chat switches + inbound evaluation | ✅ Implemented | `src/modules/ai/ai-chatbot.service.ts` |
 | Vectorless RAG (PageIndex-style tree) | ✅ Implemented | `src/modules/ai/ai-rag.service.ts` |
 | Outbound MCP connections (client side) | ✅ Implemented | `src/modules/ai/ai-mcp-connections.service.ts` |
 | REST surface (`/api/ai/*`) | ✅ Implemented | `src/modules/ai/*.controller.ts` |
@@ -38,40 +38,51 @@ flowchart LR
     MCP[AiMcpConnectionsService] -->|Streamable HTTP| SRV[External MCP servers]
 ```
 
-- **AI LLM** — a named OpenAI-compatible endpoint: base URL, API key, model id, sampling
-  parameters (temperature / max tokens / top-p / stop) and an optional persona (a system
-  prompt sent with every completion). The API key and custom headers are write-only: reads
-  return a mask plus a boolean, the same posture as webhook `secret`.
-- **Chatbot** — binds ONE session to an LLM model, an optional RAG model, a persona override,
-  a chat allowlist, a per-chat cooldown and a context-window size. On the inbound dispatch (the
-  same at-most-once fan-out the automation rules ride) the first matching enabled bot answers
-  the chat through the ordinary send path — send pacing, plugin vetoes and audit included.
-  Bots never answer their own messages, never answer messages older than five minutes (a
-  reconnect replays the offline backlog through the same path), and answer `channel` /
-  `broadcast` / `status` chats only when the operator bound them explicitly.
-- **RAG Vectorless** — a named knowledge base. Entries are pasted words/information, a fetched
-  URL, a site, or a stored file. *Indexing* builds a hierarchical tree PageIndex-style
-  (segment → group → LLM summaries bottom-up, bounded at 120 completion calls); *retrieval*
-  walks the tree with LLM reasoning instead of an embedding search — no vectors, no vector
-  database, and every answer traces to an explicit node. A model activates on **all
+- **AI LLM** — a named OpenAI-compatible endpoint: base URL, API key, model id and sampling
+  parameters (temperature / max tokens / top-p / stop), defaulting to `temperature: 0.7` and
+  `maxTokens: 1024` when omitted on create. A `.../v1` base URL and a full
+  `.../v1/chat/completions` URL both work. It carries **no persona** — the persona belongs to
+  the chatbot. The API key and custom headers are write-only: reads return a mask plus a
+  boolean, the same posture as webhook `secret`. A completion that times out names the endpoint
+  and the 60 s budget; a reply that is not JSON surfaces the response's first bytes so a
+  redirect/HTML page is obvious.
+- **Chatbot** — binds ONE session to an LLM model, an optional RAG model, **the persona** (its
+  only system prompt) and a `replyGroups` opt-in. While `enabled`, every chat of the session is
+  answered by default; the **Chats page** carries a per-conversation AI ON/OFF chip that writes
+  an `ai_chat_overrides` row for the muted pairs (`POST /api/ai/chat-state`), so a single
+  conversation can be silenced without touching the bot. On the inbound dispatch (the same
+  at-most-once fan-out the automation rules ride) the first matching enabled bot answers the
+  chat through the ordinary send path — send pacing, plugin vetoes and audit included. Bots
+  never answer their own messages, never answer messages older than five minutes (a reconnect
+  replays the offline backlog through the same path), never answer `channel` / `broadcast` /
+  `status` chats, and answer groups only when `replyGroups` is on.
+- **RAG Vectorless** — a named knowledge base, implemented in **TypeScript on Node** (no Python
+  worker, no embedding service). Entries are pasted words/information, a fetched URL, a site,
+  or a stored file. A url/site/file entry is **ingested in the background**: the row lands as
+  `pending`, the dashboard polls it (`processing` → `ready` or `failed` with the reason), and
+  a dead link never wedges the request that added it. *Indexing* builds a hierarchical tree
+  PageIndex-style (segment → group → LLM summaries bottom-up, bounded at 120 completion calls);
+  *retrieval* walks the tree with LLM reasoning instead of an embedding search — no vectors, no
+  vector database, and every answer traces to an explicit node. A model activates on **all
   sessions**, **selected sessions** (`sessionScope`), or **none** (detached);
   `sessionScope: 'selected'` is enforced where a chatbot resolves its RAG model.
-- **MCP Server** — an outbound connection to a Streamable-HTTP MCP server, with `none`,
-  `bearer`, or custom-header authentication. `POST /ai/mcp-connections/:id/test` connects,
-  initializes and lists the advertised tools; the tools are surfaced to the operator
-  (dashboard) so they can be wired into AI flows.
+- **MCP Server** — an outbound connection to an MCP server, over **Streamable HTTP** (default)
+  or **SSE** (`transport: 'sse'`), with `none`, `bearer`, or custom-header authentication.
+  `POST /ai/mcp-connections/:id/test` connects, initializes and lists the advertised tools; the
+  tools are surfaced to the operator (dashboard) so they can be wired into AI flows.
 
 ## 32.2 Data model
 
-Five tables (migration `1792000000000-AddAiIntegration`):
+Six tables (migrations `1792000000000-AddAiIntegration` + `1793000000000-ReviseAiIntegration`):
 
 | Table | Purpose |
 | --- | --- |
-| `ai_llm_models` | Provider connections; `apiKey`/`headers` stored plaintext, never returned |
-| `ai_chatbots` | Per-session bot instances; varchar `sessionId` FK with `ON DELETE CASCADE` |
+| `ai_llm_models` | Provider connections; `apiKey`/`headers` stored plaintext, never returned. No persona — the chatbot owns it |
+| `ai_chatbots` | Per-session bot instances: THE persona and a `replyGroups` opt-in; varchar `sessionId` FK with `ON DELETE CASCADE`. No chat allowlist / cooldown / history knobs — the per-chat switches replaced them |
+| `ai_chat_overrides` | The Chats-page switches: one row per muted `(chatbotId, chatId)` pair; a missing row means answered |
 | `ai_rag_models` | Knowledge bases; the tree index lives as JSON on the row (`index`, `indexedAt`) |
-| `ai_rag_documents` | Knowledge entries (`text`/`url`/`site`/`file`) before indexing |
-| `ai_mcp_connections` | Outbound MCP servers; `authCredential` write-only, masked on read |
+| `ai_rag_documents` | Knowledge entries with an ingestion `status` (`pending` → `processing` → `ready` \| `failed` + `statusError`); url/site/file are fetched in the background |
+| `ai_mcp_connections` | Outbound MCP servers; `transport` (`streamable-http` \| `sse`), `authCredential` write-only, masked on read |
 
 Account-wide rows (`ai_llm_models`, `ai_rag_models`, `ai_mcp_connections`) have unique
 `name`s; chatbots are unique per session by construction of the UI and capped per session.
@@ -91,6 +102,8 @@ webhooks.
 | `/api/ai/llm-models/:id/test` | POST | ADMIN | One minimal completion; records diagnostics |
 | `/api/sessions/:sid/ai-chatbots` | GET/POST | OPERATOR | List / create for the session |
 | `/api/sessions/:sid/ai-chatbots/:id` | PUT / DELETE | OPERATOR | Update / delete |
+| `/api/ai/chat-states` | GET | OPERATOR | The per-chat AI switches (which bots are muted per conversation) |
+| `/api/ai/chat-state` | POST | OPERATOR | Flip one (chatbot, chat) switch — the Chats page toggles |
 | `/api/ai/chatbots` | GET | OPERATOR | Cross-session list, scoped to the key's `allowedSessions` |
 | `/api/ai/rag-models` | GET | OPERATOR | List with document counts and index state |
 | `/api/ai/rag-models` | POST | ADMIN | Create |
@@ -143,9 +156,16 @@ key, and `.env.example` documents them under the AI INTEGRATION banner.
   SSRF guard (`withSafeFetch` / `resolveSafeFetchTarget`), so registrations to internal
   addresses are refused exactly as webhook deliveries are. `WEBHOOK_SSRF_PROTECT=false`
   releases all of them in a closed network.
-- **Chatbot blast radius.** A bot speaks as the WhatsApp account. The chat allowlist, the
-  channel/broadcast/status opt-in and the cooldown bound what it can answer; the audit row on
-  every mutation records who changed it.
+- **Chatbot blast radius.** A bot speaks as the WhatsApp account. The bot's `enabled` state,
+  the `replyGroups` opt-in, the five-minute staleness floor and the per-chat
+  `ai_chat_overrides` switches (default: every chat answered) bound what it can answer; the
+  audit row on every mutation records who changed it.
+- **Backups.** All six AI tables ride `GET /api/infra/export-data` / `POST /api/infra/import-data`
+  (`aiLlmModels`, `aiChatbots`, `aiChatOverrides`, `aiRagModels`, `aiRagDocuments`,
+  `aiMcpConnections`): a chatbot dies with its session (CASCADE) and an override with its
+  bot, so restoring a backup reproduces the full AI setup — bots, personas, muted chats,
+  knowledge bases and MCP connections — without re-entry. LLM API keys and MCP credentials in
+  a backup are stored plaintext in the archive, like the rest of the export.
 - **RAG index budget.** One index build spends at most 120 completion calls and one retrieval
   walk at most 4; a build that exceeds the budget fails with the error on the row
   (`lastIndexError`) and the previous index stays live until a rebuild commits.

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import type { AiChatbot, AiLlmModel, AiMcpConnection, AiRagDocument, AiRagModel, AiRagNode } from '../../services/api';
+import type { AiChatbot, AiLlmModel, AiMcpConnection, AiRagDocument, AiRagNode } from '../../services/api';
 
 /**
  * Shared presentational pieces of the AI Integration page. The four sections (chatbots, LLM
@@ -134,22 +134,42 @@ export function AiTreePreview({ nodes, depth = 0 }: { nodes: AiRagNode[]; depth?
   );
 }
 
+export function aiDocStatusBadgeClass(status: AiRagDocument['status']): string {
+  switch (status) {
+    case 'ready':
+      return 'ai-doc-status ready';
+    case 'failed':
+      return 'ai-doc-status failed';
+    default:
+      return 'ai-doc-status ingesting';
+  }
+}
+
+/**
+ * The knowledge editor of one RAG model: a readable entry table (source, title, size, ingestion
+ * status) plus a wide add form. Ingestion is asynchronous for url/site/file — the row starts
+ * pending and the parent polls until it settles.
+ */
 export function AiDocumentEditor({
-  model,
   documents,
   onAdd,
   onDelete,
   canWrite,
   t,
 }: {
-  model: AiRagModel;
+  /** Kept for API symmetry with the other editors; unused today. */
+  model?: unknown;
   documents: AiRagDocument[];
-  onAdd: (payload: { sourceType: 'text' | 'url' | 'site' | 'file'; title: string; content: string; sourceUrl: string }) => void;
+  onAdd: (payload: {
+    sourceType: 'text' | 'url' | 'site' | 'file';
+    title: string;
+    content: string;
+    sourceUrl: string;
+  }) => void;
   onDelete: (documentId: string) => void;
   canWrite: boolean;
   t: TFunction;
 }) {
-  // The knowledge editor is inline: one add row (source type + content) and the list of entries.
   const [sourceType, setSourceType] = useState<'text' | 'url' | 'site' | 'file'>('text');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -163,79 +183,112 @@ export function AiDocumentEditor({
   return (
     <div className="ai-doc-editor">
       {documents.length > 0 && (
-        <div className="ai-doc-list">
+        <div className="ai-doc-table" role="table" aria-label={t('ai.rag.docTable')}>
+          <div className="ai-doc-head" role="row">
+            <span role="columnheader">{t('ai.rag.colSource')}</span>
+            <span role="columnheader">{t('ai.rag.colTitle')}</span>
+            <span role="columnheader">{t('ai.rag.colSize')}</span>
+            <span role="columnheader">{t('ai.rag.colStatus')}</span>
+            <span aria-hidden />
+          </div>
           {documents.map(doc => (
-            <div key={doc.id} className="ai-doc-row">
-              <span className={`ai-tag ${doc.sourceType === 'text' ? '' : 'ai-tag-muted'}`}>{doc.sourceType}</span>
-              <span className="ai-doc-title">{doc.title || doc.sourceUrl || doc.id}</span>
-              <span className="ai-doc-len">{t('ai.rag.documentChars', { count: doc.contentLength })}</span>
-              {canWrite && (
-                <button
-                  type="button"
-                  className="icon-btn danger"
-                  title={t('ai.actions.delete')}
-                  onClick={() => onDelete(doc.id)}
-                >
-                  🗑
-                </button>
-              )}
+            <div key={doc.id} className="ai-doc-row" role="row">
+              <span role="cell">
+                <span className="ai-tag ai-tag-muted">{doc.sourceType}</span>
+              </span>
+              <span role="cell" className="ai-doc-title" title={doc.title || doc.sourceUrl || doc.id}>
+                {doc.title || doc.sourceUrl || doc.id}
+              </span>
+              <span role="cell" className="ai-doc-len">
+                {doc.status === 'ready' ? t('ai.rag.documentChars', { count: doc.contentLength }) : '—'}
+              </span>
+              <span role="cell">
+                <span className={aiDocStatusBadgeClass(doc.status)}>
+                  {doc.status === 'ready'
+                    ? t('ai.rag.statusReady')
+                    : doc.status === 'pending'
+                      ? t('ai.rag.statusPending')
+                      : doc.status === 'processing'
+                        ? t('ai.rag.statusProcessing')
+                        : t('ai.rag.statusFailed')}
+                </span>
+                {doc.status === 'failed' && doc.statusError && (
+                  <span className="ai-doc-status-error" title={doc.statusError}>
+                    {doc.statusError.slice(0, 120)}
+                  </span>
+                )}
+              </span>
+              <span role="cell">
+                {canWrite && (
+                  <button
+                    type="button"
+                    className="icon-btn danger"
+                    title={t('ai.actions.delete')}
+                    aria-label={t('ai.actions.delete')}
+                    onClick={() => onDelete(doc.id)}
+                  >
+                    🗑
+                  </button>
+                )}
+              </span>
             </div>
           ))}
         </div>
       )}
+
       {canWrite && (
         <div className="ai-doc-add">
-          <select
-            aria-label={t('ai.rag.sourceTypeLabel')}
-            value={sourceType}
-            onChange={e => setSourceType(e.target.value as typeof sourceType)}
-          >
-            <option value="text">{t('ai.rag.sourceType.text')}</option>
-            <option value="url">{t('ai.rag.sourceType.url')}</option>
-            <option value="site">{t('ai.rag.sourceType.site')}</option>
-          </select>
-          {sourceType !== 'text' && (
-            <input
-              type="url"
-              placeholder={t('ai.rag.sourceUrlPlaceholder')}
-              value={sourceUrl}
-              onChange={e => setSourceUrl(e.target.value)}
-            />
-          )}
+          <div className="ai-doc-add-row">
+            <select
+              aria-label={t('ai.rag.colSource')}
+              value={sourceType}
+              onChange={e => setSourceType(e.target.value as typeof sourceType)}
+            >
+              <option value="text">{t('ai.rag.sourceType.text')}</option>
+              <option value="url">{t('ai.rag.sourceType.url')}</option>
+              <option value="site">{t('ai.rag.sourceType.site')}</option>
+            </select>
+            {sourceType !== 'text' && (
+              <input
+                type="url"
+                placeholder={t('ai.rag.sourceUrlPlaceholder')}
+                value={sourceUrl}
+                onChange={e => setSourceUrl(e.target.value)}
+              />
+            )}
+          </div>
           <input
             type="text"
             placeholder={t('ai.rag.titlePlaceholder')}
             value={title}
             onChange={e => setTitle(e.target.value)}
           />
-          <textarea
-            placeholder={t('ai.rag.contentPlaceholder')}
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            style={{ minHeight: 60 }}
-          />
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={!valid}
-            onClick={() => {
-              onAdd({
-                sourceType,
-                title: title.trim(),
-                content: content,
-                sourceUrl: sourceUrl.trim(),
-              });
-              setTitle('');
-              setContent('');
-              setSourceUrl('');
-            }}
-          >
-            {t('ai.rag.addEntry')}
-          </button>
+          {sourceType === 'text' && (
+            <textarea
+              placeholder={t('ai.rag.contentPlaceholder')}
+              value={content}
+              rows={5}
+              className="ai-persona-input"
+              onChange={e => setContent(e.target.value)}
+            />
+          )}
+          <div className="ai-doc-add-footer">
+            <span className="hint">{t('ai.rag.asyncHint')}</span>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!valid}
+              onClick={() => {
+                onAdd({ sourceType, title: title.trim(), content, sourceUrl: sourceUrl.trim() });
+                setTitle('');
+                setContent('');
+                setSourceUrl('');
+              }}
+            >
+              {t('ai.rag.addEntry')}
+            </button>
+          </div>
         </div>
-      )}
-      {!model.hasIndex && canWrite && documents.length > 0 && (
-        <span className="hint">{t('ai.rag.needsIndex')}</span>
       )}
     </div>
   );

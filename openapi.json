@@ -5008,6 +5008,132 @@
         ]
       }
     },
+    "/api/ai/chat-states": {
+      "get": {
+        "operationId": "AiIntegrationController_chatStates",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "query",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatIds",
+            "required": true,
+            "in": "query",
+            "description": "Comma-separated chat ids to resolve",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Map of chatId -> chatbotIds switched OFF for that chat."
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Per-chat AI switch state for the session's conversations (Chats page)",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/ai/chat-state": {
+      "post": {
+        "operationId": "AiIntegrationController_setChatState",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetAiChatOverrideDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The switch was stored, or removed when enabling.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiChatStateDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed, fails validation, or carries a field the DTO does not declare",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such chatbot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Flip the per-chat AI switch of one chatbot for one conversation",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
     "/api/ai/rag-models": {
       "get": {
         "operationId": "AiRagModelController_findAll",
@@ -21947,14 +22073,9 @@
             "example": "gpt-4o-mini",
             "maxLength": 200
           },
-          "persona": {
-            "type": "string",
-            "description": "System prompt prepended to every completion (an AI persona)",
-            "maxLength": 8000
-          },
           "parameters": {
             "type": "object",
-            "description": "Sampling parameters. Unset fields fall back to the provider defaults.",
+            "description": "Sampling parameters. Temperature defaults to 0.7 and maxTokens to 1024 when omitted (these are also the placeholders in the dashboard form).",
             "example": {
               "temperature": 0.7,
               "maxTokens": 1024
@@ -21999,10 +22120,6 @@
           },
           "model": {
             "type": "string"
-          },
-          "persona": {
-            "type": "object",
-            "nullable": true
           },
           "parameters": {
             "type": "object",
@@ -22070,11 +22187,6 @@
             "description": "Model id at the provider",
             "maxLength": 200
           },
-          "persona": {
-            "type": "object",
-            "description": "System prompt for every completion",
-            "maxLength": 8000
-          },
           "parameters": {
             "type": "object",
             "description": "Sampling parameters; null clears them",
@@ -22109,33 +22221,13 @@
           },
           "persona": {
             "type": "object",
-            "description": "Persona for THIS bot; overrides the LLM model persona when set",
+            "description": "The persona: the system prompt sent with every completion. Leave empty for a plain assistant. This is the ONLY persona — the LLM connection carries none.",
             "maxLength": 4096
           },
-          "chatIds": {
-            "description": "Chat allowlist: only these chats of the session are answered (JIDs or bare phone numbers). Null/empty answers every chat.",
-            "example": [
-              "628123456789@c.us"
-            ],
-            "nullable": true,
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "cooldownSeconds": {
-            "type": "number",
-            "description": "Quiet period per chat, in seconds, after the bot answers (default 60, 0 disables)",
-            "default": 60,
-            "minimum": 0,
-            "maximum": 86400
-          },
-          "contextMessages": {
-            "type": "number",
-            "description": "Prior chat messages included as conversation history (default 8, 0-20)",
-            "default": 8,
-            "minimum": 0,
-            "maximum": 20
+          "replyGroups": {
+            "type": "boolean",
+            "description": "Answer group chats too. Off by default: in a group the bot speaks in front of every member. Individual chats are always answered while the bot is enabled.",
+            "default": false
           },
           "enabled": {
             "type": "boolean",
@@ -22171,18 +22263,8 @@
             "type": "object",
             "nullable": true
           },
-          "chatIds": {
-            "nullable": true,
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "cooldownSeconds": {
-            "type": "number"
-          },
-          "contextMessages": {
-            "type": "number"
+          "replyGroups": {
+            "type": "boolean"
           },
           "enabled": {
             "type": "boolean"
@@ -22210,9 +22292,7 @@
           "sessionId",
           "name",
           "llmModelId",
-          "chatIds",
-          "cooldownSeconds",
-          "contextMessages",
+          "replyGroups",
           "enabled",
           "createdAt",
           "updatedAt"
@@ -22237,31 +22317,61 @@
           },
           "persona": {
             "type": "object",
-            "description": "Persona; null falls back to the LLM model persona",
-            "nullable": true
+            "description": "The persona (system prompt); an empty string clears it"
           },
-          "chatIds": {
-            "type": "object",
-            "description": "Chat allowlist; null/empty answers every chat",
-            "nullable": true
-          },
-          "cooldownSeconds": {
-            "type": "number",
-            "description": "Quiet period per chat in seconds",
-            "minimum": 0,
-            "maximum": 86400
-          },
-          "contextMessages": {
-            "type": "number",
-            "description": "Conversation history length",
-            "minimum": 0,
-            "maximum": 20
+          "replyGroups": {
+            "type": "boolean",
+            "description": "Answer group chats too",
+            "default": false
           },
           "enabled": {
             "type": "boolean",
             "description": "Whether the bot is active"
           }
         }
+      },
+      "SetAiChatOverrideDto": {
+        "type": "object",
+        "properties": {
+          "chatbotId": {
+            "type": "string",
+            "description": "The chatbot the switch belongs to (`ai_chatbots.id`)"
+          },
+          "chatId": {
+            "type": "string",
+            "description": "The chat id exactly as the inbound path carries it"
+          },
+          "chatbotDisabled": {
+            "type": "boolean",
+            "description": "True = the bot stays silent in this chat",
+            "default": false
+          }
+        },
+        "required": [
+          "chatbotId",
+          "chatId",
+          "chatbotDisabled"
+        ]
+      },
+      "AiChatStateDto": {
+        "type": "object",
+        "properties": {
+          "chatbotId": {
+            "type": "string"
+          },
+          "chatId": {
+            "type": "string"
+          },
+          "chatbotDisabled": {
+            "type": "boolean",
+            "description": "True = the bot is switched off for this chat"
+          }
+        },
+        "required": [
+          "chatbotId",
+          "chatId",
+          "chatbotDisabled"
+        ]
       },
       "AiRagNodeDto": {
         "type": "object",
@@ -22583,6 +22693,21 @@
             "nullable": true,
             "description": "Source URL (url/site/file entries)"
           },
+          "status": {
+            "type": "string",
+            "description": "Ingestion state: ready, pending (queued), processing (fetching) or failed",
+            "enum": [
+              "ready",
+              "pending",
+              "processing",
+              "failed"
+            ]
+          },
+          "statusError": {
+            "type": "object",
+            "nullable": true,
+            "description": "Why the ingestion failed"
+          },
           "contentPreview": {
             "type": "object",
             "description": "Stored knowledge text (truncated preview for list views)"
@@ -22608,6 +22733,7 @@
           "id",
           "ragModelId",
           "sourceType",
+          "status",
           "contentPreview",
           "contentLength",
           "createdAt",
@@ -22648,6 +22774,15 @@
             "description": "MCP server endpoint (Streamable HTTP transport)",
             "example": "https://tools.example.com/mcp",
             "maxLength": 2048
+          },
+          "transport": {
+            "type": "string",
+            "description": "Transport: `streamable-http` (the modern one) or `sse` (the legacy EventSource transport, for older servers)",
+            "enum": [
+              "streamable-http",
+              "sse"
+            ],
+            "default": "streamable-http"
           },
           "authKind": {
             "type": "string",
@@ -22702,6 +22837,13 @@
           "endpointUrl": {
             "type": "string"
           },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "streamable-http",
+              "sse"
+            ]
+          },
           "authKind": {
             "type": "string",
             "enum": [
@@ -22749,6 +22891,7 @@
           "id",
           "name",
           "endpointUrl",
+          "transport",
           "authKind",
           "authHeader",
           "hasCredential",
@@ -22772,6 +22915,14 @@
             "type": "string",
             "description": "MCP server endpoint",
             "maxLength": 2048
+          },
+          "transport": {
+            "type": "string",
+            "description": "Transport",
+            "enum": [
+              "streamable-http",
+              "sse"
+            ]
           },
           "authKind": {
             "type": "string",
@@ -25615,6 +25766,42 @@
             "items": {
               "type": "object"
             }
+          },
+          "aiLlmModels": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aiChatbots": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aiChatOverrides": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aiRagModels": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aiRagDocuments": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "aiMcpConnections": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           }
         },
         "required": [
@@ -25633,7 +25820,13 @@
           "webhookOutboxEvents",
           "integrationDeliveryFailures",
           "statusUpdates",
-          "automationRules"
+          "automationRules",
+          "aiLlmModels",
+          "aiChatbots",
+          "aiChatOverrides",
+          "aiRagModels",
+          "aiRagDocuments",
+          "aiMcpConnections"
         ]
       },
       "TableCountsDto": {
@@ -25702,6 +25895,30 @@
           "automationRules": {
             "type": "number",
             "example": 2
+          },
+          "aiLlmModels": {
+            "type": "number",
+            "example": 1
+          },
+          "aiChatbots": {
+            "type": "number",
+            "example": 2
+          },
+          "aiChatOverrides": {
+            "type": "number",
+            "example": 0
+          },
+          "aiRagModels": {
+            "type": "number",
+            "example": 1
+          },
+          "aiRagDocuments": {
+            "type": "number",
+            "example": 3
+          },
+          "aiMcpConnections": {
+            "type": "number",
+            "example": 1
           }
         },
         "required": [
@@ -25720,7 +25937,13 @@
           "webhookOutboxEvents",
           "integrationDeliveryFailures",
           "statusUpdates",
-          "automationRules"
+          "automationRules",
+          "aiLlmModels",
+          "aiChatbots",
+          "aiChatOverrides",
+          "aiRagModels",
+          "aiRagDocuments",
+          "aiMcpConnections"
         ]
       },
       "OmittedInlineMediaDto": {
@@ -25797,7 +26020,7 @@
         "properties": {
           "tables": {
             "type": "object",
-            "description": "Every one of the 16 migration tables is emptied before the restore runs, so a key omitted here is restored EMPTY rather than left untouched. Post the whole GET /api/infra/export-data payload, not a hand-built subset.",
+            "description": "Every one of the 22 migration tables is emptied before the restore runs, so a key omitted here is restored EMPTY rather than left untouched. Post the whole GET /api/infra/export-data payload, not a hand-built subset.",
             "properties": {
               "sessions": {
                 "type": "array"
@@ -25845,6 +26068,24 @@
                 "type": "array"
               },
               "automationRules": {
+                "type": "array"
+              },
+              "aiLlmModels": {
+                "type": "array"
+              },
+              "aiChatbots": {
+                "type": "array"
+              },
+              "aiChatOverrides": {
+                "type": "array"
+              },
+              "aiRagModels": {
+                "type": "array"
+              },
+              "aiRagDocuments": {
+                "type": "array"
+              },
+              "aiMcpConnections": {
                 "type": "array"
               }
             }

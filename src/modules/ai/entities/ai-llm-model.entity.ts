@@ -55,10 +55,6 @@ export class AiLlmModel {
   @Column({ type: 'varchar', length: 200, default: '' })
   model!: string;
 
-  /** Optional persona prepended as the system message on every completion. */
-  @Column({ type: 'text', nullable: true })
-  persona!: string | null;
-
   /**
    * Sampling parameters sent with each completion call. Only the fields the operator set are sent;
    * the provider defaults apply otherwise.

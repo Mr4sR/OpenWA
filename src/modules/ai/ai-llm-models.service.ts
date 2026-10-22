@@ -14,8 +14,11 @@ import { CreateAiLlmModelDto, UpdateAiLlmModelDto } from './dto/ai-llm-model.dto
 /** Per-instance cap: every chatbot completion resolves through one of these rows. */
 export const AI_LLM_MODELS_MAX = 50;
 
-/** Wall-clock ceiling of one completion call (the chatbot reply path shares it). */
-export const LLM_REQUEST_TIMEOUT_MS = 120_000;
+/** Wall-clock ceiling of one completion call (chatbot reply path + provider test share it). */
+export const LLM_REQUEST_TIMEOUT_MS = 60_000;
+
+/** The sampling defaults the dashboard placeholders advertise; a create without parameters gets them. */
+export const DEFAULT_LLM_PARAMETERS = { temperature: 0.7, maxTokens: 1024 };
 
 /** A completion answer is bounded by the reply cap; anything past it is a broken provider. */
 export const LLM_RESPONSE_MAX_BYTES = 4 * 1024 * 1024;
@@ -63,8 +66,7 @@ export class AiLlmModelsService {
       endpointUrl: dto.endpointUrl.replace(/\/+$/, ''),
       apiKey: dto.apiKey ?? '',
       model: dto.model ?? '',
-      persona: dto.persona ?? null,
-      parameters: sanitizeLlmParameters(dto.parameters ?? null),
+      parameters: sanitizeLlmParameters(dto.parameters ?? DEFAULT_LLM_PARAMETERS),
       headers: Object.keys(dto.headers ?? {}).length > 0 ? sanitizeHeaderMap(dto.headers) : {},
       enabled: dto.enabled ?? true,
     });
@@ -96,7 +98,6 @@ export class AiLlmModelsService {
     }
     if (dto.apiKey !== undefined) model.apiKey = dto.apiKey;
     if (dto.model !== undefined) model.model = dto.model;
-    if (dto.persona !== undefined) model.persona = dto.persona;
     if (dto.parameters !== undefined) model.parameters = sanitizeLlmParameters(dto.parameters);
     if (dto.headers !== undefined) model.headers = sanitizeHeaderMap(dto.headers);
     if (dto.enabled !== undefined) model.enabled = dto.enabled;
@@ -152,14 +153,16 @@ export class AiLlmModelsService {
       if (parameters.topP !== undefined) body.top_p = parameters.topP;
       if (parameters.stop !== undefined) body.stop = parameters.stop;
     }
+    const url = chatCompletionsUrl(model.endpointUrl);
     let answer: string;
     try {
       answer = await withSafeFetch(
-        `${model.endpointUrl.replace(/\/+$/, '')}/chat/completions`,
+        url,
         {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
+            accept: 'application/json',
             ...(model.apiKey ? { authorization: `Bearer ${model.apiKey}` } : {}),
             ...sanitizeHeaderMap(model.headers),
           },
@@ -169,12 +172,12 @@ export class AiLlmModelsService {
         async (response: undiciResponse) => {
           if (!response.ok) {
             const detail = (await response.text()).slice(0, 300);
-            throw new Error(`LLM HTTP ${response.status}: ${detail}`);
+            throw new Error(`LLM HTTP ${response.status} from ${url}: ${detail || '(empty body)'}`);
           }
           // Responses are small JSON docs; the byte cap turns a runaway provider into an error
           // instead of an unbounded buffer.
           const reader = response.body;
-          if (!reader) throw new Error('LLM returned an empty body');
+          if (!reader) throw new Error(`LLM ${url} returned an empty body`);
           const chunks: Uint8Array[] = [];
           let total = 0;
           const scan = reader.getReader();
@@ -199,28 +202,59 @@ export class AiLlmModelsService {
         { guard: process.env.WEBHOOK_SSRF_PROTECT !== 'false' },
       );
     } catch (error) {
-      throw new Error(redactSsrfError(error));
+      const message = redactSsrfError(error);
+      // undici's AbortSignal.timeout raises a bare "The operation was aborted due to timeout",
+      // which tells the operator nothing. Name the endpoint and the budget instead.
+      if (/aborted due to timeout|TimeoutError/i.test(message)) {
+        throw new Error(
+          `LLM request to ${url} timed out after ${Math.round(LLM_REQUEST_TIMEOUT_MS / 1000)}s. ` +
+            'The provider did not answer in time — check the endpoint URL and the provider status.',
+        );
+      }
+      throw new Error(message);
     }
 
     let parsed: {
       choices?: Array<{ message?: { content?: unknown } }>;
       error?: { message?: unknown };
+      // Some OpenAI-compatible gateways answer with a bare completion string or `content` field.
+      content?: unknown;
+      response?: unknown;
     };
     try {
       parsed = JSON.parse(answer) as typeof parsed;
     } catch {
-      throw new Error('LLM returned a non-JSON body');
+      // A gateway that answers with HTML (a login page, a proxy error) or plain text is NOT a
+      // valid completion. Show what came back instead of a bare "non-JSON body".
+      const preview = answer.trim().slice(0, 160);
+      throw new Error(
+        `LLM ${url} did not return JSON. First bytes: ${preview ? `"${preview}"` : '(empty body)'} — ` +
+          'check that the endpoint is an OpenAI-compatible /chat/completions URL.',
+      );
     }
     if (parsed.error) {
       const message = typeof parsed.error.message === 'string' ? parsed.error.message : 'unknown provider error';
       throw new Error(`LLM provider error: ${message.slice(0, 300)}`);
     }
-    const content = parsed.choices?.[0]?.message?.content;
+    const content = parsed.choices?.[0]?.message?.content ?? parsed.content ?? parsed.response;
     if (typeof content !== 'string' || content.length === 0) {
-      throw new Error('LLM returned no completion content');
+      throw new Error(
+        `LLM ${url} returned JSON without completion content. Keys present: ` +
+          `${Object.keys(parsed as object).join(', ') || '(none)'} — the endpoint may not be an OpenAI-compatible chat API.`,
+      );
     }
     return content;
   }
+}
+
+/**
+ * The chat-completions URL: the stored endpoint is the API ROOT; the call goes to
+ * `<root>/chat/completions`. An operator who pasted the full path anyway gets it used as-is, so
+ * both `https://api.openai.com/v1` and `https://api.openai.com/v1/chat/completions` work.
+ */
+function chatCompletionsUrl(endpointUrl: string): string {
+  const root = endpointUrl.replace(/\/+$/, '');
+  return root.endsWith('/chat/completions') ? root : `${root}/chat/completions`;
 }
 
 /** Scheme check mirroring the webhook DTO: http(s) required, no TLD requirement. */

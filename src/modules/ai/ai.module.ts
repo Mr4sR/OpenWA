@@ -4,6 +4,7 @@ import { AiLlmModel } from './entities/ai-llm-model.entity';
 import { AiChatbot } from './entities/ai-chatbot.entity';
 import { AiRagModel, AiRagDocument } from './entities/ai-rag-model.entity';
 import { AiMcpConnection } from './entities/ai-mcp-connection.entity';
+import { AiChatOverride } from './entities/ai-chat-override.entity';
 import { Session } from '../session/entities/session.entity';
 import { Message } from '../message/entities/message.entity';
 import { AiLlmModelsService } from './ai-llm-models.service';
@@ -30,7 +31,7 @@ import { AiMcpConnectionController } from './ai-mcp-connection.controller';
 @Module({
   imports: [
     AuditModule,
-    TypeOrmModule.forFeature([AiLlmModel, AiChatbot, AiRagModel, AiRagDocument, AiMcpConnection, Session, Message], 'data'),
+    TypeOrmModule.forFeature([AiLlmModel, AiChatbot, AiChatOverride, AiRagModel, AiRagDocument, AiMcpConnection, Session, Message], 'data'),
   ],
   controllers: [
     AiLlmModelController,

@@ -322,3 +322,176 @@
 .ai-page .ai-status-dot.fail {
   background: var(--error-text, #e03131);
 }
+
+/* ── Wide persona editor (a persona is a paragraph or three, not a single line) ─────────────── */
+
+.ai-page .ai-persona-input {
+  width: 100%;
+  min-height: 150px;
+  padding: 0.625rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.ai-page .ai-persona-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.18);
+}
+
+/* ── RAG knowledge table ───────────────────────────────────────────────────────────────────── */
+
+.ai-page .ai-doc-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ai-page .ai-doc-table {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-white);
+}
+
+.ai-page .ai-doc-head,
+.ai-page .ai-doc-row {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) 110px 150px 40px;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.ai-page .ai-doc-head {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  background: var(--bg-light);
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-page .ai-doc-row {
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8125rem;
+}
+
+.ai-page .ai-doc-row:last-child {
+  border-bottom: none;
+}
+
+.ai-page .ai-doc-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.ai-page .ai-doc-len {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ai-page .ai-doc-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ai-page .ai-doc-status.ready {
+  background: rgba(37, 211, 102, 0.15);
+  color: var(--primary-text);
+  border: 1px solid rgba(37, 211, 102, 0.3);
+}
+
+.ai-page .ai-doc-status.ingesting {
+  background: rgba(255, 193, 7, 0.14);
+  color: var(--warning-text, #b8860b);
+  border: 1px solid rgba(255, 193, 7, 0.35);
+}
+
+.ai-page .ai-doc-status.failed {
+  background: rgba(224, 49, 49, 0.12);
+  color: var(--error-text);
+  border: 1px solid rgba(224, 49, 49, 0.3);
+}
+
+.ai-page .ai-doc-status-error {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  color: var(--error-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-page .ai-doc-add {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--bg-light);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+.ai-page .ai-doc-add-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.ai-page .ai-doc-add input,
+.ai-page .ai-doc-add select,
+.ai-page .ai-doc-add textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.8125rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-white);
+  color: var(--text-primary);
+}
+
+.ai-page .ai-doc-add-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ai-page .ai-doc-add-footer .hint {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .ai-page .ai-doc-head,
+  .ai-page .ai-doc-row {
+    grid-template-columns: 70px minmax(0, 1fr) 90px;
+  }
+
+  .ai-page .ai-doc-head span:nth-child(3),
+  .ai-page .ai-doc-row > span:nth-child(3) {
+    display: none;
+  }
+
+  .ai-page .ai-doc-add-row {
+    grid-template-columns: 1fr;
+  }
+}

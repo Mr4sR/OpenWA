@@ -19,6 +19,12 @@ import type {
   IntegrationDeliveryFailureRow,
   StatusUpdateRow,
   AutomationRuleRow,
+  AiLlmModelRow,
+  AiChatbotRow,
+  AiChatOverrideRow,
+  AiRagModelRow,
+  AiRagDocumentRow,
+  AiMcpConnectionRow,
 } from './migration-tables.types';
 
 // A per-table restore step for importData: which backup key to read, the exact INSERT text (kept in
@@ -541,11 +547,134 @@ export const TABLE_IMPORTERS: AnyTableImporter[] = [
       rule.updatedAt,
     ],
   }),
-];
 
 // The `as TableCounts` cast in importData means a dropped or mis-keyed descriptor is invisible to
 // the compiler: the table would silently never import and would vanish from the restored-row total
 // that guards against wiping a database with an empty payload. Assert the set at module load.
+
+  // ── AI Integration ─────────────────────────────────────────────────────────────────────
+  // ai_chatbots carries the session FK (CASCADE on the import's sessions DELETE), so it must
+  // round-trip like automation_rules; ai_chat_overrides cascades from the BOT. The resources
+  // (llm/rag/mcp) are account-wide. JSON columns are stored as text and re-serialized verbatim;
+  // secrets (api keys) round-trip so a restore keeps every bot working without re-entry.
+  defineTableImporter({
+    key: 'aiLlmModels',
+    label: 'LLM model',
+    sql: `INSERT INTO ai_llm_models (id, name, "endpointUrl", "apiKey", model, parameters, headers, enabled, "lastStatus", "lastTestedAt", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    id: (m: AiLlmModelRow) => m.id,
+    map: (m: AiLlmModelRow) => [
+      m.id,
+      nulFree(m.name),
+      m.endpointUrl,
+      m.apiKey ?? '',
+      m.model ?? '',
+      m.parameters ?? null,
+      m.headers ?? '{}',
+      m.enabled ?? true,
+      m.lastStatus ?? null,
+      m.lastTestedAt ?? null,
+      m.createdAt,
+      m.updatedAt,
+    ],
+  }),
+  defineTableImporter({
+    key: 'aiChatbots',
+    label: 'chatbot',
+    sql: `INSERT INTO ai_chatbots (id, "sessionId", name, "llmModelId", "ragModelId", persona, "replyGroups", enabled, "lastRepliedAt", "lastError", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    id: (b: AiChatbotRow) => b.id,
+    map: (b: AiChatbotRow) => [
+      b.id,
+      b.sessionId,
+      nulFree(b.name),
+      b.llmModelId,
+      b.ragModelId ?? null,
+      b.persona ?? null,
+      b.replyGroups ?? false,
+      b.enabled ?? true,
+      b.lastRepliedAt ?? null,
+      b.lastError ?? null,
+      b.createdAt,
+      b.updatedAt,
+    ],
+  }),
+  defineTableImporter({
+    key: 'aiChatOverrides',
+    label: 'chat AI override',
+    sql: `INSERT INTO ai_chat_overrides (id, "chatbotId", "chatId", "chatbotDisabled", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6)`,
+    id: (o: AiChatOverrideRow) => o.id,
+    map: (o: AiChatOverrideRow) => [
+      o.id,
+      o.chatbotId,
+      o.chatId,
+      o.chatbotDisabled ?? false,
+      o.createdAt,
+      o.updatedAt,
+    ],
+  }),
+  defineTableImporter({
+    key: 'aiRagModels',
+    label: 'RAG model',
+    sql: `INSERT INTO ai_rag_models (id, name, "sessionScope", "sessionIds", "llmModelId", enabled, "topK", "maxContextChars", "index", "indexedAt", "lastIndexError", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    id: (r: AiRagModelRow) => r.id,
+    map: (r: AiRagModelRow) => [
+      r.id,
+      nulFree(r.name),
+      r.sessionScope ?? 'all',
+      r.sessionIds ?? null,
+      r.llmModelId ?? null,
+      r.enabled ?? true,
+      r.topK ?? 4,
+      r.maxContextChars ?? 4000,
+      r.index ?? null,
+      r.indexedAt ?? null,
+      r.lastIndexError ?? null,
+      r.createdAt,
+      r.updatedAt,
+    ],
+  }),
+  defineTableImporter({
+    key: 'aiRagDocuments',
+    label: 'RAG document',
+    sql: `INSERT INTO ai_rag_documents (id, "ragModelId", "sourceType", title, "sourceUrl", content, "storageKey", status, "statusError", metadata, "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    id: (d: AiRagDocumentRow) => d.id,
+    map: (d: AiRagDocumentRow) => [
+      d.id,
+      d.ragModelId,
+      d.sourceType ?? 'text',
+      d.title ?? null,
+      d.sourceUrl ?? null,
+      d.content ?? null,
+      d.storageKey ?? null,
+      d.status ?? 'ready',
+      d.statusError ?? null,
+      d.metadata ?? null,
+      d.createdAt,
+      d.updatedAt,
+    ],
+  }),
+  defineTableImporter({
+    key: 'aiMcpConnections',
+    label: 'MCP connection',
+    sql: `INSERT INTO ai_mcp_connections (id, name, "endpointUrl", transport, "authKind", "authHeader", "authCredential", headers, "timeoutMs", enabled, "lastStatus", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+    id: (c: AiMcpConnectionRow) => c.id,
+    map: (c: AiMcpConnectionRow) => [
+      c.id,
+      nulFree(c.name),
+      c.endpointUrl,
+      c.transport ?? 'streamable-http',
+      c.authKind ?? 'none',
+      c.authHeader ?? 'X-API-Key',
+      c.authCredential ?? '',
+      c.headers ?? '{}',
+      c.timeoutMs ?? 30000,
+      c.enabled ?? true,
+      c.lastStatus ?? null,
+      c.createdAt,
+      c.updatedAt,
+    ],
+  }),
+];
+
 const EXPECTED_TABLE_KEYS: ReadonlyArray<keyof MigrationTables> = [
   'sessions',
   'webhooks',
@@ -563,6 +692,12 @@ const EXPECTED_TABLE_KEYS: ReadonlyArray<keyof MigrationTables> = [
   'integrationDeliveryFailures',
   'statusUpdates',
   'automationRules',
+  'aiLlmModels',
+  'aiChatbots',
+  'aiChatOverrides',
+  'aiRagModels',
+  'aiRagDocuments',
+  'aiMcpConnections',
 ];
 const importerKeys = TABLE_IMPORTERS.map(importer => importer.key);
 for (const key of EXPECTED_TABLE_KEYS) {

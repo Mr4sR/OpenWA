@@ -20,6 +20,9 @@ import { AiMcpConnection, AI_MCP_ENDPOINT_MAX_LENGTH, AI_MCP_NAME_MAX_LENGTH } f
 
 export const AI_MCP_AUTH_KINDS = ['none', 'bearer', 'header'] as const;
 
+/** The two client transports the MCP SDK ships: the modern Streamable HTTP and the legacy SSE. */
+export const AI_MCP_TRANSPORTS = ['streamable-http', 'sse'] as const;
+
 /** Bound for the bearer token / header value. */
 export const AI_MCP_CREDENTIAL_MAX_LENGTH = 2048;
 
@@ -41,6 +44,16 @@ export class CreateAiMcpConnectionDto {
   @MaxLength(AI_MCP_ENDPOINT_MAX_LENGTH)
   @NoNulCharacter()
   endpointUrl!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Transport: `streamable-http` (the modern one) or `sse` (the legacy EventSource transport, for older servers)',
+    enum: AI_MCP_TRANSPORTS,
+    default: 'streamable-http',
+  })
+  @IsOptional()
+  @IsIn(AI_MCP_TRANSPORTS)
+  transport?: (typeof AI_MCP_TRANSPORTS)[number];
 
   @ApiPropertyOptional({
     description: 'Authentication: `none`, `bearer` (Authorization header) or `header` (custom header)',
@@ -110,6 +123,11 @@ export class UpdateAiMcpConnectionDto {
   @NoNulCharacter()
   endpointUrl?: string;
 
+  @ApiPropertyOptional({ description: 'Transport', enum: AI_MCP_TRANSPORTS })
+  @ValidateIf((o: UpdateAiMcpConnectionDto) => o.transport !== undefined)
+  @IsIn(AI_MCP_TRANSPORTS)
+  transport?: (typeof AI_MCP_TRANSPORTS)[number];
+
   @ApiPropertyOptional({ description: 'Authentication kind', enum: AI_MCP_AUTH_KINDS })
   @ValidateIf((o: UpdateAiMcpConnectionDto) => o.authKind !== undefined)
   @IsIn(AI_MCP_AUTH_KINDS)
@@ -168,6 +186,10 @@ export class AiMcpConnectionResponseDto {
   @Expose()
   @ApiProperty()
   endpointUrl!: string;
+
+  @Expose()
+  @ApiProperty({ enum: AI_MCP_TRANSPORTS })
+  transport!: (typeof AI_MCP_TRANSPORTS)[number];
 
   @Expose()
   @ApiProperty({ enum: AI_MCP_AUTH_KINDS })

@@ -47,7 +47,9 @@
     "refresh": "刷新",
     "errorGeneric": "发生错误",
     "unknownError": "未知错误",
-    "retry": "重试"
+    "retry": "重试",
+    "yes": "是",
+    "no": "否"
   },
   "theme": {
     "light": "浅色",
@@ -202,6 +204,12 @@
       "delivered": "已送达",
       "read": "已读",
       "failed": "发送失败"
+    },
+    "ai": {
+      "on": "AI 已开启",
+      "off": "AI 已关闭",
+      "onHint": "AI 正在为 {{bot}} 回复 — 点击可静音此会话",
+      "offHint": "{{bot}} 的 AI 已静音 — 点击重新开启"
     }
   },
   "errorBoundary": {
@@ -1231,19 +1239,15 @@
       "selectSession": "选择一个会话…",
       "name": "名称",
       "llmModel": "LLM 模型",
-      "selectLlm": "选择一个 LLM 模型…",
       "ragModel": "RAG 知识库",
       "noRag": "无",
       "persona": "人设",
-      "personaPlaceholder": "你是……的客服专员（可选；将覆盖模型人设）",
-      "chats": "聊天",
-      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us（留空 = 所有聊天）",
-      "chatsHint": "用英文逗号分隔的聊天 ID 或纯数字号码。留空则应答该会话的所有聊天。",
-      "allChats": "所有聊天",
-      "cooldown": "冷却时间（秒）",
-      "cooldownValue": "{{count}} 秒",
-      "context": "历史",
-      "enabled": "已启用"
+      "personaPlaceholder": "你是 ACME 的客服专员。简洁、友善，用客户的语言回答。问价格时引导到 acme.example/pricing。",
+      "enabled": "已启用",
+      "replyGroups": "在群聊中回复",
+      "replyGroupsHint": "默认关闭：在群聊中机器人会在所有成员面前发言。机器人启用时私聊总是回复 — 每个会话的开关在 Chats 页面。",
+      "groups": "群回复",
+      "selectLlm": "选择 LLM 模型…"
     },
     "llm": {
       "emptyTitle": "还没有 LLM 模型",
@@ -1258,8 +1262,6 @@
       "modelId": "模型 ID",
       "apiKey": "API 密钥",
       "apiKeyKeep": "留空则保留已存储的密钥",
-      "persona": "人设",
-      "personaPlaceholder": "随每次补全发送的系统提示词（可选）",
       "parameters": "采样参数",
       "temperature": "温度",
       "maxTokens": "最大 token 数",
@@ -1304,7 +1306,17 @@
       "documentChars": "{{count}} 个字符",
       "queryPlaceholder": "向知识库提问…",
       "query": "检索",
-      "sourceTypeLabel": "来源类型"
+      "sourceTypeLabel": "来源类型",
+      "colSource": "来源",
+      "colTitle": "标题",
+      "colSize": "大小",
+      "colStatus": "状态",
+      "docTable": "知识条目",
+      "statusReady": "就绪",
+      "statusPending": "等待中",
+      "statusProcessing": "摄取中…",
+      "statusFailed": "失败",
+      "asyncHint": "URL/站点/文件来源在后台摄取 — 完成后徽标变为就绪。"
     },
     "mcp": {
       "emptyTitle": "还没有 MCP 连接",
@@ -1325,7 +1337,11 @@
       "timeout": "超时（毫秒）",
       "test": "连接并列出工具",
       "lastTest": "上次测试",
-      "toolCount": "{{count}} 个工具"
+      "toolCount": "{{count}} 个工具",
+      "transport": "传输方式",
+      "transportStreamable": "Streamable HTTP（现代）",
+      "transportSse": "SSE（旧服务器）",
+      "transportHint": "仅当服务器不支持 Streamable HTTP 时使用 SSE。"
     },
     "common": {
       "failed": "请求失败：{{message}}"

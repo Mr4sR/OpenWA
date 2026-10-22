@@ -47,7 +47,9 @@
     "refresh": "रीफ़्रेश करें",
     "errorGeneric": "एक त्रुटि हुई",
     "unknownError": "अज्ञात त्रुटि",
-    "retry": "पुनः प्रयास करें"
+    "retry": "पुनः प्रयास करें",
+    "yes": "हाँ",
+    "no": "नहीं"
   },
   "theme": {
     "light": "लाइट",
@@ -202,6 +204,12 @@
       "delivered": "पहुँचा दिया गया",
       "read": "पढ़ा गया",
       "failed": "विफल"
+    },
+    "ai": {
+      "on": "AI चालू",
+      "off": "AI बंद",
+      "onHint": "{{bot}} के लिए AI उत्तर दे रहा है — इस चैट को म्यूट करने के लिए क्लिक करें",
+      "offHint": "{{bot}} के लिए AI म्यूट है — दोबारा चालू करने के लिए क्लिक करें"
     }
   },
   "errorBoundary": {
@@ -1231,19 +1239,15 @@
       "selectSession": "सत्र चुनें…",
       "name": "नाम",
       "llmModel": "LLM मॉडल",
-      "selectLlm": "LLM मॉडल चुनें…",
       "ragModel": "RAG ज्ञान",
       "noRag": "कोई नहीं",
       "persona": "व्यक्तित्व",
-      "personaPlaceholder": "आप … के सहायता एजेंट हैं (वैकल्पिक; मॉडल के व्यक्तित्व को ओवरराइड करता है)",
-      "chats": "चैट्स",
-      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (खाली = हर चैट)",
-      "chatsHint": "कॉमा से अलग किए गए chat id या सिर्फ़ नंबर। सत्र की हर चैट का उत्तर देने के लिए खाली छोड़ें।",
-      "allChats": "हर चैट",
-      "cooldown": "कूलडाउन (से)",
-      "cooldownValue": "{{count}} से",
-      "context": "इतिहास",
-      "enabled": "सक्षम"
+      "personaPlaceholder": "आप ACME के सपोर्ट एजेंट हैं। संक्षेप में, मित्रतापूर्ण ढंग से और ग्राहक की भाषा में उत्तर दें। कीमत पूछे जाने पर acme.example/pricing की ओर भेजें।",
+      "enabled": "सक्षम",
+      "replyGroups": "ग्रुप चैट में उत्तर दें",
+      "replyGroupsHint": "डिफ़ॉल्ट रूप से बंद: ग्रुप में बॉट सभी सदस्यों के सामने बोलता है। बॉट सक्रिय रहने तक व्यक्तिगत चैट हमेशा उत्तरित होती हैं — प्रति-बातचीत स्विच Chats पेज पर हैं।",
+      "groups": "ग्रुप उत्तर",
+      "selectLlm": "LLM मॉडल चुनें…"
     },
     "llm": {
       "emptyTitle": "अभी तक कोई LLM मॉडल नहीं",
@@ -1258,8 +1262,6 @@
       "modelId": "मॉडल id",
       "apiKey": "API कुंजी",
       "apiKeyKeep": "संग्रहीत कुंजी रखने के लिए खाली छोड़ें",
-      "persona": "व्यक्तित्व",
-      "personaPlaceholder": "हर completion के साथ भेजा जाने वाला सिस्टम प्रॉम्प्ट (वैकल्पिक)",
       "parameters": "सैंपलिंग पैरामीटर",
       "temperature": "तापमान",
       "maxTokens": "अधिकतम टोकन",
@@ -1304,7 +1306,17 @@
       "documentChars": "{{count}} वर्ण",
       "queryPlaceholder": "ज्ञान आधार से पूछें…",
       "query": "प्राप्त करें",
-      "sourceTypeLabel": "स्रोत प्रकार"
+      "sourceTypeLabel": "स्रोत प्रकार",
+      "colSource": "स्रोत",
+      "colTitle": "शीर्षक",
+      "colSize": "आकार",
+      "colStatus": "स्थिति",
+      "docTable": "ज्ञान प्रविष्टियाँ",
+      "statusReady": "तैयार",
+      "statusPending": "लंबित",
+      "statusProcessing": "अंतर्ग्रहण…",
+      "statusFailed": "विफल",
+      "asyncHint": "URL/साइट/फ़ाइल स्रोत पृष्ठभूमि में लिए जाते हैं — पूरा होने पर बैज तैयार हो जाता है।"
     },
     "mcp": {
       "emptyTitle": "अभी तक कोई MCP कनेक्शन नहीं",
@@ -1325,7 +1337,11 @@
       "timeout": "टाइमआउट (ms)",
       "test": "कनेक्ट करें और टूल्स की सूची देखें",
       "lastTest": "पिछला परीक्षण",
-      "toolCount": "{{count}} टूल्स"
+      "toolCount": "{{count}} टूल्स",
+      "transport": "ट्रांसपोर्ट",
+      "transportStreamable": "Streamable HTTP (आधुनिक)",
+      "transportSse": "SSE (पुराने सर्वर)",
+      "transportHint": "केवल तब SSE उपयोग करें जब सर्वर Streamable HTTP समर्थन न करे।"
     },
     "common": {
       "failed": "अनुरोध विफल: {{message}}"

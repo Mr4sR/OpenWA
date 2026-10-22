@@ -3,6 +3,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trans, useTranslation } from 'react-i18next';
 import { nextReconnectState } from '../utils/reconnectState';
 import { applyIncomingToChatList, promoteChatWithSnippet } from '../utils/chatList';
+import { aiApi, type AiChatbot } from '../services/api';
+// Per-session cache of the chat-id list the AI states query resolves against. It is refreshed
+// wherever the sidebar's chatIds memo refreshes, so the query key stays stable per render cycle.
+const ALL_CHAT_IDS = new Map<string, string[]>();
+function chatIdsKey(sessionId: string): string {
+  return (ALL_CHAT_IDS.get(sessionId) ?? []).join(',');
+}
+
 import { filterChats, filterChannels, groupStatusesByContact } from '../utils/chatFilters';
 import { ArrowLeft, Loader2, Megaphone, CircleDashed, AlertCircle, MessageSquare } from 'lucide-react';
 import { useProfilePicture } from '../hooks/useProfilePicture';
@@ -127,6 +135,76 @@ export function Chats() {
   // Sessions list & active session
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
+
+  // Per-chat AI switches: the session's enabled chatbots + which chats they are muted in.
+  // The sidebar shows a small ON/OFF chip per conversation; default ON when the bot is enabled.
+  const [aiOverrides, setAiOverrides] = useState<Record<string, string[]>>({});
+  const aiChatbotsQuery = useQuery({
+    queryKey: ['ai', 'chatbots', selectedSessionId],
+    queryFn: () => aiApi.listChatbots(),
+    enabled: !!selectedSessionId,
+    staleTime: 60_000,
+    select: (bots: AiChatbot[]) => bots.filter(b => b.sessionId === selectedSessionId && b.enabled),
+  });
+  const aiChatbots = aiChatbotsQuery.data ?? [];
+
+  const aiStatesQuery = useQuery({
+    queryKey: ['ai', 'chat-states', selectedSessionId, chatIdsKey(selectedSessionId)],
+    queryFn: () =>
+      aiApi.getChatStates(selectedSessionId, ALL_CHAT_IDS.get(selectedSessionId) ?? []),
+    enabled: !!selectedSessionId && aiChatbots.length > 0,
+    staleTime: 30_000,
+  });
+  // A state read that SETTLES must not clobber an optimistic flip. `data` stays cached across
+  // renders, so merging it on every change would resurrect a mute the operator just wrote while the
+  // first read was still in flight. Only a NEW snapshot (dataUpdatedAt moved) may replace the map,
+  // and even then the operator's own chat keeps its optimistic value until the write resolves.
+  const appliedStatesAtRef = useRef(0);
+  const savingChatsRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!aiStatesQuery.data) return;
+    if (aiStatesQuery.dataUpdatedAt === appliedStatesAtRef.current) return;
+    appliedStatesAtRef.current = aiStatesQuery.dataUpdatedAt;
+    const fresh = aiStatesQuery.data.overrides;
+    setAiOverrides(prev => {
+      const next: Record<string, string[]> = { ...fresh };
+      for (const chatId of savingChatsRef.current) {
+        if (prev[chatId]) next[chatId] = prev[chatId];
+        else delete next[chatId];
+      }
+      return next;
+    });
+  }, [aiStatesQuery.data, aiStatesQuery.dataUpdatedAt]);
+
+  const toggleChatAi = async (chatbotId: string, chatId: string, chatbotDisabled: boolean) => {
+    // Optimistic flip, then persist; a failed save re-reads the server state.
+    setAiOverrides(prev => {
+      const current = new Set(prev[chatId] ?? []);
+      if (chatbotDisabled) current.add(chatbotId);
+      else current.delete(chatbotId);
+      return { ...prev, [chatId]: Array.from(current) };
+    });
+    savingChatsRef.current.add(chatId);
+    try {
+      await aiApi.setChatState({ chatbotId, chatId, chatbotDisabled });
+    } catch {
+      try {
+        // The server still holds the pre-click state, so the re-read IS the revert.
+        const fresh = await aiApi.getChatStates(selectedSessionId, [chatId]);
+        setAiOverrides(prev => {
+          const reverted = { ...prev };
+          const bots = fresh.overrides[chatId] ?? [];
+          if (bots.length > 0) reverted[chatId] = bots;
+          else delete reverted[chatId];
+          return reverted;
+        });
+      } catch {
+        // keep the optimistic value; the next refetch reconciles
+      }
+    } finally {
+      savingChatsRef.current.delete(chatId);
+    }
+  };
   const [loadingSessions, setLoadingSessions] = useState<boolean>(true);
 
   // Chats list
@@ -256,6 +334,8 @@ export function Chats() {
   // (per-row queries burst the per-IP throttle into 429s). Sorted-key cached 1h; rows fall back
   // to the generic icon for ids that resolve null.
   const chatIds = useMemo(() => chats.map(c => c.id), [chats]);
+  // Keep the module-level cache in sync so the AI states query keys on a stable list.
+  if (selectedSessionId) ALL_CHAT_IDS.set(selectedSessionId, chatIds);
   const listPics = useProfilePictures(selectedSessionId || undefined, chatIds);
 
   // Profile-picture fetch for the active room (cached 1h by useProfilePicture; TanStack Query
@@ -1102,6 +1182,11 @@ export function Chats() {
               activeChatId: activeChat?.id,
               pictures: listPics.data,
               onSelectChat: setActiveChat,
+              aiChatbots: aiChatbots.map(b => ({ id: b.id, name: b.name })),
+              aiOverrides,
+              onToggleAi: (chatbotId, chatId, chatbotDisabled) => {
+                void toggleChatAi(chatbotId, chatId, chatbotDisabled);
+              },
             }}
             channelsTab={{
               engineLoading: engineType === null,
@@ -1321,3 +1406,4 @@ export function Chats() {
     </div>
   );
 }
+

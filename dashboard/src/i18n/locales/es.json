@@ -49,7 +49,9 @@
     "unknownError": "Error desconocido",
     "showApiKey": "Mostrar clave API",
     "hideApiKey": "Ocultar clave API",
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "yes": "Sí",
+    "no": "No"
   },
   "theme": {
     "light": "Claro",
@@ -207,6 +209,12 @@
       "delivered": "Entregado",
       "read": "Leído",
       "failed": "Fallido"
+    },
+    "ai": {
+      "on": "IA activada",
+      "off": "IA desactivada",
+      "onHint": "La IA responde para {{bot}} — haz clic para silenciar este chat",
+      "offHint": "La IA está silenciada para {{bot}} — haz clic para reactivarla"
     }
   },
   "errorBoundary": {
@@ -1237,19 +1245,15 @@
       "selectSession": "Selecciona una sesión…",
       "name": "Nombre",
       "llmModel": "Modelo LLM",
-      "selectLlm": "Selecciona un modelo LLM…",
       "ragModel": "Conocimiento RAG",
       "noRag": "Ninguno",
       "persona": "Persona",
-      "personaPlaceholder": "Eres el agente de soporte de… (opcional; anula la persona del modelo)",
-      "chats": "Chats",
-      "chatsPlaceholder": "628123456789@c.us, 1203…@g.us (vacío = todos los chats)",
-      "chatsHint": "IDs de chat o números sueltos, separados por comas. Déjalo vacío para responder a todos los chats de la sesión.",
-      "allChats": "Todos los chats",
-      "cooldown": "Enfriamiento (s)",
-      "cooldownValue": "{{count}} s",
-      "context": "Historial",
-      "enabled": "Activado"
+      "personaPlaceholder": "Eres el agente de soporte de ACME. Responde breve, amable y en el idioma del cliente. Si preguntan por precios, remite a acme.example/pricing.",
+      "enabled": "Activado",
+      "replyGroups": "Responder en grupos",
+      "replyGroupsHint": "Desactivado por defecto: en un grupo el bot habla delante de todos los miembros. Los chats individuales siempre se responden mientras el bot esté activo — los interruptores por conversación están en la página Chats.",
+      "groups": "Respuestas de grupo",
+      "selectLlm": "Selecciona un modelo LLM…"
     },
     "llm": {
       "emptyTitle": "Aún no hay modelos LLM",
@@ -1264,8 +1268,6 @@
       "modelId": "ID del modelo",
       "apiKey": "Clave API",
       "apiKeyKeep": "Déjalo vacío para conservar la clave guardada",
-      "persona": "Persona",
-      "personaPlaceholder": "System prompt que se envía con cada completion (opcional)",
       "parameters": "Parámetros de muestreo",
       "temperature": "Temperatura",
       "maxTokens": "Tokens máximos",
@@ -1310,7 +1312,17 @@
       "documentChars": "{{count}} caracteres",
       "queryPlaceholder": "Pregunta a la base de conocimiento…",
       "query": "Recuperar",
-      "sourceTypeLabel": "Tipo de fuente"
+      "sourceTypeLabel": "Tipo de fuente",
+      "colSource": "Fuente",
+      "colTitle": "Título",
+      "colSize": "Tamaño",
+      "colStatus": "Estado",
+      "docTable": "Entradas de conocimiento",
+      "statusReady": "Listo",
+      "statusPending": "Pendiente",
+      "statusProcessing": "Procesando…",
+      "statusFailed": "Error",
+      "asyncHint": "Las fuentes URL/sitio/archivo se procesan en segundo plano — la insignia cambia a Listo al terminar."
     },
     "mcp": {
       "emptyTitle": "Aún no hay conexiones MCP",
@@ -1331,7 +1343,11 @@
       "timeout": "Tiempo de espera (ms)",
       "test": "Conectar y listar herramientas",
       "lastTest": "Última prueba",
-      "toolCount": "{{count}} herramientas"
+      "toolCount": "{{count}} herramientas",
+      "transport": "Transporte",
+      "transportStreamable": "Streamable HTTP (moderno)",
+      "transportSse": "SSE (servidores antiguos)",
+      "transportHint": "Usa SSE solo si el servidor no admite Streamable HTTP."
     },
     "common": {
       "failed": "Solicitud fallida: {{message}}"

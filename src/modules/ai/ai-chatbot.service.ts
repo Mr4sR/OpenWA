@@ -1,38 +1,37 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ModuleRef } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { createLogger } from '../../common/services/logger.service';
 import { PLUGIN_MESSAGE_PORT, type PluginMessagePort } from '../../core/plugins/plugin-host-ports';
 import { AiChatbot } from './entities/ai-chatbot.entity';
+import { AiChatOverride } from './entities/ai-chat-override.entity';
 import { AiLlmModel } from './entities/ai-llm-model.entity';
 import { AiRagModel } from './entities/ai-rag-model.entity';
 import { Session } from '../session/entities/session.entity';
 import { Message, MessageDirection } from '../message/entities/message.entity';
 import { AiLlmModelsService } from './ai-llm-models.service';
 import { AiRagService } from './ai-rag.service';
-import { CreateAiChatbotDto, UpdateAiChatbotDto, normalizeChatbotChatIds } from './dto/ai-chatbot.dto';
+import { CreateAiChatbotDto, UpdateAiChatbotDto } from './dto/ai-chatbot.dto';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 
 /** Per-session cap on chatbot instances: every inbound message is evaluated against each of them. */
 export const AI_CHATBOTS_MAX_PER_SESSION = 8;
 
+/** Default conversation history (prior messages) carried into the prompt. Not operator-tuned. */
+const CHATBOT_HISTORY_MESSAGES = 8;
+
 /**
  * Messages older than this are never answered. A reconnect replays the offline backlog through the
- * same inbound path, and a bot that answers it bursts into every stale message at once.
+ * same inbound path, and a bot that answers it bursts into every stale message at once. Also the
+ * reply loop guard: answering another bot's message would ping-pong until one side ages out.
  */
 const MAX_MESSAGE_AGE_SECONDS = 300;
 
-/** Chat kinds a bot answers only when it was explicitly bound to a chat of that kind. */
-const OPT_IN_CHAT_KINDS: ReadonlySet<string> = new Set(['channel', 'broadcast', 'status']);
-
-/**
- * The cooldown map is swept of entries older than the longest allowed cooldown once it reaches this
- * size, and after a sweep only once it doubles again.
- */
-const COOLDOWN_SWEEP_THRESHOLD = 10_000;
+/** Chat kinds a bot answers only when `replyGroups`-style opt-in applies (see evaluateInbound). */
+const GROUP_KIND = 'group';
 
 /** The fields of an inbound message the chatbot evaluation needs. */
 export interface ChatbotInboundMessage {
@@ -42,6 +41,7 @@ export interface ChatbotInboundMessage {
   fromMe?: boolean;
   timestamp?: number;
   kind?: string;
+  isGroup?: boolean;
 }
 
 /** One turn of the conversation history given to the model. */
@@ -51,8 +51,9 @@ interface ChatTurn {
 }
 
 /**
- * Chatbot instances: the CRUD behind "AI Integration > Chatbot", plus the inbound evaluation that
- * answers a chat through the ordinary send path.
+ * Chatbot instances: the CRUD behind "AI Integration > Chatbot", the per-chat overrides behind the
+ * Chats page switches, and the inbound evaluation that answers a chat through the ordinary send
+ * path.
  *
  * The reply is sent via the plugin message port (bound to `MessageService.sendText` by
  * MessageModule), which the module graph cannot inject directly: `MessageModule` imports
@@ -65,18 +66,14 @@ interface ChatTurn {
 export class AiChatbotService {
   private readonly logger = createLogger('AiChatbotService');
 
-  /**
-   * `${chatbotId}:${chatId}` -> when the bot last answered that chat. Per-process, and judged
-   * against the CURRENT cooldownSeconds, so an edit takes effect on a window already running.
-   */
-  private readonly cooldowns = new Map<string, number>();
-  private nextCooldownSweepAt = COOLDOWN_SWEEP_THRESHOLD;
-
+  /** In-memory cache of (chatbotId, chatId) → disabled, refreshed per inbound batch. */
   private messagePort?: PluginMessagePort;
 
   constructor(
     @InjectRepository(AiChatbot, 'data')
     private readonly repository: Repository<AiChatbot>,
+    @InjectRepository(AiChatOverride, 'data')
+    private readonly overrideRepository: Repository<AiChatOverride>,
     @InjectRepository(Session, 'data')
     private readonly sessionRepository: Repository<Session>,
     @InjectRepository(AiLlmModel, 'data')
@@ -90,8 +87,6 @@ export class AiChatbotService {
     private readonly audit: AuditService,
     @Optional()
     private readonly configService?: ConfigService,
-    // Optional so the projector can construct the service stand-alone in specs and in any wiring
-    // that predates the chatbot. Absent simply disables the lazy message-port resolution.
     @Optional()
     private readonly moduleRef?: ModuleRef,
   ) {}
@@ -116,9 +111,7 @@ export class AiChatbotService {
       llmModelId: dto.llmModelId,
       ragModelId: dto.ragModelId ?? null,
       persona: dto.persona ?? null,
-      chatIds: normalizeChatbotChatIds(dto.chatIds),
-      cooldownSeconds: dto.cooldownSeconds ?? 60,
-      contextMessages: dto.contextMessages ?? 8,
+      replyGroups: dto.replyGroups ?? false,
       enabled: dto.enabled ?? true,
     });
     const saved = await this.repository.save(chatbot);
@@ -163,10 +156,8 @@ export class AiChatbotService {
     if (dto.name !== undefined) chatbot.name = dto.name;
     if (dto.llmModelId !== undefined) chatbot.llmModelId = dto.llmModelId;
     if (dto.ragModelId !== undefined) chatbot.ragModelId = dto.ragModelId;
-    if (dto.persona !== undefined) chatbot.persona = dto.persona;
-    if (dto.chatIds !== undefined) chatbot.chatIds = normalizeChatbotChatIds(dto.chatIds);
-    if (dto.cooldownSeconds !== undefined) chatbot.cooldownSeconds = dto.cooldownSeconds;
-    if (dto.contextMessages !== undefined) chatbot.contextMessages = dto.contextMessages;
+    if (dto.persona !== undefined) chatbot.persona = dto.persona === '' ? null : dto.persona;
+    if (dto.replyGroups !== undefined) chatbot.replyGroups = dto.replyGroups;
     if (dto.enabled !== undefined) chatbot.enabled = dto.enabled;
     const saved = await this.repository.save(chatbot);
     void this.audit.logInfo(AuditAction.AI_CHATBOT_UPDATED, {
@@ -184,6 +175,51 @@ export class AiChatbotService {
       metadata: { chatbotId: id, chatbotName: chatbot.name },
     });
   }
+
+  // ── Per-chat overrides (the Chats page switches) ─────────────────────────────────────────────
+
+  /**
+   * The AI switches of the given session's chatbots, for exactly the chats the page asks for.
+   * Chats without a row are implicitly ON (the bot's `enabled` state governs them), so only the
+   * OFF conversations are stored.
+   */
+  async getChatOverrides(sessionId: string, chatIds: string[]): Promise<Map<string, string[]>> {
+    const bots = await this.repository.find({ where: { sessionId } });
+    const byChat = new Map<string, string[]>();
+    if (bots.length === 0 || chatIds.length === 0) return byChat;
+    const rows = await this.overrideRepository.find({
+      where: { chatbotId: In(bots.map(b => b.id)), chatId: In(chatIds), chatbotDisabled: true },
+    });
+    for (const row of rows) {
+      const list = byChat.get(row.chatId) ?? [];
+      list.push(row.chatbotId);
+      byChat.set(row.chatId, list);
+    }
+    return byChat;
+  }
+
+  /** Flip one (chatbot, chat) switch. `chatbotDisabled: true` stores a row; false removes it. */
+  async setChatOverride(
+    sessionId: string,
+    chatbotId: string,
+    chatId: string,
+    chatbotDisabled: boolean,
+  ): Promise<void> {
+    await this.findOne(sessionId, chatbotId);
+    const existing = await this.overrideRepository.findOne({ where: { chatbotId, chatId } });
+    if (chatbotDisabled) {
+      if (existing) {
+        existing.chatbotDisabled = true;
+        await this.overrideRepository.save(existing);
+      } else {
+        await this.overrideRepository.save(this.overrideRepository.create({ chatbotId, chatId, chatbotDisabled }));
+      }
+    } else if (existing) {
+      await this.overrideRepository.remove(existing);
+    }
+  }
+
+  // ── Inbound evaluation ────────────────────────────────────────────────────────────────────────
 
   /**
    * Evaluate one inbound message against the session's chatbots; the first matching bot answers.
@@ -214,21 +250,30 @@ export class AiChatbotService {
     }
     if (chatbots.length === 0) return;
 
-    const optInOnly = OPT_IN_CHAT_KINDS.has(message.kind ?? 'individual');
-
+    const isGroup = message.isGroup ?? ((message.kind ?? 'individual') === GROUP_KIND || message.chatId.endsWith('@g.us'));
     for (const chatbot of chatbots) {
-      // A bot answers only the chats its allowlist names; no allowlist answers every chat.
-      if (!this.chatAllowed(chatbot, message.chatId)) continue;
-      // A channel / broadcast / status chat is answered only when a bot was bound to it
-      // explicitly: a reply into a channel is published to every follower when the account is an
-      // admin there, which is not something a catch-all bot should ever do.
-      if (optInOnly && (chatbot.chatIds?.length ?? 0) === 0) continue;
-      if (this.inCooldown(chatbot, message.chatId)) continue;
-      // Enter the cooldown BEFORE the send: a burst of matching messages must collapse to one reply
-      // even while the first send is still in flight.
-      this.enterCooldown(chatbot, message.chatId);
+      // A group needs the operator's explicit opt-in: the bot speaks in front of every member.
+      if (isGroup && !chatbot.replyGroups) continue;
+      // Channel / broadcast / status are never answered.
+      if (['channel', 'broadcast', 'status'].includes(message.kind ?? '')) continue;
+      if (await this.isChatDisabled(chatbot.id, message.chatId)) continue;
       const answered = await this.answer(chatbot, message);
       if (answered) return;
+    }
+  }
+
+  /** True when the Chats page switch turned this bot off for this conversation. */
+  private async isChatDisabled(chatbotId: string, chatId: string): Promise<boolean> {
+    try {
+      return await this.overrideRepository.exists({ where: { chatbotId, chatId, chatbotDisabled: true } });
+    } catch (error) {
+      // Fail open: a dead override read must not silence every bot.
+      this.logger.warn('Chat-override lookup failed', {
+        chatbotId,
+        chatId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
     }
   }
 
@@ -243,7 +288,7 @@ export class AiChatbotService {
         await this.recordError(chatbot, 'the linked LLM model is missing or disabled');
         return false;
       }
-      const systemPrompt = await this.buildSystemPrompt(chatbot, llm, message.body);
+      const systemPrompt = await this.buildSystemPrompt(chatbot, message.body);
       const history = await this.buildHistory(chatbot, message);
       const turns: ChatTurn[] = [
         ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
@@ -279,15 +324,15 @@ export class AiChatbotService {
   }
 
   /**
-   * The system prompt: the bot's persona (falling back to the LLM model's), the retrieved
-   * knowledge of the linked RAG model, and the WhatsApp-answer instruction.
+   * The system prompt: the chatbot's persona (THE one persona — the LLM connection carries none),
+   * the retrieved knowledge of the linked RAG model, and the WhatsApp-answer instruction.
    */
-  private async buildSystemPrompt(chatbot: AiChatbot, llm: AiLlmModel, question: string): Promise<string> {
-    const persona = (chatbot.persona ?? llm.persona ?? '').trim();
+  private async buildSystemPrompt(chatbot: AiChatbot, question: string): Promise<string> {
+    const persona = (chatbot.persona ?? '').trim();
     const sections: string[] = [];
     if (persona) sections.push(persona);
     if (chatbot.ragModelId) {
-      const retrieval = await this.rag.retrieve(chatbot.ragModelId, question, { fallbackLlm: llm });
+      const retrieval = await this.rag.retrieve(chatbot.ragModelId, question, { fallbackLlm: undefined });
       if (retrieval.context) {
         sections.push(
           `Knowledge from the business documents (cite the source names when you use them):\n${retrieval.context}`,
@@ -309,12 +354,11 @@ export class AiChatbotService {
    * itself is excluded (it is the user turn the caller appends).
    */
   private async buildHistory(chatbot: AiChatbot, message: ChatbotInboundMessage): Promise<ChatTurn[]> {
-    if (chatbot.contextMessages <= 0) return [];
     try {
       const rows = await this.messageRepository.find({
         where: { sessionId: chatbot.sessionId, chatId: message.chatId },
         order: { createdAt: 'DESC', id: 'DESC' },
-        take: chatbot.contextMessages,
+        take: CHATBOT_HISTORY_MESSAGES,
       });
       return rows
         .filter(row => message.id === undefined || row.waMessageId !== message.id)
@@ -332,34 +376,6 @@ export class AiChatbotService {
       });
       return [];
     }
-  }
-
-  private chatAllowed(chatbot: AiChatbot, chatId: string): boolean {
-    const allowlist = chatbot.chatIds ?? [];
-    if (allowlist.length === 0) return true;
-    if (allowlist.includes(chatId)) return true;
-    // A bare number in the allowlist matches the `@c.us` and `@lid` forms of the same chat; a lid
-    // entry matches its phone form and vice versa.
-    const digits = chatId.split('@')[0];
-    return allowlist.some(entry => entry.split('@')[0] === digits);
-  }
-
-  private inCooldown(chatbot: AiChatbot, chatId: string): boolean {
-    if (!chatbot.cooldownSeconds) return false;
-    const firedAt = this.cooldowns.get(`${chatbot.id}:${chatId}`);
-    return firedAt !== undefined && firedAt + chatbot.cooldownSeconds * 1000 > Date.now();
-  }
-
-  private enterCooldown(chatbot: AiChatbot, chatId: string): void {
-    if (!chatbot.cooldownSeconds) return;
-    const now = Date.now();
-    if (this.cooldowns.size >= this.nextCooldownSweepAt) {
-      for (const [key, firedAt] of this.cooldowns) {
-        if (firedAt + chatbot.cooldownSeconds * 1000 <= now) this.cooldowns.delete(key);
-      }
-      this.nextCooldownSweepAt = Math.max(COOLDOWN_SWEEP_THRESHOLD, this.cooldowns.size * 2);
-    }
-    this.cooldowns.set(`${chatbot.id}:${chatId}`, now);
   }
 
   /** Record the failure reason for the operator. Never throws. */

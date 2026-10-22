@@ -45,6 +45,12 @@ import { IntegrationDeliveryFailure } from '../integration/entities/integration-
 import { StatusUpdate } from '../status-store/entities/status-update.entity';
 import { SendIdempotencyKey } from '../message/entities/send-idempotency-key.entity';
 import { AutomationRule } from '../automation/entities/automation-rule.entity';
+import { AiChatbot } from '../ai/entities/ai-chatbot.entity';
+import { AiChatOverride } from '../ai/entities/ai-chat-override.entity';
+import { AiLlmModel } from '../ai/entities/ai-llm-model.entity';
+import { AiMcpConnection } from '../ai/entities/ai-mcp-connection.entity';
+import { AiRagDocument } from '../ai/entities/ai-rag-model.entity';
+import { AiRagModel } from '../ai/entities/ai-rag-model.entity';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 import { ScopeBindingService } from '../integration/scope-binding.service';
 import { PluginInstanceService } from '../integration/plugin-instance.service';
@@ -87,6 +93,12 @@ describe('InfraDataController.importData round-trips export-data (no silent mess
         StatusUpdate,
         AutomationRule,
         SendIdempotencyKey,
+        AiLlmModel,
+        AiChatbot,
+        AiChatOverride,
+        AiRagModel,
+        AiRagDocument,
+        AiMcpConnection,
       ],
       synchronize: true,
     });
@@ -1519,6 +1531,12 @@ describe('InfraDataController.import/export preserves every data-DB table', () =
         IntegrationDeliveryFailure,
         StatusUpdate,
         AutomationRule,
+        AiLlmModel,
+        AiChatbot,
+        AiChatOverride,
+        AiRagModel,
+        AiRagDocument,
+        AiMcpConnection,
       ],
       synchronize: true,
     });
@@ -1965,6 +1983,12 @@ describe('InfraDataController audit trail — import emits only on a committed r
         IntegrationDeliveryFailure,
         StatusUpdate,
         AutomationRule,
+        AiLlmModel,
+        AiChatbot,
+        AiChatOverride,
+        AiRagModel,
+        AiRagDocument,
+        AiMcpConnection,
       ],
       synchronize: true,
     });
@@ -2263,6 +2287,12 @@ describe('InfraDataController.importData status_updates + runtime reconciliation
         IntegrationDeliveryFailure,
         StatusUpdate,
         AutomationRule,
+        AiLlmModel,
+        AiChatbot,
+        AiChatOverride,
+        AiRagModel,
+        AiRagDocument,
+        AiMcpConnection,
       ],
       synchronize: true,
     });
@@ -2998,6 +3028,12 @@ describe('InfraDataController.importData re-syncs plugin instance bindings', () 
         IntegrationDeliveryFailure,
         StatusUpdate,
         AutomationRule,
+        AiLlmModel,
+        AiChatbot,
+        AiChatOverride,
+        AiRagModel,
+        AiRagDocument,
+        AiMcpConnection,
       ],
       synchronize: true,
     });

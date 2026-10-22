@@ -258,6 +258,99 @@ export interface AutomationRuleRow {
   updatedAt: string | Date;
 }
 
+
+/**
+ * AI Integration rows. `ai_chatbots` carries the session FK and the import's `DELETE FROM
+ * sessions` wipes it (CASCADE), so it is exported and re-inserted like automation_rules.
+ * `ai_chat_overrides` cascades from the BOT; the other rows are account-wide. All read back
+ * through the raw importer, so booleans arrive as boolean (Postgres) or 0/1 (SQLite).
+ */
+export interface AiLlmModelRow {
+  id: string;
+  name: string;
+  endpointUrl: string;
+  apiKey: string;
+  model: string;
+  parameters: string | null;
+  headers: string | null;
+  enabled: boolean | number;
+  lastStatus: string | null;
+  lastTestedAt: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface AiChatbotRow {
+  id: string;
+  sessionId: string;
+  name: string;
+  llmModelId: string;
+  ragModelId: string | null;
+  persona: string | null;
+  replyGroups: boolean | number;
+  enabled: boolean | number;
+  lastRepliedAt: string | null;
+  lastError: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface AiChatOverrideRow {
+  id: string;
+  chatbotId: string;
+  chatId: string;
+  chatbotDisabled: boolean | number;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface AiRagModelRow {
+  id: string;
+  name: string;
+  sessionScope: string;
+  sessionIds: string | null;
+  llmModelId: string | null;
+  enabled: boolean | number;
+  topK: number;
+  maxContextChars: number;
+  index: string | null;
+  indexedAt: string | null;
+  lastIndexError: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface AiRagDocumentRow {
+  id: string;
+  ragModelId: string;
+  sourceType: string;
+  title: string | null;
+  sourceUrl: string | null;
+  content: string | null;
+  storageKey: string | null;
+  status: string;
+  statusError: string | null;
+  metadata: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface AiMcpConnectionRow {
+  id: string;
+  name: string;
+  endpointUrl: string;
+  transport: string;
+  authKind: string;
+  authHeader: string;
+  authCredential: string;
+  headers: string | null;
+  timeoutMs: number;
+  enabled: boolean | number;
+  lastStatus: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
 export interface MigrationTables {
   sessions: SessionRow[];
   webhooks: WebhookRow[];
@@ -275,6 +368,12 @@ export interface MigrationTables {
   integrationDeliveryFailures: IntegrationDeliveryFailureRow[];
   statusUpdates: StatusUpdateRow[];
   automationRules: AutomationRuleRow[];
+  aiLlmModels: AiLlmModelRow[];
+  aiChatbots: AiChatbotRow[];
+  aiChatOverrides: AiChatOverrideRow[];
+  aiRagModels: AiRagModelRow[];
+  aiRagDocuments: AiRagDocumentRow[];
+  aiMcpConnections: AiMcpConnectionRow[];
 }
 
 export type TableCounts = { [K in keyof MigrationTables]: number };

@@ -59,17 +59,8 @@ export class CreateAiLlmModelDto {
   model?: string;
 
   @ApiPropertyOptional({
-    description: 'System prompt prepended to every completion (an AI persona)',
-    maxLength: LLM_PERSONA_MAX_LENGTH,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxCodePoints(LLM_PERSONA_MAX_LENGTH)
-  @NoNulCharacter()
-  persona?: string;
-
-  @ApiPropertyOptional({
-    description: 'Sampling parameters. Unset fields fall back to the provider defaults.',
+    description:
+      'Sampling parameters. Temperature defaults to 0.7 and maxTokens to 1024 when omitted (these are also the placeholders in the dashboard form).',
     example: { temperature: 0.7, maxTokens: 1024 },
   })
   @IsOptional()
@@ -130,13 +121,6 @@ export class UpdateAiLlmModelDto {
   @NoNulCharacter()
   model?: string;
 
-  @ApiPropertyOptional({ description: 'System prompt for every completion', maxLength: LLM_PERSONA_MAX_LENGTH })
-  @ValidateIf((o: UpdateAiLlmModelDto) => o.persona !== undefined)
-  @IsString()
-  @MaxCodePoints(LLM_PERSONA_MAX_LENGTH)
-  @NoNulCharacter()
-  persona?: string | null;
-
   @ApiPropertyOptional({ description: 'Sampling parameters; null clears them', nullable: true })
   @ValidateIf((o: UpdateAiLlmModelDto) => o.parameters !== undefined)
   @IsObject()
@@ -183,10 +167,6 @@ export class AiLlmModelResponseDto {
   @Expose()
   @ApiProperty()
   model!: string;
-
-  @Expose()
-  @ApiPropertyOptional({ nullable: true })
-  persona!: string | null;
 
   @Expose()
   @ApiPropertyOptional({ nullable: true })

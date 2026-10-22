@@ -5776,7 +5776,7 @@ Request a graceful server restart, optionally orchestrating Docker profiles (add
 
 #### GET /api/infra/export-data
 
-Export every row of the 16 migration tables from the Data DB as JSON. Read-only, but runs raw SQL on the `data` DataSource: `SELECT *` for most tables, while `messages` and `message_batches` are read as ids first and then as full rows in chunks, newest-first, of at most 200 rows and max(`EXPORT_INLINE_MEDIA_BUDGET_BYTES`, 1 MiB) of stored payload each (a larger single row is read on its own). Each chunk's payloads are dropped against the budget below before the next is read, so the export holds the rows it returns, one chunk and the budget's worth of media, never every inline payload in the database at once. Rows keep the order the database returns them in.
+Export every row of the 22 migration tables from the Data DB as JSON. Read-only, but runs raw SQL on the `data` DataSource: `SELECT *` for most tables, while `messages` and `message_batches` are read as ids first and then as full rows in chunks, newest-first, of at most 200 rows and max(`EXPORT_INLINE_MEDIA_BUDGET_BYTES`, 1 MiB) of stored payload each (a larger single row is read on its own). Each chunk's payloads are dropped against the budget below before the next is read, so the export holds the rows it returns, one chunk and the budget's worth of media, never every inline payload in the database at once. Rows keep the order the database returns them in.
 
 **Auth:** API key (ADMIN)
 
@@ -5786,7 +5786,7 @@ Export every row of the 16 migration tables from the Data DB as JSON. Read-only,
 >
 > This bounds the media, not the export — a large enough text-only history still exceeds the import limit, because every row costs a few hundred bytes of scaffolding whatever was said. For a backup that keeps everything, use `scripts/backup.sh`: it snapshots the database file itself (and `pg_dump`s Postgres), so inline media rides along regardless of this budget.
 
-The migration set (`MigrationTables`) is, in payload-key order: `sessions`, `webhooks`, `messages`, `messageBatches`, `templates`, `baileysStoredMessages`, `lidMappings`, `chatStates`, `pluginInstances`, `conversationMappings`, `ingressEvents`, `webhookDeliveryFailures`, `webhookOutboxEvents`, `integrationDeliveryFailures`, `statusUpdates`, `automationRules`.
+The migration set (`MigrationTables`) is, in payload-key order: `sessions`, `webhooks`, `messages`, `messageBatches`, `templates`, `baileysStoredMessages`, `lidMappings`, `chatStates`, `pluginInstances`, `conversationMappings`, `ingressEvents`, `webhookDeliveryFailures`, `webhookOutboxEvents`, `integrationDeliveryFailures`, `statusUpdates`, `automationRules`, `aiLlmModels`, `aiChatbots`, `aiChatOverrides`, `aiRagModels`, `aiRagDocuments`, `aiMcpConnections`.
 
 **Response** `200`
 
@@ -5825,7 +5825,7 @@ The migration set (`MigrationTables`) is, in payload-key order: `sessions`, `web
     "webhookOutboxEvents": [],
     "integrationDeliveryFailures": [],
     "statusUpdates": [],
-    "automationRules": []
+    "automationRules": [],"aiLlmModels": [],"aiChatbots": [],"aiChatOverrides": [],"aiRagModels": [],"aiRagDocuments": [],"aiMcpConnections": []
   },
   "counts": {
     "sessions": 1,
@@ -5843,7 +5843,7 @@ The migration set (`MigrationTables`) is, in payload-key order: `sessions`, `web
     "webhookOutboxEvents": 0,
     "integrationDeliveryFailures": 0,
     "statusUpdates": 0,
-    "automationRules": 0
+    "automationRules": 0,"aiLlmModels": 0,"aiChatbots": 0,"aiChatOverrides": 0,"aiRagModels": 0,"aiRagDocuments": 0,"aiMcpConnections": 0
   },
   "skippedTables": [],
   "omittedInlineMedia": { "messages": 0, "messageBatches": 0 }
@@ -5864,7 +5864,7 @@ Rows are raw DB column shapes (e.g. `messageBatches` rows use snake_case columns
 
 Replace all Data DB rows with the supplied export. **Destructive and transactional (all-or-nothing).**
 
-> **The replace covers all 16 migration tables, not just the ones you send.** Inside the transaction every table in the migration set is emptied first and only then re-populated from the payload, so a table you omit ends up **empty**, not untouched. Always restore a payload produced by `GET /api/infra/export-data` of the same or a newer build — a hand-built body carrying only a subset silently wipes the rest.
+> **The replace covers all 22 migration tables, not just the ones you send.** Inside the transaction every table in the migration set is emptied first and only then re-populated from the payload, so a table you omit ends up **empty**, not untouched. Always restore a payload produced by `GET /api/infra/export-data` of the same or a newer build — a hand-built body carrying only a subset silently wipes the rest.
 
 **Auth:** API key (ADMIN)
 
@@ -5913,7 +5913,7 @@ Replace all Data DB rows with the supplied export. **Destructive and transaction
     "webhookOutboxEvents": [],
     "integrationDeliveryFailures": [],
     "statusUpdates": [],
-    "automationRules": []
+    "automationRules": [],"aiLlmModels": [],"aiChatbots": [],"aiChatOverrides": [],"aiRagModels": [],"aiRagDocuments": [],"aiMcpConnections": []
   },
   "stopOrphans": true
 }
@@ -5940,7 +5940,7 @@ Replace all Data DB rows with the supplied export. **Destructive and transaction
     "webhookOutboxEvents": 0,
     "integrationDeliveryFailures": 0,
     "statusUpdates": 0,
-    "automationRules": 0
+    "automationRules": 0,"aiLlmModels": 0,"aiChatbots": 0,"aiChatOverrides": 0,"aiRagModels": 0,"aiRagDocuments": 0,"aiMcpConnections": 0
   },
   "warnings": [],
   "notices": [],
@@ -7493,6 +7493,33 @@ per-session cap is `ai.chatbotsMaxPerSession` (default 8).
 **Auth:** API key (OPERATOR)
 
 **Response** `204`
+
+**Errors:** `404` unknown chatbot
+
+
+#### GET /api/ai/chat-states
+
+The per-chat AI switches of one session, for the Chats page: which chatbots are switched OFF
+for which conversation. A chat with no entry follows the bot default (answered while the bot is
+enabled).
+
+**Auth:** API key (OPERATOR, session-scoped keys resolved against )
+
+**Query:** `sessionId` (required) · `chatIds` (required, comma-separated, max 200)
+
+**Response** `200` — `{ overrides: Record<chatId, chatbotId[]> }`
+
+#### POST /api/ai/chat-state
+
+Flip ONE (chatbot, chat) switch. `chatbotDisabled: true` stores the override (the bot stays
+silent in that conversation); `false` removes it (back to the default, answered). Scoped keys
+can only reach chatbots inside their session fence; an out-of-scope or unknown chatbot is a 404.
+
+**Auth:** API key (OPERATOR)
+
+**Request** `{ chatbotId, chatId, chatbotDisabled }`
+
+**Response** `200` — `{ chatbotId, chatId, chatbotDisabled }`
 
 **Errors:** `404` unknown chatbot
 

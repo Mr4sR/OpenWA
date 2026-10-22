@@ -208,6 +208,17 @@ export class AiRagDocumentResponseDto {
   sourceUrl!: string | null;
 
   @Expose()
+  @ApiProperty({
+    description: 'Ingestion state: ready, pending (queued), processing (fetching) or failed',
+    enum: ['ready', 'pending', 'processing', 'failed'],
+  })
+  status!: 'ready' | 'pending' | 'processing' | 'failed';
+
+  @Expose()
+  @ApiPropertyOptional({ nullable: true, description: 'Why the ingestion failed' })
+  statusError!: string | null;
+
+  @Expose()
   @ApiProperty({ description: 'Stored knowledge text (truncated preview for list views)' })
   contentPreview!: string | null;
 

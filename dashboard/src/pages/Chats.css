@@ -1851,3 +1851,42 @@
   color: var(--text-muted);
   margin-top: 0.375rem;
 }
+
+/* ── Per-chat AI ON/OFF chip (the bot answers this conversation unless flipped off) ─────────── */
+
+.chats-page .chat-ai-toggles {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-inline-end: 0.25rem;
+}
+
+.chats-page .chat-ai-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0 0.375rem;
+  height: 18px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.chats-page .chat-ai-toggle.on {
+  background: rgba(37, 211, 102, 0.14);
+  color: var(--primary-text);
+  border-color: rgba(37, 211, 102, 0.3);
+}
+
+.chats-page .chat-ai-toggle.off {
+  background: rgba(148, 148, 148, 0.14);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+
+.chats-page .chat-ai-toggle span {
+  pointer-events: none;
+}

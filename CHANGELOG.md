@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add Number Checker page in dashboard for single and bulk WhatsApp recipient pre-validation.
 - Add the opt-in `message.receipt` event for per-recipient group and status receipts on Baileys (#1748).
-- Add the AI Integration surface: LLM provider connections (endpoint, API key, model, sampling parameters, persona), chatbot instances per session, vectorless RAG models (PageIndex-style tree index over words, documents, URLs and sites) activatable on all or selected sessions, and outbound MCP server connections with optional bearer/header authentication — all create/edit/delete from the new dashboard page.
+- Add the AI Integration surface: LLM provider connections (endpoint, API key, model, sampling parameters with 0.7/1024 defaults), per-session chatbot instances that own THE persona, vectorless RAG models (PageIndex-style tree index over text, documents, URLs and sites — background ingestion with per-entry status) activatable on all or selected sessions, and outbound MCP server connections over Streamable HTTP or SSE with optional bearer/header authentication — all create/edit/delete from the new dashboard pages. Per-conversation AI switches live on the Chats page: every chat is answered while the session's bot is enabled, and the operator mutes specific conversations from the chat list. All six AI tables round-trip through the infra export/import backup, so a restore reproduces bots, personas, muted chats, knowledge bases and MCP connections.
 
 ### Changed
 

@@ -46,6 +46,11 @@ let thirdSessionStatus: Session['status'] | null = null;
 // Hits the global search answers with.
 let searchHits: SearchHit[] = [];
 
+// The AI Integration side of the Chats page: the session's enabled chatbots, the chats each
+// bot is muted in, and a switch that makes the save fail (the page must then re-read the state).
+let aiChatbots: Array<{ id: string; name: string; sessionId: string; enabled: boolean }> = [];
+let aiOverrides: Record<string, string[]> = {};
+let aiStateFails = false;
 // The engine the gateway reports: only whatsapp-web.js lists channels.
 let engineType = 'baileys';
 // The subscribed channels, the posts every channel's feed answers with, and the stored statuses.
@@ -373,6 +378,24 @@ function installFetchStub(): void {
     if (method === 'GET' && path.startsWith('/api/search?')) {
       return Promise.resolve(jsonResponse({ hits: searchHits, total: searchHits.length }));
     }
+    // Per-chat AI switches: the enabled chatbots of the session and which chats they are muted in.
+    if (method === 'GET' && path === '/api/ai/chatbots') {
+      return Promise.resolve(jsonResponse(aiChatbots));
+    }
+    if (method === 'GET' && path.startsWith('/api/ai/chat-states?')) {
+      const overrides: Record<string, string[]> = {};
+      for (const [chatId, bots] of Object.entries(aiOverrides)) overrides[chatId] = bots;
+      return Promise.resolve(jsonResponse({ overrides }));
+    }
+    if (method === 'POST' && path === '/api/ai/chat-state') {
+      const b = body as { chatbotId: string; chatId: string; chatbotDisabled: boolean };
+      const current = new Set(aiOverrides[b.chatId] ?? []);
+      if (b.chatbotDisabled) current.add(b.chatbotId);
+      else current.delete(b.chatbotId);
+      if (aiStateFails) return Promise.resolve(jsonResponse({ message: 'boom' }, 500));
+      aiOverrides[b.chatId] = Array.from(current);
+      return Promise.resolve(jsonResponse(b));
+    }
     if (method === 'POST' && path === `/api/sessions/${SESSION.id}/status/send-text`) {
       return Promise.resolve(jsonResponse({ success: true }));
     }
@@ -440,6 +463,9 @@ afterEach(async () => {
   chatsResponder = null;
   thirdSessionStatus = null;
   searchHits = [];
+  aiChatbots = [];
+  aiOverrides = {};
+  aiStateFails = false;
   engineType = 'baileys';
   channels = [CHANNEL];
   channelPosts = [];
@@ -2017,6 +2043,105 @@ const THIRD_SESSION_HIT: SearchHit = {
   from: CHAT.id,
 };
 
+// ── Per-chat AI switches (the sidebar chip writes POST /api/ai/chat-state) ──────────────────
+
+test('an enabled chatbot renders an AI on chip per chat, and clicking it mutes that chat', async () => {
+  const { screen, waitFor } = rtl;
+  aiChatbots = [{ id: 'bot-1', name: 'Support bot', sessionId: SESSION.id, enabled: true }];
+  resetFetchCalls();
+  const { container } = renderChats();
+
+  await screen.findByText('Alice');
+  // The list renders newest-first, so anchor to Alice's row rather than "the first chip".
+  const aliceRow = await waitFor(() => {
+    const rows = Array.from(container.querySelectorAll('.chat-item-card'));
+    const found = rows.find(r => r.querySelector('.chat-item-name')?.textContent === 'Alice');
+    assert.ok(found, 'Alice chat row did not render');
+    return found as HTMLElement;
+  });
+  const chip = aliceRow.querySelector('.chat-ai-toggle') as HTMLElement;
+  assert.ok(chip, 'the AI chip did not render on the chat row');
+  assert.match(chip.className, /on/, 'the chip defaults to ON while the bot is enabled');
+  assert.match(chip.textContent ?? '', /AI on/);
+
+  rtl.fireEvent.click(chip);
+  // Optimistic flip to OFF, then the save lands.
+  await waitFor(() => assert.match((aliceRow.querySelector('.chat-ai-toggle') as HTMLElement).className, /off/));
+  await waitFor(() => {
+    const call = findFetchCall('POST', '/api/ai/chat-state');
+    assert.ok(call, 'the mute was not persisted');
+    assert.deepEqual(call.body, { chatbotId: 'bot-1', chatId: CHAT.id, chatbotDisabled: true });
+  });
+});
+
+
+test('a muted chat renders the AI off chip, and clicking it re-enables the bot there', async () => {
+  const { screen, waitFor } = rtl;
+  aiChatbots = [{ id: 'bot-1', name: 'Support bot', sessionId: SESSION.id, enabled: true }];
+  aiOverrides = { [CHAT.id]: ['bot-1'] };
+  resetFetchCalls();
+  const { container } = renderChats();
+
+  await screen.findByText('Alice');
+  const aliceRow = await waitFor(() => {
+    const rows = Array.from(container.querySelectorAll('.chat-item-card'));
+    const found = rows.find(r => r.querySelector('.chat-item-name')?.textContent === 'Alice');
+    assert.ok(found, 'Alice chat row did not render');
+    return found as HTMLElement;
+  });
+  const chip = (await waitFor(() => {
+    const found = aliceRow.querySelector('.chat-ai-toggle') as HTMLElement | null;
+    assert.ok(found, 'the AI chip did not render on a muted chat');
+    // The muted state arrives with the /api/ai/chat-states read, after the row itself renders.
+    assert.match(found.className, /off/);
+    return found;
+  })) as HTMLElement;
+
+  rtl.fireEvent.click(chip);
+  await waitFor(() => assert.match((aliceRow.querySelector('.chat-ai-toggle') as HTMLElement).className, /on/));
+  await waitFor(() => {
+    const call = findFetchCall('POST', '/api/ai/chat-state');
+    assert.ok(call, 'the unmute was not persisted');
+    assert.deepEqual(call.body, { chatbotId: 'bot-1', chatId: CHAT.id, chatbotDisabled: false });
+  });
+});
+
+test('a failed mute save reverts the chip to the server state', async () => {
+  const { screen, waitFor } = rtl;
+  aiChatbots = [{ id: 'bot-1', name: 'Support bot', sessionId: SESSION.id, enabled: true }];
+  aiStateFails = true;
+  resetFetchCalls();
+  const { container } = renderChats();
+
+  await screen.findByText('Alice');
+  const aliceRow = await waitFor(() => {
+    const rows = Array.from(container.querySelectorAll('.chat-item-card'));
+    const found = rows.find(r => r.querySelector('.chat-item-name')?.textContent === 'Alice');
+    assert.ok(found, 'Alice chat row did not render');
+    return found as HTMLElement;
+  });
+  const chip = aliceRow.querySelector('.chat-ai-toggle') as HTMLElement;
+  assert.ok(chip, 'the AI chip did not render');
+  assert.match(chip.className, /on/);
+
+  rtl.fireEvent.click(chip);
+  // The optimistic OFF is rolled back once the failed save triggers the re-read.
+  await waitFor(() => assert.match((aliceRow.querySelector('.chat-ai-toggle') as HTMLElement).className, /on/));
+  assert.ok(findFetchCall('POST', '/api/ai/chat-state'), 'the toggle did not attempt to save');
+});
+
+test('a disabled chatbot renders no AI chip at all', async () => {
+  const { screen, waitFor } = rtl;
+  aiChatbots = [{ id: 'bot-2', name: 'Idle bot', sessionId: SESSION.id, enabled: false }];
+  const { container } = renderChats();
+  await screen.findByText('Alice');
+  // The staleTime-gated states query never fires for a zero-bot session; waiting for any
+  // /api/ai/* traffic asserts the negative deterministically instead of sleeping.
+  await waitFor(() => assert.ok(findFetchCall('GET', '/api/sessions'), 'the page did not settle'));
+  await flush();
+  await flush();
+  assert.ok(!container.querySelector('.chat-ai-toggle'), 'a disabled bot must not show chips');
+});
 async function clickSearchHit(container: HTMLElement): Promise<void> {
   const { screen, fireEvent, waitFor } = rtl;
   fireEvent.change(screen.getByLabelText('Search messages…'), { target: { value: 'third' } });

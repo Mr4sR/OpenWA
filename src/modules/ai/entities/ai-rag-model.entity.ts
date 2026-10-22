@@ -110,6 +110,18 @@ export class AiRagDocument {
   @Column({ type: 'varchar', length: 512, nullable: true })
   storageKey!: string | null;
 
+  /**
+   * Ingestion state. A `url`/`site`/`file` entry is fetched and extracted in the BACKGROUND, so
+   * the row lands as `pending` and the dashboard polls it until it reaches `ready` (or `failed`,
+   * with the reason in `statusError`). A `text` entry is `ready` immediately.
+   */
+  @Column({ type: 'varchar', length: 12, default: 'ready' })
+  status!: 'pending' | 'processing' | 'ready' | 'failed';
+
+  /** Why the ingestion failed (fetch refused, extraction empty). */
+  @Column({ type: 'text', nullable: true })
+  statusError!: string | null;
+
   /** Extracted-text diagnostics: characters consumed into the index, fetch timestamp. */
   @Column({ type: jsonColumnType(), nullable: true })
   metadata!: Record<string, unknown> | null;

@@ -820,6 +820,18 @@ export class InfraDataService {
         await clearTable('integration_delivery_failures');
         // status_updates has no FK to sessions; clear it explicitly so the replace is complete.
         await clearTable('status_updates');
+        // AI Integration: ai_llm_models / ai_rag_models / ai_mcp_connections are account-wide (no FK
+        // to sessions), so the sessions DELETE never reaches them — without an explicit clear a
+        // restore collides on their PKs / unique names and the all-or-nothing gate rolls the whole
+        // import back. ai_rag_documents and ai_chat_overrides cascade from those parents (cleared
+        // here too, parents before children); ai_chatbots carries the sessions FK itself, so the
+        // sessions DELETE below takes it.
+        await clearTable('ai_llm_models');
+        await clearTable('ai_chatbots');
+        await clearTable('ai_chat_overrides');
+        await clearTable('ai_rag_models');
+        await clearTable('ai_rag_documents');
+        await clearTable('ai_mcp_connections');
         // Session ownership is CLUSTER RUNTIME STATE, not backup payload: which process currently holds
         // a session's engine, and until when. The replace below deletes it along with everything else,
         // and the sessions importer does not restore it (deliberately — see below), so without this the
