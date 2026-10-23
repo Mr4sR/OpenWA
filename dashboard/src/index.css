@@ -513,3 +513,49 @@ code {
        changes width/anchoring. (Scrolling lives on .modal-body to avoid a double scrollbar.) */
   }
 }
+
+/* =============================================================================
+   PANE SASH — shared VS Code-style drag handle between resizable split panes.
+   Owners position it inside their split container; the look + drag affordance live here.
+   The 10px hit area is deliberate: 2px reads, the rest is grabbable.
+   ============================================================================= */
+.pane-sash {
+  width: 10px;
+  touch-action: none;
+  cursor: col-resize;
+  background: transparent;
+  border: none;
+  padding: 0;
+  outline: none;
+}
+
+.pane-sash::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.pane-sash:hover::before,
+.pane-sash:focus-visible::before,
+.pane-sash.dragging::before {
+  background: var(--primary);
+}
+
+.pane-sash:focus-visible::before {
+  width: 4px;
+}
+
+/* While a drag is live: no text selection anywhere, no iframe stealing the pointer. */
+body.pane-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.pane-resizing iframe {
+  pointer-events: none;
+}

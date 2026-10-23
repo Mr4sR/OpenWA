@@ -142,20 +142,31 @@ export function Chats() {
 
   // The composer needs ~244px (64px min input + 40px send + paddings); below that two panes clip
   // the send button with no scrollbar to recover it. A viewport media query cannot know the room's
-  // real width once the chat list is user-resizable, so watch the room itself and flip the layout
-  // to the stacked single-pane mode (same behavior as phones) when it starves.
+  // real width once the chat list is user-resizable, so measure the LAYOUT and subtract the list.
+  // The layout — not the room — is what gets observed: the narrow-room mode itself hides the room,
+  // and a display:none observed box never reports a width again, which would deadlock the mode on.
   const [narrowRoom, setNarrowRoom] = useState(false);
-  const roomRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    const room = roomRef.current;
-    if (!room) return;
-    const observer = new ResizeObserver(entries => {
-      const width = entries[0]?.contentRect.width ?? room.clientWidth;
-      setNarrowRoom(width < 245);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const watchLayout = useCallback((layout: HTMLElement | null) => {
+    observerRef.current?.disconnect();
+    if (!layout) return;
+    const observer = new ResizeObserver(() => {
+      // The configured list width — never the rendered sidebar box: the narrow mode stretches the
+      // list to 100%, which would make the subtraction read as zero and latch the mode on forever.
+      const listWidth = parseFloat(getComputedStyle(layout).getPropertyValue('--chats-list-w')) || 0;
+      setNarrowRoom(layout.clientWidth - listWidth < 245);
     });
-    observer.observe(room);
-    return () => observer.disconnect();
+    // The layout never hides, so its box keeps reporting while the mode swaps the panes.
+    observer.observe(layout);
+    observerRef.current = observer;
   }, []);
+  const setLayoutRef = useCallback(
+    (node: HTMLElement | null) => {
+      chatsLayoutRef(node);
+      watchLayout(node);
+    },
+    [chatsLayoutRef, watchLayout],
+  );
 
   // Per-chat AI switches: the session's enabled chatbots + which chats they are muted in.
   // The sidebar shows a small ON/OFF chip per conversation; default ON when the bot is enabled.
@@ -1193,7 +1204,7 @@ export function Chats() {
         </div>
       ) : (
         <div
-          ref={chatsLayoutRef}
+          ref={setLayoutRef}
           className={`chats-layout ${narrowRoom ? 'narrow-room' : ''} ${activeChat || activeChannel || activeStatusGroup ? 'has-active-chat' : ''}`}
         >
           {/* LEFT SIDEBAR: session & chat rooms */}
@@ -1238,7 +1249,7 @@ export function Chats() {
           />
 
           {/* RIGHT VIEW: active chat room */}
-          <main ref={roomRef} className="chats-room">
+          <main className="chats-room">
             {/* VS Code-style drag handle on the chat list's trailing edge; dbl-click/Enter resets. */}
             <div {...chatSashProps} />
             {activeChat ? (

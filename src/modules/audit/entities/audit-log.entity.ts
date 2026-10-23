@@ -74,6 +74,7 @@ export enum AuditAction {
   AI_CHATBOT_CREATED = 'ai_chatbot_created',
   AI_CHATBOT_UPDATED = 'ai_chatbot_updated',
   AI_CHATBOT_DELETED = 'ai_chatbot_deleted',
+  AI_CHATBOT_TESTED = 'ai_chatbot_tested',
   AI_RAG_MODEL_CREATED = 'ai_rag_model_created',
   AI_RAG_MODEL_UPDATED = 'ai_rag_model_updated',
   AI_RAG_MODEL_DELETED = 'ai_rag_model_deleted',

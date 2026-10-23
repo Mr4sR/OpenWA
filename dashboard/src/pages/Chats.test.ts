@@ -420,6 +420,12 @@ let queryClient: QueryClient | undefined;
 before(async () => {
   ({ installJsdomGlobals } = await import('../test-helpers/jsdom.ts'));
   await installJsdomGlobals();
+  // The chats layout observes its own box to flip the narrow-room mode; jsdom ships none.
+  (globalThis as Record<string, unknown>).ResizeObserver = class {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  };
   installFetchStub();
   // RoleProvider initializes from sessionStorage; 'admin' makes canWrite true so the composer
   // controls render enabled.

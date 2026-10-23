@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { Fragment, useMemo, useState, useEffect, useRef, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Send, CheckCircle, XCircle, Loader2, Upload, X, Plus, AlertCircle } from 'lucide-react';
 import {
@@ -11,6 +11,7 @@ import {
 } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
+import { usePaneResizer } from '../hooks/usePaneResizer';
 import { useSessionsQuery, useSessionGroupsQuery } from '../hooks/queries';
 import { parseBulkRecipients, BULK_MAX_RECIPIENTS, BULK_RECIPIENTS_FILE_MAX_BYTES } from '../utils/bulkRecipients';
 import {
@@ -131,7 +132,14 @@ export function MessageTester() {
   const { data: allSessions = [], isLoading: loadingSessions, error: sessionsError } = useSessionsQuery();
   // A read that never produced a list is not "no ready sessions"; a failed refetch keeps the cached one.
   const sessionsFailed = !!sessionsError && allSessions.length === 0;
-  const sessions = allSessions.filter(s => s.status === 'ready');
+  // Only a READY session can send; the select, the auto-pick effect and the send guards all
+  // read this list, so a session dropping out of it must fall back rather than keep the old id.
+  const sessions = useMemo(() => allSessions.filter(s => s.status === 'ready'), [allSessions]);
+  // Split of the compose | response panes; the response keeps a usable floor via CSS clamp.
+  const { containerRef: testerPanelsRef, sashProps: testerProps } = usePaneResizer(t('common.panelResize'), {
+    cssVar: '--tester-compose-w',
+    storageKey: 'openwa_tester_compose_w',
+  });
   const [session, setSession] = useState('');
   const [recipient, setRecipient] = useState('');
   const [recipientType, setRecipientType] = useState<'personal' | 'group'>('personal');
@@ -740,7 +748,7 @@ export function MessageTester() {
         </div>
       )}
 
-      <div className="tester-panels">
+      <div className="tester-panels" ref={testerPanelsRef}>
         <div className="compose-panel">
           <h2 className="eyebrow">{t('messageTester.compose')}</h2>
 
@@ -1211,6 +1219,9 @@ export function MessageTester() {
             )}
           </div>
         </div>
+
+        {/* VS Code-style divider: drag to rebalance compose vs response; dbl-click restores 50/50. */}
+        <div {...testerProps} />
 
         <div className="response-panel">
           <h2 className="eyebrow">{t('messageTester.responseTitle')}</h2>

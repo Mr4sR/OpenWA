@@ -102,6 +102,7 @@ webhooks.
 | `/api/ai/llm-models/:id/test` | POST | ADMIN | One minimal completion; records diagnostics |
 | `/api/sessions/:sid/ai-chatbots` | GET/POST | OPERATOR | List / create for the session |
 | `/api/sessions/:sid/ai-chatbots/:id` | PUT / DELETE | OPERATOR | Update / delete |
+| `/api/sessions/:sid/ai-chatbots/:id/test` | POST | OPERATOR | The Playground: one production-shaped answer for a pasted message, without sending it |
 | `/api/ai/chat-states` | GET | OPERATOR | The per-chat AI switches (which bots are muted per conversation) |
 | `/api/ai/chat-state` | POST | OPERATOR | Flip one (chatbot, chat) switch — the Chats page toggles |
 | `/api/ai/chatbots` | GET | OPERATOR | Cross-session list, scoped to the key's `allowedSessions` |
@@ -172,9 +173,22 @@ key, and `.env.example` documents them under the AI INTEGRATION banner.
 
 ## 32.6 Dashboard
 
-The **AI Integration** page (`/ai-integration`, admin, unscoped keys only) has four tabs in
-the webhook-card style: Chatbot, AI LLM, RAG Vectorless, MCP Server. Each tab is a card list
-with create/edit/delete modals, an enable/disable toggle, a test action (LLM/MCP) and — on
-RAG rows — an expandable knowledge editor (add text/url/site entries, add/delete, rebuild
-index) plus a retrieval probe box. All of the page's strings ship in every of the fifteen
-dashboard locales.
+The **AI Integration** page (`/ai-integration`, admin, unscoped keys only) has five tabs in
+the webhook-card style: Chatbot, AI LLM, RAG Vectorless, MCP Server and Playground. Each resource
+tab is a card list with create/edit/delete modals, an enable/disable toggle, a test action
+(LLM/MCP) and — on RAG rows — an expandable knowledge editor (add text/url/site entries,
+add/delete, rebuild index) plus a retrieval probe box.
+
+Every card title carries an **enable dot** — green while the row is enabled, red once it is
+switched off — and the toggle button names the state it is in (`Enabled — Disable` /
+`Disabled — Enable`), so the state reads without opening the edit form.
+
+The **Playground** tab answers a typed message through the bot's real prompt and shows the reply
+in a WhatsApp-shaped transcript, with the RAG source titles the answer stood on and any retrieval
+warnings under it. Pick the bot at the top; the header repeats its enable state, its LLM model and
+its knowledge base, each with the same dot. Nothing is sent: the probe calls
+`POST /api/sessions/:sid/ai-chatbots/:id/test`, which assembles persona + knowledge + history and
+returns the completion only, so no chat row, no `lastRepliedAt` write and no outbound WhatsApp
+message result. A disabled bot, or one whose LLM model is switched off, is flagged inline — the
+probe still reports why it cannot answer instead of pretending to be a live test. All of the
+page's strings ship in every of the fifteen dashboard locales.

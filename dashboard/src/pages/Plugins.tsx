@@ -35,6 +35,7 @@ import { usePluginsQuery, useSessionsQuery, queryKeys } from '../hooks/queries';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
 import { useToast } from '../hooks/useToast';
+import { usePaneResizer } from '../hooks/usePaneResizer';
 import { PluginInstances } from '../components/PluginInstances';
 import './Plugins.css';
 
@@ -589,6 +590,11 @@ function SessionsTab({ plugin }: { plugin: Plugin }) {
 export default function Plugins() {
   const { t, i18n } = useTranslation();
   useDocumentTitle(t('plugins.title'));
+  // Status rail width, dragged from the sash between rail and catalog (VS Code-style).
+  const { containerRef: pluginsLayoutRef, sashProps: railSashProps } = usePaneResizer(t('common.panelResize'), {
+    cssVar: '--plugins-rail-w',
+    storageKey: 'openwa_plugins_rail_w',
+  });
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: plugins = [], isLoading: loadingPlugins, error: queryError } = usePluginsQuery();
@@ -892,7 +898,7 @@ export default function Plugins() {
         </div>
       )}
 
-      <div className="plugins-layout">
+      <div className="plugins-layout" ref={pluginsLayoutRef}>
         <aside className="plugins-rail">
           <div className="rail-stats">
             <div className="rail-stat">
@@ -922,6 +928,9 @@ export default function Plugins() {
             )}
           </div>
         </aside>
+
+        {/* Drag the rail's trailing edge to widen or narrow the status column. */}
+        <div {...railSashProps} />
 
         <main className="plugins-main">
           <div className="plugins-grid">

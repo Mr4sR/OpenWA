@@ -621,13 +621,19 @@
 
 /* ── Two-column control layout: status rail + plugin catalog ─────────────── */
 .plugins-page .plugins-layout {
+  /* Rail width is draggable via the sash between rail and catalog (usePaneResizer). */
+  --plugins-rail-w: 280px;
+  --plugins-rail-w-min: 220px;
+  --plugins-rail-w-max: 420px;
+
+  position: relative;
   display: flex;
   gap: 1.5rem;
   align-items: flex-start;
 }
 
 .plugins-page .plugins-rail {
-  flex: 0 0 280px;
+  flex: 0 0 clamp(var(--plugins-rail-w-min), var(--plugins-rail-w), var(--plugins-rail-w-max));
   position: sticky;
   top: 1.5rem;
   display: flex;
@@ -642,6 +648,17 @@
 .plugins-page .plugins-main {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Sash straddles the rail's trailing edge across the 1.5rem flex gap. */
+.plugins-page .plugins-layout > .pane-sash {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: clamp(var(--plugins-rail-w-min), var(--plugins-rail-w), var(--plugins-rail-w-max));
+  /* Rail gap is 1.5rem: put the 10px sash mid-gap, not on the rail border. */
+  margin-inline-start: calc(0.75rem - 5px);
+  z-index: 5;
+  height: 100%;
 }
 
 .plugins-page .rail-label {
@@ -812,6 +829,14 @@
 @media (max-width: 860px) {
   .plugins-page .plugins-layout {
     flex-direction: column;
+  }
+
+  .plugins-page .plugins-layout > .pane-sash {
+    display: none;
+  }
+
+  .plugins-page .plugins-rail {
+    flex: 0 0 auto;
   }
 
   .plugins-page .plugins-rail {

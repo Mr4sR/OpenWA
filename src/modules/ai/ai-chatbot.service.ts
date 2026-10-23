@@ -248,6 +248,14 @@ export class AiChatbotService {
     };
   }
 
+  /** Audit the playground probe like the LLM/MCP tests: a diagnostic run, recorded best-effort. */
+  async auditTest(chatbot: AiChatbot): Promise<void> {
+    void this.audit.logInfo(AuditAction.AI_CHATBOT_TESTED, {
+      sessionId: chatbot.sessionId,
+      metadata: { chatbotId: chatbot.id, chatbotName: chatbot.name },
+    });
+  }
+
   // ── Per-chat overrides (the Chats page switches) ─────────────────────────────────────────────
 
   /**

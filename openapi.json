@@ -98,6 +98,7 @@
                 "ai_chatbot_created",
                 "ai_chatbot_updated",
                 "ai_chatbot_deleted",
+                "ai_chatbot_tested",
                 "ai_rag_model_created",
                 "ai_rag_model_updated",
                 "ai_rag_model_deleted",
@@ -4948,6 +4949,97 @@
           }
         },
         "summary": "Delete a chatbot",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/sessions/{sessionId}/ai-chatbots/{chatbotId}/test": {
+      "post": {
+        "operationId": "AiChatbotController_test",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "description": "Session ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatbotId",
+            "required": true,
+            "in": "path",
+            "description": "Chatbot ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiChatbotTestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The answer the bot would send, with RAG citations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiChatbotTestResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty message, or the bot failed to answer (the reason is in the response).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The API key is missing, unknown, revoked, or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such chatbot in this session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Produce one playground answer for a message without sending it",
         "tags": [
           "ai"
         ]
@@ -22307,7 +22399,7 @@
             "maxLength": 100
           },
           "llmModelId": {
-            "type": "string",
+            "type": "object",
             "description": "LLM model to answer with"
           },
           "ragModelId": {
@@ -22317,7 +22409,8 @@
           },
           "persona": {
             "type": "object",
-            "description": "The persona (system prompt); an empty string clears it"
+            "description": "The persona (system prompt); null or an empty string clears it",
+            "nullable": true
           },
           "replyGroups": {
             "type": "boolean",
@@ -22329,6 +22422,51 @@
             "description": "Whether the bot is active"
           }
         }
+      },
+      "AiChatbotTestDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The message to answer, as if it arrived in a chat",
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "AiChatbotTestResponseDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "reply": {
+            "type": "string",
+            "description": "The reply the bot would send"
+          },
+          "sources": {
+            "description": "RAG nodes the reply stood on (titles only)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "description": "RAG retrieval warnings, empty when the knowledge answered cleanly",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "reply",
+          "sources",
+          "warnings"
+        ]
       },
       "SetAiChatOverrideDto": {
         "type": "object",

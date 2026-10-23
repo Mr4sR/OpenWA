@@ -7496,6 +7496,22 @@ per-session cap is `ai.chatbotsMaxPerSession` (default 8).
 
 **Errors:** `404` unknown chatbot
 
+#### POST /api/sessions/:sessionId/ai-chatbots/:chatbotId/test
+
+The AI Integration playground: produce ONE answer the bot would give for a pasted message, using
+the exact production prompt assembly (persona, RAG knowledge, recent history, the WhatsApp-answer
+instruction) — without sending anything to any chat.
+
+**Auth:** API key (OPERATOR)
+
+**Request** `{ message }` — the message to answer, max 4096 chars.
+
+**Response** `200` — `{ ok, reply, sources: string[], warnings: string[] }`. `sources` names the
+RAG nodes the reply stood on; `warnings` carries retrieval warnings (an unanswered knowledge base
+does not fail the probe, it warns).
+
+**Errors:** `400` empty message, or the answer failed (the reason names the failure: disabled LLM
+model, provider error, empty model answer) · `404` unknown chatbot
 
 #### GET /api/ai/chat-states
 

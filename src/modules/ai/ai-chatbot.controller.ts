@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -20,6 +21,8 @@ import { AiRagService } from './ai-rag.service';
 import {
   AiChatbotResponseDto,
   AiChatStateDto,
+  AiChatbotTestDto,
+  AiChatbotTestResponseDto,
   CreateAiChatbotDto,
   SetAiChatOverrideDto,
   UpdateAiChatbotDto,
@@ -105,6 +108,35 @@ export class AiChatbotController {
   @ApiResponse({ status: 404, description: 'No such chatbot in this session.' })
   async remove(@Param('sessionId') sessionId: string, @Param('chatbotId') chatbotId: string): Promise<void> {
     await this.chatbots.remove(sessionId, chatbotId);
+  }
+
+  /**
+   * The AI Integration playground: one production-shaped reply for a pasted message, without
+   * sending anything. OPERATOR like the CRU(D) around it; the session fence scopes the id.
+   */
+  @Post(':chatbotId/test')
+  @RequireRole(ApiKeyRole.OPERATOR)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Produce one playground answer for a message without sending it' })
+  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiParam({ name: 'chatbotId', description: 'Chatbot ID' })
+  @ApiResponse({ status: 200, description: 'The answer the bot would send, with RAG citations.', type: AiChatbotTestResponseDto })
+  @ApiResponse({ status: 400, description: 'Empty message, or the bot failed to answer (the reason is in the response).' })
+  @ApiResponse({ status: 404, description: 'No such chatbot in this session.' })
+  async test(
+    @Param('sessionId') sessionId: string,
+    @Param('chatbotId') chatbotId: string,
+    @Body() dto: AiChatbotTestDto,
+  ): Promise<AiChatbotTestResponseDto> {
+    const chatbot = await this.chatbots.findOne(sessionId, chatbotId);
+    try {
+      const result = await this.chatbots.previewReply(chatbot, dto.message);
+      void this.chatbots.auditTest(chatbot);
+      return AiChatbotTestResponseDto.ok(result);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new BadRequestException(detail.slice(0, 300));
+    }
   }
 }
 

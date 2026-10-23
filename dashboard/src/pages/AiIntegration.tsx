@@ -38,12 +38,14 @@ import {
   AiTreePreview,
   type AiSectionKey,
 } from './ai/AiShared';
+import { Playground } from './ai/Playground';
 
 /**
  * AI Integration — the create/edit/delete surface for the four AI instance kinds:
  * Chatbot (per-session bots), AI LLM (provider connections), RAG Vectorless (PageIndex-style
- * knowledge bases) and MCP Server (outbound tool servers). One page, four tabs; each tab is a
- * card list with create/edit/delete modals in the webhook style.
+ * knowledge bases) and MCP Server (outbound tool servers), plus the Playground tab that probes an
+ * active chatbot without writing on WhatsApp. Each resource tab is a card list with
+ * create/edit/delete modals in the webhook style.
  */
 export function AiIntegration() {
   const { t } = useTranslation();
@@ -113,6 +115,14 @@ export function AiIntegration() {
           )}
           {section === 'mcp' && (
             <McpSection t={t} canWrite={canWrite} invalidate={invalidate} creating={creating} onCreated={() => setCreating(false)} />
+          )}
+          {section === 'playground' && (
+            <Playground
+              t={t}
+              chatbots={chatbotsQuery.data ?? []}
+              llmModels={llmQuery.data ?? []}
+              ragModels={ragQuery.data ?? []}
+            />
           )}
         </>
       )}
@@ -190,6 +200,7 @@ function ChatbotsSection({
             <AiCard
               key={bot.id}
               title={bot.name}
+              enabled={bot.enabled}
               icon={<Bot size={18} />}
               actions={
                 <AiToggleActions
@@ -491,6 +502,7 @@ function LlmSection({
           <AiCard
             key={model.id}
             title={model.name}
+            enabled={model.enabled}
             icon={<BrainCircuit size={18} />}
             actions={
               <AiToggleActions
@@ -787,6 +799,7 @@ function RagSection({
           <div key={model.id}>
             <AiCard
               title={model.name}
+              enabled={model.enabled}
               icon={<BookOpen size={18} />}
               actions={
                 <AiToggleActions
@@ -1135,6 +1148,7 @@ function McpSection({
           <AiCard
             key={connection.id}
             title={connection.name}
+            enabled={connection.enabled}
             icon={<Plug size={18} />}
             actions={
               <AiToggleActions

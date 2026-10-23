@@ -326,6 +326,12 @@
     width 0.3s ease;
 }
 
+/* A live drag must track the pointer 1:1; the collapse/expand transition would smear it. */
+body.pane-resizing .main-content,
+body.pane-resizing .sidebar {
+  transition: none;
+}
+
 .main-content.expanded {
   margin-left: 72px;
   width: calc(100% - 72px);
@@ -454,7 +460,7 @@
 
 [dir='rtl'] .main-content {
   margin-left: 0;
-  margin-right: 260px;
+  margin-right: var(--sidebar-w);
   transition:
     margin-right 0.3s ease,
     width 0.3s ease;
@@ -478,4 +484,22 @@
   [dir='rtl'] .sidebar.mobile.open {
     transform: translateX(0);
   }
+}
+
+/* Drag handle on the nav's trailing edge, straddling the fixed sidebar's inner border. Hidden
+   while collapsed (the 72px rail is a deliberate size, not a resized one) and on mobile, where
+   the nav is an overlay — the media query below owns that shell. */
+.sidebar > .pane-sash {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  /* Centered on the border: 5px hang outside (over the content), 5px inside the nav. */
+  margin-inline-end: -5px;
+  z-index: 101;
+  height: 100%;
+}
+
+.sidebar.collapsed > .pane-sash,
+.sidebar.mobile > .pane-sash {
+  display: none;
 }

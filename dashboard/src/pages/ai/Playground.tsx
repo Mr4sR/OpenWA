@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { AlertCircle, Copy, Loader2, Send, Sparkles } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { aiApi, type AiChatbot, type AiChatbotTestResult, type AiLlmModel, type AiRagModel } from '../../services/api';
@@ -56,7 +55,9 @@ export function Playground({
   }, [selectedId]);
 
   useEffect(() => {
-    transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight });
+    const transcript = transcriptRef.current;
+    // `scrollTo` is absent in jsdom; the scroll is cosmetic, so its absence must not break a render.
+    transcript?.scrollTo?.({ top: transcript.scrollHeight });
   }, [messages, pending]);
 
   const bot = chatbots.find(candidate => candidate.id === selectedId) ?? null;

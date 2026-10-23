@@ -38,7 +38,9 @@
   position: absolute;
   inset-block: 0;
   inset-inline-start: 0;
-  translate: -50% 0;
+  /* Sits on the divider: half over the list's border, half over the room. A translate would
+     keep the 10px hit area only on one side; the negative logical margin centers it. */
+  margin-inline-start: -5px;
   z-index: 5;
   height: 100%;
 }

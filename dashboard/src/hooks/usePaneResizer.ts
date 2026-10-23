@@ -30,7 +30,14 @@ const safeSet = (key: string, value: string) => {
   }
 };
 
-const clampPx = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+/** Signed distance from the measured edge; the sign mirrors RTL and end-edge sashes. */
+export function dragOffset(clientX: number, anchor: number, measureFromLeft: boolean): number {
+  return (clientX - anchor) * (measureFromLeft ? 1 : -1);
+}
+
+export function clampPx(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 function readVarPx(el: HTMLElement, name: string, fallback: number): number {
   const raw = el.computedStyleMap?.().get(name)?.toString() ?? getComputedStyle(el).getPropertyValue(name);
@@ -64,6 +71,8 @@ export interface PaneResizerOptions {
   cssVar: string;
   /** LocalStorage key, namespaced `openwa_` like every other persisted preference. */
   storageKey: string;
+  /** Which container edge the pane grows from: `"start"` (the default) or `"end"`. */
+  edge?: 'start' | 'end';
   /** Keyboard step (Shift = fine 4px); VS Code uses coarse 32px, the default here. */
   step?: number;
 }
@@ -74,7 +83,7 @@ export interface PaneResizerOptions {
  */
 
 export function usePaneResizer(ariaLabel: string, options: PaneResizerOptions): PaneResizerApi {
-  const { cssVar, storageKey, step = 32 } = options;
+  const { cssVar, storageKey, step = 32, edge = 'start' } = options;
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const [value, setValue] = useState<number | null>(() => {
     const saved = safeGet(storageKey);
@@ -82,7 +91,7 @@ export function usePaneResizer(ariaLabel: string, options: PaneResizerOptions): 
   });
   const [dragging, setDragging] = useState(false);
   const frame = useRef(0);
-  const state = useRef({ rect: new DOMRect(), rtl: 1, host: null as HTMLElement | null });
+  const state = useRef({ anchor: 0, sign: 1, host: null as HTMLElement | null });
   // Registry for pointer capture fallback (older Safari): sash → move/up listeners.
   const cleanupRef = useRef<(() => void) | null>(null);
 
@@ -107,24 +116,40 @@ export function usePaneResizer(ariaLabel: string, options: PaneResizerOptions): 
   const beginDrag = useCallback(
     (event: React.PointerEvent) => {
       const sash = event.currentTarget as HTMLElement;
-      const host = sash.parentElement;
+      // The pane geometry lives on the container the hook is attached to, never on the sash's
+      // parent: the sash may sit one level down (Chats keeps it inside the room scroller) while
+      // the variable belongs to the grid/flex owner. No container attached -> nothing to drive.
+      const host = container;
       if (!host) return;
       const rect = host.getBoundingClientRect();
-      const dir = document.documentElement.getAttribute('dir') === 'rtl' ? -1 : 1;
-      state.current = { rect, rtl: dir, host };
+      const rtl = document.documentElement.getAttribute('dir') === 'rtl';
+      // LTR start-edge (Chats list, nav) measures from the left; an end-edge sash (Templates
+      // preview) measures from the right. RTL mirrors both, so the sign alone flips the math.
+      const fromStart = edge !== 'end';
+      const measureFromLeft = fromStart === !rtl;
+      state.current = {
+        anchor: measureFromLeft ? rect.left : rect.right,
+        sign: measureFromLeft ? 1 : -1,
+        host,
+      };
       setDragging(true);
       document.body.classList.add('pane-resizing');
-      sash.setPointerCapture?.(event.pointerId);
+      // Attach first (document fallback), then capture: when capture sticks the element listeners
+      // shadow the document ones anyway; when it throws (synthetic events, some jsdom runs) the
+      // document listeners still deliver every move.
+      let detach: (() => void) | null;
 
-      const onMove = (moveEvent: PointerEvent) => {
+      // Event-typed so it binds to both element and document listeners without a cast; pointer
+      // events are the only ones attached under these names.
+      const onMove = (moveEvent: Event) => {
         cancelAnimationFrame(frame.current);
+        const point = moveEvent as PointerEvent;
         frame.current = requestAnimationFrame(() => {
-          const { rect: box, rtl, host: target } = state.current;
+          const { anchor, sign, host: target } = state.current;
           if (!target) return;
-          // Distance from the pane's fixed edge, mirrored under RTL.
-          const offset = rtl === 1 ? moveEvent.clientX - box.left : box.right - moveEvent.clientX;
+          const offset = dragOffset(point.clientX, anchor, sign === 1);
           const min = readVarPx(target, `${cssVar}-min`, 0);
-          const max = readVarPx(target, `${cssVar}-max`, Math.max(min, box.width));
+          const max = readVarPx(target, `${cssVar}-max`, Math.max(min, target.getBoundingClientRect().width));
           const next = clampPx(offset, min, max);
           target.style.setProperty(cssVar, `${Math.round(next)}px`);
         });
@@ -144,32 +169,30 @@ export function usePaneResizer(ariaLabel: string, options: PaneResizerOptions): 
         cleanupRef.current?.();
         cleanupRef.current = null;
       };
-
       const onUp = () => commit();
 
-      let detach: () => void;
+      // The listeners land on either the sash (pointer capture) or the document (no capture).
+      // EventTarget loses the per-pointer-event typing; one targeted cast at the boundary is
+      // cheaper than overloading per target kind.
+      const onPointer = (target: EventTarget) => {
+        target.addEventListener('pointermove', onMove);
+        target.addEventListener('pointerup', onUp);
+        target.addEventListener('pointercancel', onUp);
+        return () => {
+          target.removeEventListener('pointermove', onMove);
+          target.removeEventListener('pointerup', onUp);
+          target.removeEventListener('pointercancel', onUp);
+        };
+      };
+      detach = onPointer(document);
+      sash.setPointerCapture?.(event.pointerId);
       if (typeof sash.hasPointerCapture === 'function' && sash.hasPointerCapture(event.pointerId)) {
-        sash.addEventListener('pointermove', onMove);
-        sash.addEventListener('pointerup', onUp);
-        sash.addEventListener('pointercancel', onUp);
-        detach = () => {
-          sash.removeEventListener('pointermove', onMove);
-          sash.removeEventListener('pointerup', onUp);
-          sash.removeEventListener('pointercancel', onUp);
-        };
-      } else {
-        document.addEventListener('pointermove', onMove);
-        document.addEventListener('pointerup', onUp);
-        document.addEventListener('pointercancel', onUp);
-        detach = () => {
-          document.removeEventListener('pointermove', onMove);
-          document.removeEventListener('pointerup', onUp);
-          document.removeEventListener('pointercancel', onUp);
-        };
+        detach();
+        detach = onPointer(sash);
       }
       cleanupRef.current = detach;
     },
-    [cssVar, store],
+    [container, cssVar, edge, store],
   );
 
   useEffect(
@@ -183,8 +206,12 @@ export function usePaneResizer(ariaLabel: string, options: PaneResizerOptions): 
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
+      // Arrow semantics stay screen-relative regardless of the measured edge: ArrowLeft narrows a
+      // start-edge pane and widens an end-edge one; RTL flips both.
       const increments = event.shiftKey ? 4 : step;
-      const sign = document.documentElement.getAttribute('dir') === 'rtl' ? -1 : 1;
+      const sign =
+        (document.documentElement.getAttribute('dir') === 'rtl' ? -1 : 1) *
+        (edge === 'start' ? 1 : -1);
       const target = state.current.host ?? (event.currentTarget as HTMLElement).parentElement;
       if (!target) return;
       const min = readVarPx(target, `${cssVar}-min`, 0);
@@ -220,7 +247,7 @@ export function usePaneResizer(ariaLabel: string, options: PaneResizerOptions): 
           break;
       }
     },
-    [cssVar, step, store, value],
+    [cssVar, edge, step, store, value],
   );
 
   const minForAria = container ? readVarPx(container, `${cssVar}-min`, 0) : 0;

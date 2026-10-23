@@ -22,14 +22,49 @@
 }
 
 .templates-page .templates-workspace {
+  /* Three panes with two draggable sashes (usePaneResizer). --tpl-library-w / --tpl-preview-w
+     are user-resizable; the editor takes the rest via 1fr. Bounds double as the drag clamps and
+     keep the editor usable at every width. */
+  --tpl-library-w: 300px;
+  --tpl-library-w-min: 220px;
+  --tpl-library-w-max: 460px;
+  --tpl-preview-w: 320px;
+  --tpl-preview-w-min: 240px;
+  --tpl-preview-w-max: 520px;
+
   display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(420px, 1fr) minmax(280px, 360px);
+  grid-template-columns:
+    clamp(var(--tpl-library-w-min), var(--tpl-library-w), var(--tpl-library-w-max))
+    minmax(320px, 1fr)
+    clamp(var(--tpl-preview-w-min), var(--tpl-preview-w), var(--tpl-preview-w-max));
   min-height: calc(100vh - 180px);
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-white);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
+  position: relative;
+}
+
+/* Both sashes straddle a pane border. The first sits at the library's end; the second is dropped
+   after it in the DOM but anchored to the preview column's start, so a single owner element does
+   not need to track the editor's computed 1fr width. Hidden while the grid stacks (<1280px) or
+   goes flex-column (<900px): dragging is meaningless there and the media queries own the layout. */
+.templates-page .templates-workspace > .pane-sash {
+  position: absolute;
+  inset-block: 0;
+  z-index: 5;
+  height: 100%;
+}
+
+.templates-page .templates-workspace > .pane-sash:first-of-type {
+  inset-inline-start: var(--tpl-library-w);
+  margin-inline-start: -10px;
+}
+
+.templates-page .templates-workspace > .pane-sash:last-of-type {
+  inset-inline-end: var(--tpl-preview-w);
+  margin-inline-end: -10px;
 }
 
 .templates-page .templates-library,
@@ -420,8 +455,16 @@
 }
 
 @media (max-width: 1280px) {
+  /* Two columns: the library keeps its drag handle; the preview moves full-width below, so only
+     the first sash survives (the end-edge one anchors to a column that no longer exists). */
   .templates-page .templates-workspace {
-    grid-template-columns: 280px minmax(380px, 1fr);
+    grid-template-columns:
+      clamp(var(--tpl-library-w-min), var(--tpl-library-w), var(--tpl-library-w-max))
+      minmax(380px, 1fr);
+  }
+
+  .templates-page .templates-workspace > .pane-sash:last-of-type {
+    display: none;
   }
 
   .templates-page .template-preview {
@@ -442,6 +485,10 @@
 }
 
 @media (max-width: 900px) {
+  .templates-page .templates-workspace > .pane-sash {
+    display: none;
+  }
+
   .templates-page {
     padding: 1rem;
   }

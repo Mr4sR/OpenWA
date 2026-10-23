@@ -48,6 +48,17 @@ export async function installJsdomGlobals(url = 'http://localhost/'): Promise<vo
       Object.defineProperty(globalThis, key, descriptor);
     }
   }
+
+  // jsdom ships no ResizeObserver. Components that size themselves from their box (charts, the
+  // chats split's narrow-room watchdog) would throw at mount in every suite that renders them.
+  // Inert by default: a suite that needs real measurements installs its own observing stub.
+  if (typeof (globalThis as Record<string, unknown>).ResizeObserver === 'undefined') {
+    define('ResizeObserver', class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    });
+  }
   // React 19 only runs act() when this flag is set; Testing Library drives act through it.
   g.IS_REACT_ACT_ENVIRONMENT = true;
   (window as unknown as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;

@@ -1611,6 +1611,14 @@ export interface AiChatbotPayload {
   enabled?: boolean;
 }
 
+/** One Playground probe: what the bot answered and the knowledge it stood on. */
+export interface AiChatbotTestResult {
+  ok: boolean;
+  reply: string;
+  sources: string[];
+  warnings: string[];
+}
+
 /** Where a RAG model may be attached: every chatbot, selected sessions, or nowhere. */
 export type AiRagSessionScope = 'all' | 'selected' | 'none';
 
@@ -1742,6 +1750,13 @@ export const aiApi = {
     request<AiChatbot>(`/sessions/${sessionId}/ai-chatbots/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteChatbot: (sessionId: string, id: string) =>
     request<void>(`/sessions/${sessionId}/ai-chatbots/${id}`, { method: 'DELETE' }),
+
+  /** The Playground: one production-shaped answer without sending anything. */
+  testChatbot: (sessionId: string, id: string, message: string) =>
+    request<AiChatbotTestResult>(`/sessions/${sessionId}/ai-chatbots/${id}/test`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
 
   listRagModels: () => request<AiRagModel[]>('/ai/rag-models'),
   createRagModel: (body: AiRagModelPayload) =>

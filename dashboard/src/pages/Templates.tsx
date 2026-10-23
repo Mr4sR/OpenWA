@@ -5,6 +5,7 @@ import { type MessageTemplate, type TemplatePayload } from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
 import { useToast } from '../hooks/useToast';
+import { usePaneResizer } from '../hooks/usePaneResizer';
 import {
   useCreateTemplateMutation,
   useDeleteTemplateMutation,
@@ -56,6 +57,20 @@ export function Templates() {
   const { t } = useTranslation();
   useDocumentTitle(t('templates.title'));
   const { canWrite } = useRole();
+  // Two VS Code-style sashes: the library grows from the container's start edge, the preview
+  // column from the end edge. The editor between them takes the remainder (1fr).
+  // Both sashes drive the same workspace element: each hook needs its own containerRef (a node
+  // can only be owned by one; the second hook receives the same node through its own callback).
+  const { containerRef: libraryHostRef, sashProps: libraryProps } = usePaneResizer(t('common.panelResize'), {
+    cssVar: '--tpl-library-w',
+    storageKey: 'openwa_template_library_w',
+  });
+  const { containerRef: previewHostRef, sashProps: previewProps } = usePaneResizer(t('common.panelResize'), {
+    cssVar: '--tpl-preview-w',
+    storageKey: 'openwa_template_preview_w',
+    edge: 'end',
+  });
+
   const { data: sessions = [], isLoading: loadingSessions, error: sessionsError } = useSessionsQuery();
   // A failed read is not "no sessions": the gateway may simply be restarting. A failed background refetch keeps
   // the cached list, so only a read that never produced one counts.
@@ -251,7 +266,13 @@ export function Templates() {
           <p>{t('templates.empty.noSessionsDesc')}</p>
         </div>
       ) : (
-        <div className="templates-workspace">
+        <div
+          className="templates-workspace"
+          ref={node => {
+            libraryHostRef(node);
+            previewHostRef(node);
+          }}
+        >
           <aside className="templates-library">
             <div className="templates-library-header">
               <div>
@@ -348,6 +369,8 @@ export function Templates() {
               </div>
             )}
           </aside>
+
+          <div {...libraryProps} />
 
           <section className="template-editor">
             <div className="template-editor-header">
@@ -446,6 +469,8 @@ export function Templates() {
             </div>
           </section>
 
+
+          <div {...previewProps} />
           <aside className="template-preview">
             <div className="template-preview-header">
               <h2>{t('templates.previewTitle')}</h2>

@@ -16,9 +16,48 @@
 }
 
 .message-tester .tester-panels {
+  /* Compose | response split, draggable via the sash between the panes (usePaneResizer).
+     --tester-compose-w is written inline by the hook as a px length; unset means the equal 50/50
+     split this page shipped with. clamp() cannot hold `1fr` (mixed types make the whole
+     declaration invalid), so the tuned width only applies while a px value exists. */
+  --tester-compose-w-min: 380px;
+  --tester-compose-w-max: 900px;
+
+  position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns:
+    clamp(var(--tester-compose-w-min), var(--tester-compose-w, calc((100% - 1.5rem) / 2)), var(--tester-compose-w-max))
+    minmax(0, 1fr);
   gap: 1.5rem;
+}
+
+.message-tester .tester-panels > .pane-sash {
+  position: absolute;
+  inset-block: 0;
+  /* Follows the compose track: driven width, or half the grid minus the gap. */
+  inset-inline-start: clamp(
+    var(--tester-compose-w-min),
+    var(--tester-compose-w, calc((100% - 1.5rem) / 2)),
+    var(--tester-compose-w-max)
+  );
+  margin-inline-start: -5px;
+  z-index: 5;
+  height: 100%;
+}
+
+@media (max-width: 1000px) {
+  .message-tester .tester-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .message-tester .tester-panels > .pane-sash {
+    display: none;
+  }
+
+  /* The inline --tester-compose-w survives the swap; neutralize it so the stacked panes stay full. */
+  .message-tester .tester-panels > * {
+    width: 100%;
+  }
 }
 
 .message-tester .compose-panel,
@@ -572,12 +611,6 @@
   margin-top: 0.5rem;
   font-size: 0.8125rem;
   color: var(--error-text);
-}
-
-@media (max-width: 1000px) {
-  .message-tester .tester-panels {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 768px) {

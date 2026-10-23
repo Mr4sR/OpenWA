@@ -177,7 +177,7 @@ test('the playground sends a message and renders the answer without WhatsApp', a
   chatbotList = [chatbotRow({ enabled: true })];
   llmList = [llmRow];
   renderPage();
-  await rtl.screen.findByText('No chatbots yet');
+  await rtl.screen.findByText('Support bot');
   rtl.fireEvent.click(rtl.screen.getByRole('tab', { name: 'Playground' }));
 
   const input = await rtl.screen.findByLabelText('Message');
