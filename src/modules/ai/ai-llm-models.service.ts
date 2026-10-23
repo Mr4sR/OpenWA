@@ -215,7 +215,7 @@ export class AiLlmModelsService {
     }
 
     let parsed: {
-      choices?: Array<{ message?: { content?: unknown } }>;
+      choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: unknown }>;
       error?: { message?: unknown };
       // Some OpenAI-compatible gateways answer with a bare completion string or `content` field.
       content?: unknown;
@@ -236,15 +236,53 @@ export class AiLlmModelsService {
       const message = typeof parsed.error.message === 'string' ? parsed.error.message : 'unknown provider error';
       throw new Error(`LLM provider error: ${message.slice(0, 300)}`);
     }
-    const content = parsed.choices?.[0]?.message?.content ?? parsed.content ?? parsed.response;
-    if (typeof content !== 'string' || content.length === 0) {
+    const content = extractCompletionContent(parsed);
+    if (!content) {
+      const choice = parsed.choices?.[0];
+      const finish = typeof choice?.finish_reason === 'string' ? choice.finish_reason : 'unknown';
+      const messageKeys = choice?.message ? Object.keys(choice.message).join(', ') : '(no message)';
       throw new Error(
-        `LLM ${url} returned JSON without completion content. Keys present: ` +
-          `${Object.keys(parsed as object).join(', ') || '(none)'} — the endpoint may not be an OpenAI-compatible chat API.`,
+        `LLM ${url} returned JSON without completion content. finish_reason: ${finish}; message keys: ${messageKeys}. ` +
+          'If finish_reason is "length", raise the model maxTokens — reasoning models spend it on hidden thinking first.',
       );
     }
     return content;
   }
+}
+
+/**
+ * The visible answer out of a chat-completions response, in the shapes compatible gateways
+ * actually return: a plain string, an array of content parts (`[{type:'text',text:'…'}]`), or a
+ * reasoning model whose `content` stays empty while the best available text sits in
+ * `reasoning_content`. Null means no answer text was present anywhere.
+ */
+export function extractCompletionContent(parsed: {
+  choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown } }>;
+  content?: unknown;
+  response?: unknown;
+}): string | null {
+  const message = parsed.choices?.[0]?.message;
+  const content =
+    flattenContentParts(message?.content) ?? flattenContentParts(parsed.content) ?? flattenContentParts(parsed.response);
+  if (content) return content;
+  const reasoning = message?.reasoning_content;
+  return typeof reasoning === 'string' && reasoning.trim().length > 0 ? reasoning : null;
+}
+
+/** Join content-part arrays into one string; null when nothing textual is in them. */
+function flattenContentParts(raw: unknown): string | null {
+  if (typeof raw === 'string') return raw.length > 0 ? raw : null;
+  if (Array.isArray(raw)) {
+    const joined = raw
+      .map(part => {
+        if (typeof part === 'string') return part;
+        if (part && typeof part === 'object' && 'text' in part && typeof part.text === 'string') return part.text;
+        return '';
+      })
+      .join('');
+    return joined.length > 0 ? joined : null;
+  }
+  return null;
 }
 
 /**
