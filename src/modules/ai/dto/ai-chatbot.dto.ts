@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Expose, plainToInstance } from 'class-transformer';
-import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min, ValidateIf } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min, ValidateIf } from 'class-validator';
 import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 import { MaxCodePoints } from '../../../common/validation/max-code-points';
 import { NoNulCharacter } from '../../../common/validation/no-nul-character';
@@ -52,6 +52,18 @@ export class CreateAiChatbotDto {
   @IsBoolean()
   replyGroups?: boolean;
 
+  @ApiPropertyOptional({
+    description:
+      'MCP tools this bot may call, as "<connectionId>:<toolName>" entries. Empty/omitted = every tool the enabled MCP connections advertise.',
+    type: [String],
+    nullable: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  mcpToolIds?: string[] | null;
+
   @ApiPropertyOptional({ description: 'Whether the bot is active', default: true })
   @IsOptional()
   @ToStrictBoolean()
@@ -92,6 +104,13 @@ export class UpdateAiChatbotDto {
   @IsBoolean()
   replyGroups?: boolean;
 
+  @ApiPropertyOptional({ description: 'MCP tools the bot may call; null clears an existing selection', nullable: true })
+  @ValidateIf((o: UpdateAiChatbotDto) => o.mcpToolIds !== undefined && o.mcpToolIds !== null)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  mcpToolIds?: string[] | null;
+
   @ApiPropertyOptional({ description: 'Whether the bot is active' })
   @ValidateIf((o: UpdateAiChatbotDto) => o.enabled !== undefined)
   @ToStrictBoolean()
@@ -127,6 +146,10 @@ export class AiChatbotResponseDto {
   @Expose()
   @ApiProperty()
   replyGroups!: boolean;
+
+  @Expose()
+  @ApiPropertyOptional({ type: [String], nullable: true })
+  mcpToolIds!: string[] | null;
 
   @Expose()
   @ApiProperty()

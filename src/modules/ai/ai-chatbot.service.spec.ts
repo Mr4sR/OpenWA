@@ -53,7 +53,8 @@ describe('AiChatbotService — per-chat switches and the operator-managed gate',
       ds.getRepository(AiLlmModel),
       ds.getRepository(AiRagModel),
       ds.getRepository(Message),
-      { complete: () => Promise.resolve('answer') } as never,
+      { complete: () => Promise.resolve('answer'), completeWithTools: () => Promise.resolve({ content: 'answer', toolCalls: [], rawAssistant: null }) } as never,
+      { findAll: () => Promise.resolve([]), listTools: () => Promise.resolve([]), callTool: () => Promise.resolve({}) } as never,
       { retrieve: () => Promise.resolve({ context: '', nodes: [], warnings: [] }) } as unknown as AiRagService,
       { logInfo: () => Promise.resolve() } as unknown as AuditService,
       { get: (_key: string, def?: unknown) => def } as unknown as ConfigService,
@@ -87,9 +88,10 @@ describe('AiChatbotService — per-chat switches and the operator-managed gate',
     sends = [];
     handover = null;
     // A lid resolves to its phone, and the phone back to that lid: the two forms of one chat.
-    // Only the two lookups the service calls exist on the fake; the cast names the DI type.
+    // The REAL store strips the domain (its lookup runs `userPart(jid)`), and the shared candidate
+    // helper passes the bare user-part — so the fake must match digits, not a full JID.
     lidStore = {
-      findPhoneForLid: (jid: string) => Promise.resolve(jid === LID_CHAT ? PHONE : null),
+      findPhoneForLid: (jid: string) => Promise.resolve(jid.split('@')[0] === LID ? PHONE : null),
       findLidsForPhone: (phone: string) => Promise.resolve(phone === PHONE ? [LID] : []),
     } as unknown as LidMappingStoreService;
     service = makeService(lidStore);
@@ -176,8 +178,9 @@ describe('AiChatbotService — per-chat switches and the operator-managed gate',
         ds.getRepository(AiLlmModel),
         ds.getRepository(AiRagModel),
         ds.getRepository(Message),
-        { complete: () => Promise.resolve('answer') } as never,
-        { retrieve: () => Promise.resolve({ context: '', nodes: [], warnings: [] }) } as unknown as AiRagService,
+      { complete: () => Promise.resolve('answer'), completeWithTools: () => Promise.resolve({ content: 'answer', toolCalls: [], rawAssistant: null }) } as never,
+      { findAll: () => Promise.resolve([]), listTools: () => Promise.resolve([]), callTool: () => Promise.resolve({}) } as never,
+      { retrieve: () => Promise.resolve({ context: '', nodes: [], warnings: [] }) } as unknown as AiRagService,
         { logInfo: () => Promise.resolve() } as unknown as AuditService,
         undefined,
         moduleRef,

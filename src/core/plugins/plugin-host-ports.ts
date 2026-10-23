@@ -41,6 +41,11 @@ export interface PluginSessionPort {
   getEngine(sessionId: string): IWhatsAppEngine | undefined;
   /** Rejects with NotFoundException when the session row no longer exists. */
   findOne(sessionId: string): Promise<unknown>;
+  /**
+   * Publish a per-chat presence state (`typing` → the engine's `composing`, `paused` → stopped
+   * typing). Rejects when the session has no live engine; presence is otherwise best-effort.
+   */
+  sendChatState(sessionId: string, chatId: string, state: 'typing' | 'recording' | 'paused'): Promise<void>;
 }
 
 /** Forward key of a conversation mapping — (session, chat, plugin, provisioned instance). */

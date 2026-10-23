@@ -9,6 +9,7 @@ import { AiRagModel } from './entities/ai-rag-model.entity';
 import { Session } from '../session/entities/session.entity';
 import { Message, MessageDirection } from '../message/entities/message.entity';
 import { AiLlmModelsService } from './ai-llm-models.service';
+import { AiMcpConnectionsService } from './ai-mcp-connections.service';
 import { AiRagService, type RetrievalResult } from './ai-rag.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -53,6 +54,7 @@ describe('AiChatbotService.previewReply', () => {
         { provide: getRepositoryToken(AiRagModel, 'data'), useValue: { exists: jest.fn() } },
         { provide: getRepositoryToken(Message, 'data'), useValue: messageRepository },
         { provide: AiLlmModelsService, useValue: { complete } },
+        { provide: AiMcpConnectionsService, useValue: { findAll: jest.fn().mockResolvedValue([]), listTools: jest.fn().mockResolvedValue([]), callTool: jest.fn() } },
         { provide: AiRagService, useValue: { retrieve: ragRetrieve } },
         { provide: AuditService, useValue: { logInfo: jest.fn() } },
       ],

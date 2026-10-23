@@ -145,13 +145,81 @@ export class AiLlmModelsService {
     model: AiLlmModel,
     messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
   ): Promise<string> {
-    const body: Record<string, unknown> = { model: model.model || undefined, messages };
+    const parsed = await this.chatCompletions(model, { messages });
+    const content = extractCompletionContent(parsed);
+    if (!content) {
+      const choice = parsed.choices?.[0];
+      const finish = typeof choice?.finish_reason === 'string' ? choice.finish_reason : 'unknown';
+      const messageKeys = choice?.message ? Object.keys(choice.message).join(', ') : '(no message)';
+      throw new Error(
+        `LLM ${chatCompletionsUrl(model.endpointUrl)} returned JSON without completion content. finish_reason: ${finish}; message keys: ${messageKeys}. ` +
+          'If finish_reason is "length", raise the model maxTokens — reasoning models spend it on hidden thinking first.',
+      );
+    }
+    return content;
+  }
+
+  /**
+   * One chat completion with OpenAI tool-calling: `tools` rides the request, and when the model
+   * answers with `tool_calls` (nothing textual), the FULL provider turn comes back so the caller
+   * can execute the tools, append the assistant turn + tool results and ask again. Non-streaming
+   * on purpose — the chatbot loop needs the structured turn, not a token stream.
+   */
+  async completeWithTools(
+    model: AiLlmModel,
+    messages: Array<ChatCompletionMessage>,
+    tools: Array<{ type: 'function'; function: { name: string; description?: string; parameters: Record<string, unknown> } }>,
+  ): Promise<{ content: string | null; toolCalls: ToolCallRequest[]; rawAssistant: unknown }> {
+    const body: Record<string, unknown> = { messages, tools };
+    const parsed = await this.chatCompletions(model, body);
+    const choice = parsed.choices?.[0];
+    const rawToolCalls = choice?.message?.tool_calls;
+    const toolCalls: ToolCallRequest[] = Array.isArray(rawToolCalls)
+      ? rawToolCalls
+          .map((call: RawToolCall, index: number) => {
+            const fn = call?.function;
+            if (!fn || typeof fn.name !== 'string' || fn.name.length === 0) return null;
+            let args: Record<string, unknown> = {};
+            if (typeof fn.arguments === 'string' && fn.arguments.trim().length > 0) {
+              try {
+                const value: unknown = JSON.parse(fn.arguments);
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                  args = value as Record<string, unknown>;
+                }
+              } catch {
+                // A malformed arguments JSON is reported to the MODEL as a tool error, so it can
+                // correct itself on the next turn — not a thrown 400.
+                args = {};
+                return {
+                  id: typeof call.id === 'string' ? call.id : `call_${index}`,
+                  name: fn.name,
+                  args,
+                  parseError: 'arguments were not valid JSON',
+                };
+              }
+            }
+            return {
+              id: typeof call.id === 'string' ? call.id : `call_${index}`,
+              name: fn.name,
+              args,
+            };
+          })
+          .filter((call): call is ToolCallRequest => call !== null)
+          .slice(0, MAX_TOOL_CALLS_PER_TURN)
+      : [];
+    const content = extractCompletionContent(parsed);
+    return { content, toolCalls, rawAssistant: choice?.message ?? null };
+  }
+
+  /** The one POST every completion goes through; adds endpoint/key/parameters and parses the JSON. */
+  private async chatCompletions(model: AiLlmModel, body: Record<string, unknown>): Promise<CompletionResponse> {
+    const payload: Record<string, unknown> = { model: model.model || undefined, ...body };
     const parameters = sanitizeLlmParameters(model.parameters);
     if (parameters) {
-      if (parameters.temperature !== undefined) body.temperature = parameters.temperature;
-      if (parameters.maxTokens !== undefined) body.max_tokens = parameters.maxTokens;
-      if (parameters.topP !== undefined) body.top_p = parameters.topP;
-      if (parameters.stop !== undefined) body.stop = parameters.stop;
+      if (parameters.temperature !== undefined) payload.temperature = parameters.temperature;
+      if (parameters.maxTokens !== undefined) payload.max_tokens = parameters.maxTokens;
+      if (parameters.topP !== undefined) payload.top_p = parameters.topP;
+      if (parameters.stop !== undefined) payload.stop = parameters.stop;
     }
     const url = chatCompletionsUrl(model.endpointUrl);
     let answer: string;
@@ -166,7 +234,7 @@ export class AiLlmModelsService {
             ...(model.apiKey ? { authorization: `Bearer ${model.apiKey}` } : {}),
             ...sanitizeHeaderMap(model.headers),
           },
-          body: JSON.stringify(body),
+          body: JSON.stringify(payload),
           signal: AbortSignal.timeout(LLM_REQUEST_TIMEOUT_MS),
         },
         async (response: undiciResponse) => {
@@ -214,15 +282,9 @@ export class AiLlmModelsService {
       throw new Error(message);
     }
 
-    let parsed: {
-      choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: unknown }>;
-      error?: { message?: unknown };
-      // Some OpenAI-compatible gateways answer with a bare completion string or `content` field.
-      content?: unknown;
-      response?: unknown;
-    };
+    let parsed: CompletionResponse;
     try {
-      parsed = JSON.parse(answer) as typeof parsed;
+      parsed = JSON.parse(answer) as CompletionResponse;
     } catch {
       // A gateway that answers with HTML (a login page, a proxy error) or plain text is NOT a
       // valid completion. Show what came back instead of a bare "non-JSON body".
@@ -236,19 +298,43 @@ export class AiLlmModelsService {
       const message = typeof parsed.error.message === 'string' ? parsed.error.message : 'unknown provider error';
       throw new Error(`LLM provider error: ${message.slice(0, 300)}`);
     }
-    const content = extractCompletionContent(parsed);
-    if (!content) {
-      const choice = parsed.choices?.[0];
-      const finish = typeof choice?.finish_reason === 'string' ? choice.finish_reason : 'unknown';
-      const messageKeys = choice?.message ? Object.keys(choice.message).join(', ') : '(no message)';
-      throw new Error(
-        `LLM ${url} returned JSON without completion content. finish_reason: ${finish}; message keys: ${messageKeys}. ` +
-          'If finish_reason is "length", raise the model maxTokens — reasoning models spend it on hidden thinking first.',
-      );
-    }
-    return content;
+    return parsed;
   }
 }
+
+/** One tool invocation the model asked for. `parseError` flags a malformed arguments payload. */
+export interface ToolCallRequest {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  parseError?: string;
+}
+
+/** The message shapes the tool loop builds (plain turns + the echoed assistant/tool turns). */
+export type ChatCompletionMessage = { role: 'system' | 'user' | 'assistant'; content: string } | {
+  role: 'assistant';
+  content: string | null;
+  tool_calls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>;
+} | {
+  role: 'tool';
+  tool_call_id: string;
+  content: string;
+};
+
+interface RawToolCall {
+  id?: unknown;
+  function?: { name?: unknown; arguments?: unknown };
+}
+
+interface CompletionResponse {
+  choices?: Array<{ finish_reason?: unknown; message?: { content?: unknown; reasoning_content?: unknown; tool_calls?: unknown } }>;
+  error?: { message?: unknown };
+  content?: unknown;
+  response?: unknown;
+}
+
+/** A runaway model cannot be allowed to chain hundreds of calls in one reply. */
+export const MAX_TOOL_CALLS_PER_TURN = 8;
 
 /**
  * The visible answer out of a chat-completions response, in the shapes compatible gateways

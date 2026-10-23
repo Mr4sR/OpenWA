@@ -1249,7 +1249,14 @@
       "replyGroups": "Balas di grup",
       "replyGroupsHint": "Matik secara default: di grup bot bicara di depan semua anggota. Chat individual selalu dijawab selama bot aktif — saklar per percakapan ada di halaman Chats.",
       "groups": "Balasan grup",
-      "selectLlm": "Pilih model LLM…"
+      "selectLlm": "Pilih model LLM…",
+      "mcpTools": "Tool MCP",
+      "mcpToolsHint": "Biarkan kosong dan bot boleh memanggil semua tool yang ditawarkan server MCP aktif — tool baru terambil otomatis. Centang tool tertentu untuk membatasi.",
+      "mcpNoConnections": "Belum ada koneksi MCP aktif — tambahkan di tab MCP Server agar bot punya tool.",
+      "mcpLoadTools": "Muat daftar tool",
+      "mcpLoadingTools": "Mengambil tool…",
+      "mcpNoTools": "Server ini tidak menawarkan tool apa pun.",
+      "mcpSelectedOf": "{{selected}}/{{total}} dipilih"
     },
     "llm": {
       "emptyTitle": "Belum ada model LLM",

@@ -52,10 +52,18 @@ flowchart LR
   an `ai_chat_overrides` row for the muted pairs (`POST /api/ai/chat-state`), so a single
   conversation can be silenced without touching the bot. On the inbound dispatch (the same
   at-most-once fan-out the automation rules ride) the first matching enabled bot answers the
-  chat through the ordinary send path — send pacing, plugin vetoes and audit included. Bots
+  chat through the ordinary send path — send pacing, plugin vetoes and audit included. While the
+  LLM turn runs, the bot shows a real **typing indicator** in the chat (`sendChatState('typing')`,
+  re-armed every 4 s so it outlives WhatsApp's ~6 s presence expiry) and closes it with `paused`
+  once the reply goes out — strictly best-effort, and only when a typing frame was actually shown.
+  Bots
   never answer their own messages, never answer messages older than five minutes (a reconnect
   replays the offline backlog through the same path), never answer `channel` / `broadcast` /
-  `status` chats, and answer groups only when `replyGroups` is on.
+  `status` chats, and answer groups only when `replyGroups` is on. The per-chat switch is
+  **dialect-safe**: a 1:1 chat's id flips between `<lid>@lid` and `<phone>@c.us` as the engine
+  learns the mapping, so a mute written under one form silences the conversation under the other,
+  and switching the bot back on for a chat removes the mute in EVERY stored form (the removal
+  matches the shared JID-alias expansion, not just the literal id the page sent).
 - **RAG Vectorless** — a named knowledge base, implemented in **TypeScript on Node** (no Python
   worker, no embedding service). Entries are pasted words/information, a fetched URL, a site,
   or a stored file. A url/site/file entry is **ingested in the background**: the row lands as
@@ -69,16 +77,22 @@ flowchart LR
 - **MCP Server** — an outbound connection to an MCP server, over **Streamable HTTP** (default)
   or **SSE** (`transport: 'sse'`), with `none`, `bearer`, or custom-header authentication.
   `POST /ai/mcp-connections/:id/test` connects, initializes and lists the advertised tools; the
-  tools are surfaced to the operator (dashboard) so they can be wired into AI flows.
+  tools are surfaced to the operator (dashboard) **and callable by the chatbots**: the reply loop
+  offers every tool of every enabled connection to the model (namespaced per connection), executes
+  what the model calls via `tools/call`, and feeds each result back as a `tool` turn — up to 5
+  rounds, then the model must answer from what it has. A bot's `mcpToolIds` narrows the surface
+  (`"<connectionId>:<toolName>"` entries); empty/`null` means EVERY advertised tool, so a server
+  gaining a tool needs no bot edit. A down server shrinks the surface; a failing tool lands to the
+  model as an error string, never as a thrown reply.
 
 ## 32.2 Data model
 
-Six tables (migrations `1792000000000-AddAiIntegration` + `1793000000000-ReviseAiIntegration`):
+Seven tables (migrations `1792000000000-AddAiIntegration`, `1793000000000-ReviseAiIntegration` and `1794000000000-AddAiChatbotMcpTools`):
 
 | Table | Purpose |
 | --- | --- |
 | `ai_llm_models` | Provider connections; `apiKey`/`headers` stored plaintext, never returned. No persona — the chatbot owns it |
-| `ai_chatbots` | Per-session bot instances: THE persona and a `replyGroups` opt-in; varchar `sessionId` FK with `ON DELETE CASCADE`. No chat allowlist / cooldown / history knobs — the per-chat switches replaced them |
+| `ai_chatbots` | Per-session bot instances: THE persona, a `replyGroups` opt-in and an `mcpToolIds` tool narrowing (null = every tool the enabled MCP connections offer); varchar `sessionId` FK with `ON DELETE CASCADE`. No chat allowlist / cooldown / history knobs — the per-chat switches replaced them |
 | `ai_chat_overrides` | The Chats-page switches: one row per muted `(chatbotId, chatId)` pair; a missing row means answered |
 | `ai_rag_models` | Knowledge bases; the tree index lives as JSON on the row (`index`, `indexedAt`) |
 | `ai_rag_documents` | Knowledge entries with an ingestion `status` (`pending` → `processing` → `ready` \| `failed` + `statusError`); url/site/file are fetched in the background |

@@ -7,10 +7,12 @@ import { createLogger } from '../../common/services/logger.service';
 import {
   PLUGIN_CONVERSATION_MAPPING_PORT,
   PLUGIN_MESSAGE_PORT,
+  PLUGIN_SESSION_PORT,
   type PluginConversationMappingPort,
   type PluginMessagePort,
+  type PluginSessionPort,
 } from '../../core/plugins/plugin-host-ports';
-import { parseWaId } from '../../engine/identity/wa-id';
+import { resolveJidCandidates } from '../../engine/identity/jid-candidates';
 import { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
 import { AiChatbot } from './entities/ai-chatbot.entity';
 import { AiChatOverride } from './entities/ai-chat-override.entity';
@@ -18,7 +20,8 @@ import { AiLlmModel } from './entities/ai-llm-model.entity';
 import { AiRagModel } from './entities/ai-rag-model.entity';
 import { Session } from '../session/entities/session.entity';
 import { Message, MessageDirection } from '../message/entities/message.entity';
-import { AiLlmModelsService } from './ai-llm-models.service';
+import { AiLlmModelsService, type ChatCompletionMessage, type ToolCallRequest } from './ai-llm-models.service';
+import { AiMcpConnectionsService } from './ai-mcp-connections.service';
 import { AiRagService, type RetrievalResult } from './ai-rag.service';
 import { CreateAiChatbotDto, UpdateAiChatbotDto } from './dto/ai-chatbot.dto';
 import { AuditService } from '../audit/audit.service';
@@ -39,6 +42,63 @@ const MAX_MESSAGE_AGE_SECONDS = 300;
 
 /** Chat kinds a bot answers only when `replyGroups`-style opt-in applies (see evaluateInbound). */
 const GROUP_KIND = 'group';
+
+/**
+ * WhatsApp expires a typing presence after ~6 s, but an LLM turn can run longer. The indicator is
+ * re-armed at this period so "typing…" stays up from the inbound message to the outgoing reply.
+ */
+const TYPING_REFRESH_MS = 4_000;
+
+/** Tool round-trips one reply may spend before the model must answer from what it has. */
+const MCP_TOOL_ROUNDS = 5;
+
+/** OpenAI restricts tool names to this grammar; the MCP names are namespaced to fit inside it. */
+const TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/;
+
+/** The OpenAI tool name for one MCP tool: the dash-stripped connection id + tool name. */
+export function mcpToolFqName(connectionId: string, toolName: string): string {
+  // Dashes stripped: an OpenAI tool name may carry `_`, and parsing must be unambiguous, so the
+  // first `mcp_<32hex>_` prefix is the whole id and everything after it is the server's tool name.
+  return `mcp_${connectionId.replace(/-/g, '')}_${toolName}`;
+}
+
+/** Inverse of {@link mcpToolFqName}; null when the model invented a name that maps to nothing. */
+export function parseMcpToolFqName(fqName: string): { connectionId: string; toolName: string } | null {
+  const match = /^mcp_([0-9a-f]{32})_(.+)$/.exec(fqName);
+  if (!match) return null;
+  const hex = match[1];
+  const connectionId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  return { connectionId, toolName: match[2] };
+}
+
+/** Flatten an MCP tool result into the text the model reads back. */
+function summarizeToolResult(result: unknown): string {
+  const content = (result as { content?: unknown } | null)?.content;
+  if (Array.isArray(content)) {
+    const text = content
+      .map(part => {
+        if (typeof part === 'string') return part;
+        if (part && typeof part === 'object' && 'text' in part && typeof (part as { text: unknown }).text === 'string') {
+          return (part as { text: string }).text;
+        }
+        return '';
+      })
+      .join('\n')
+      .trim();
+    if (text) return text.slice(0, 4000);
+  }
+  return JSON.stringify(result ?? {}).slice(0, 2000);
+}
+
+/**
+ * Normalize the operator's tool selection: trim, drop empties and duplicates, cap at 200. `null`
+ * and an empty array both mean "no narrowing" and store the same thing: nothing.
+ */
+function normalizeMcpToolIds(value: string[] | null | undefined): string[] | null {
+  if (value == null) return null;
+  const normalized = [...new Set(value.map(entry => entry.trim()).filter(entry => entry.length > 0))];
+  return normalized.length > 0 ? normalized.slice(0, 200) : null;
+}
 
 /**
  * The history key for a playground (preview) request: a synthetic chat id no real conversation
@@ -65,12 +125,6 @@ export interface ChatbotInboundMessage {
   isGroup?: boolean;
 }
 
-/** One turn of the conversation history given to the model. */
-interface ChatTurn {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
 /**
  * Chatbot instances: the CRUD behind "AI Integration > Chatbot", the per-chat overrides behind the
  * Chats page switches, and the inbound evaluation that answers a chat through the ordinary send
@@ -90,6 +144,9 @@ export class AiChatbotService {
   /** In-memory cache of (chatbotId, chatId) → disabled, refreshed per inbound batch. */
   private messagePort?: PluginMessagePort;
 
+  /** Lazy session port for the chatbot's typing indicator (resolved like the message port). */
+  private sessionPort?: PluginSessionPort;
+
   /** Lazy conversation-mapping port for the human-takeover gate (resolved like the message port). */
   private conversationMappings?: PluginConversationMappingPort;
 
@@ -107,6 +164,7 @@ export class AiChatbotService {
     @InjectRepository(Message, 'data')
     private readonly messageRepository: Repository<Message>,
     private readonly llmModels: AiLlmModelsService,
+    private readonly mcpConnections: AiMcpConnectionsService,
     private readonly rag: AiRagService,
     private readonly audit: AuditService,
     @Optional()
@@ -143,6 +201,7 @@ export class AiChatbotService {
       ragModelId: dto.ragModelId ?? null,
       persona: dto.persona ?? null,
       replyGroups: dto.replyGroups ?? false,
+      mcpToolIds: normalizeMcpToolIds(dto.mcpToolIds),
       enabled: dto.enabled ?? true,
     });
     const saved = await this.repository.save(chatbot);
@@ -194,6 +253,8 @@ export class AiChatbotService {
     if (dto.ragModelId !== undefined) chatbot.ragModelId = dto.ragModelId;
     if (dto.persona !== undefined) chatbot.persona = dto.persona === '' ? null : dto.persona;
     if (dto.replyGroups !== undefined) chatbot.replyGroups = dto.replyGroups;
+    // `undefined` leaves the selection alone; `null`/`[]` clears it back to "every advertised tool".
+    if (dto.mcpToolIds !== undefined) chatbot.mcpToolIds = normalizeMcpToolIds(dto.mcpToolIds);
     if (dto.enabled !== undefined) chatbot.enabled = dto.enabled;
     const saved = await this.repository.save(chatbot);
     void this.audit.logInfo(AuditAction.AI_CHATBOT_UPDATED, {
@@ -232,12 +293,12 @@ export class AiChatbotService {
     }
     const systemPrompt = await this.buildSystemPrompt(chatbot, body, retrieval);
     const history = await this.buildHistory(chatbot, { chatId: PLAYGROUND_CHAT_ID, body });
-    const turns: ChatTurn[] = [
+    const turns: ChatCompletionMessage[] = [
       ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
       ...history,
       { role: 'user' as const, content: body },
     ];
-    const reply = (await this.llmModels.complete(llm, turns)).trim();
+    const reply = await this.completeWithMcpTools(chatbot, llm, turns);
     if (!reply) {
       throw new BadRequestException('the model returned an empty answer');
     }
@@ -279,7 +340,14 @@ export class AiChatbotService {
     return byChat;
   }
 
-  /** Flip one (chatbot, chat) switch. `chatbotDisabled: true` stores a row; false removes it. */
+  /**
+   * Flip one (chatbot, chat) switch. `chatbotDisabled: true` stores a row; false removes it.
+   *
+   * The removal matches EVERY alias of the chat, not just the literal id the page sent. A 1:1
+   * conversation flips between `<lid>@lid` and `<phone>@c.us` as the engine learns the mapping, so a
+   * mute written under one form reads back under the other; looking up only the literal id left
+   * the alias row in place, and the switch stuck OFF no matter how often it was turned back on.
+   */
   async setChatOverride(
     sessionId: string,
     chatbotId: string,
@@ -287,16 +355,19 @@ export class AiChatbotService {
     chatbotDisabled: boolean,
   ): Promise<void> {
     await this.findOne(sessionId, chatbotId);
-    const existing = await this.overrideRepository.findOne({ where: { chatbotId, chatId } });
+    const aliases = await this.chatIdAliases(chatId);
     if (chatbotDisabled) {
+      const existing = await this.overrideRepository.findOne({ where: { chatbotId, chatId: In(aliases) } });
       if (existing) {
         existing.chatbotDisabled = true;
         await this.overrideRepository.save(existing);
       } else {
         await this.overrideRepository.save(this.overrideRepository.create({ chatbotId, chatId, chatbotDisabled }));
       }
-    } else if (existing) {
-      await this.overrideRepository.remove(existing);
+    } else {
+      // Remove every stored form of this conversation, so a mute recorded under another dialect
+      // cannot survive the switch that turns the bot back on.
+      await this.overrideRepository.delete({ chatbotId, chatId: In(aliases) });
     }
   }
 
@@ -378,17 +449,19 @@ export class AiChatbotService {
    * constructions, where only the literal id matches.
    */
   private async chatIdAliases(chatId: string): Promise<string[]> {
-    const ids = new Set([chatId]);
-    const { kind, userPart: parsedUser } = parseWaId(chatId);
+    // Delegated to the shared helper so the chatbot cannot disagree with the message filter or the
+    // API-key chat scope about which ids name the same conversation (it also covers
+    // `@s.whatsapp.net` and a bare number, not just the two forms the inference originally mapped).
     const store = this.lidMappingStore;
-    if (!store || (kind !== 'lid' && kind !== 'user')) return [...ids];
-    const phone = kind === 'lid' ? await store.findPhoneForLid(chatId) : parsedUser;
-    if (!phone || !store.findLidsForPhone) return [...ids];
-    ids.add(`${phone}@c.us`);
-    for (const lid of await store.findLidsForPhone(phone)) {
-      if (lid) ids.add(`${lid}@lid`);
-    }
-    return [...ids];
+    return resolveJidCandidates(
+      chatId,
+      store
+        ? {
+            resolveLid: lid => store.findPhoneForLid?.(lid),
+            lidsForPhone: phone => store.findLidsForPhone?.(phone) ?? [],
+          }
+        : undefined,
+    );
   }
 
   /**
@@ -416,8 +489,19 @@ export class AiChatbotService {
   /**
    * Produce and send one answer. Returns true when a reply was sent — the caller then stops, so
    * one inbound message never produces two bot replies.
+   *
+   * The chat is shown a real typing indicator for the whole generation (`sendChatState('typing')`,
+   * the same chassis as the manual-send humanising pause) and it is kept alive with refresh ticks
+   * until the reply actually goes out, because an LLM turn can outlast WhatsApp's ~6 s presence
+   * expiry. Strictly best-effort: the send below never waits on a presence failure, and `paused`
+   * is only sent when the typing itself was shown — an *indicator the operator never saw* must not
+   * become another outbound write.
    */
   private async answer(chatbot: AiChatbot, message: ChatbotInboundMessage): Promise<boolean> {
+    // The typing ticks run detached: `sendChatState` resolves against a live session port that is
+    // resolved once and reused, so the timer cannot outlive the module or fire on a stopped engine
+    // (a presence call on one is swallowed as best-effort).
+    const stopTyping = this.startTypingIndicator(chatbot.sessionId, message.chatId);
     try {
       const llm = await this.llmRepository.findOne({ where: { id: chatbot.llmModelId } });
       if (!llm || !llm.enabled) {
@@ -426,12 +510,12 @@ export class AiChatbotService {
       }
       const systemPrompt = await this.buildSystemPrompt(chatbot, message.body);
       const history = await this.buildHistory(chatbot, message);
-      const turns: ChatTurn[] = [
+      const turns: ChatCompletionMessage[] = [
         ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
         ...history,
         { role: 'user' as const, content: message.body },
       ];
-      const text = (await this.llmModels.complete(llm, turns)).trim();
+      const text = await this.completeWithMcpTools(chatbot, llm, turns);
       if (!text) {
         await this.recordError(chatbot, 'the model returned an empty answer');
         return false;
@@ -456,7 +540,167 @@ export class AiChatbotService {
         error: detail,
       });
       return false;
+    } finally {
+      await stopTyping();
     }
+  }
+
+  /**
+   * One completion, with the bot's MCP tools available — the flexible half of the feature.
+   *
+   * Every ENABLED MCP connection's advertised tools are offered to the model (namespaced
+   * `mcp_<connectionId>_<toolName>` so two servers exposing `search` never collide). The model
+   * decides WHEN a tool is relevant from its own name/description: a "cek tagihan" question only
+   * reaches the billing tool if the model judges it useful. When it calls one, the gateway
+   * executes it against the MCP server, feeds the result back as a `tool` turn, and asks again —
+   * up to {@link MCP_TOOL_ROUNDS} rounds, so a chatty model cannot chain a reply forever.
+   *
+   * The operator narrows the surface with the bot's `mcpToolIds` selection; a bot with an EMPTY
+   * selection gets every advertised tool. A tool that fails (server down, unknown tool, bad
+   * arguments) lands back to the model as an error string so it can answer from what it has —
+   * the failure never surfaces as a thrown reply.
+   */
+  private async completeWithMcpTools(chatbot: AiChatbot, llm: AiLlmModel, turns: ChatCompletionMessage[]): Promise<string> {
+    const tools = await this.resolveChatbotTools(chatbot);
+    if (tools.length === 0) {
+      // No MCP tools reachable (none configured, none enabled, or every server failed): the
+      // answer is just the plain completion the bot always made.
+      return (await this.llmModels.complete(llm, turns as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>)).trim();
+    }
+    const conversation: ChatCompletionMessage[] = [...turns];
+    for (let round = 0; round < MCP_TOOL_ROUNDS; round++) {
+      const { content, toolCalls, rawAssistant } = await this.llmModels.completeWithTools(llm, conversation, tools);
+      if (toolCalls.length === 0) return (content ?? '').trim();
+      // The assistant's tool-call turn must ride the conversation so the `tool` results below pair
+      // with it (OpenAI validates id parity).
+      conversation.push(rawAssistant as ChatCompletionMessage);
+      for (const call of toolCalls) {
+        conversation.push(await this.executeToolCall(chatbot, call));
+      }
+    }
+    // Budget spent: force a textual answer with the knowledge already gathered.
+    conversation.push({ role: 'user', content: 'Finish now: answer the user with the information you already have, in one short message.' });
+    const final = await this.llmModels.complete(
+      llm,
+      conversation.filter((turn): turn is { role: 'system' | 'user' | 'assistant'; content: string } => 'content' in turn),
+    );
+    return final.trim();
+  }
+
+  /**
+   * The OpenAI `tools` array from the chatbot's MCP surface: every tool of every enabled
+   * connection, minus the operator's per-bot narrowing when one is set.
+   */
+  private async resolveChatbotTools(
+    chatbot: AiChatbot,
+  ): Promise<Array<{ type: 'function'; function: { name: string; description?: string; parameters: Record<string, unknown> } }>> {
+    let connections: Awaited<ReturnType<AiMcpConnectionsService['findAll']>>;
+    try {
+      connections = await this.mcpConnections.findAll();
+    } catch {
+      return []; // A dead MCP table must not break the plain reply path.
+    }
+    const enabled = connections.filter(connection => connection.enabled);
+    if (enabled.length === 0) return [];
+    const selected = new Set(chatbot.mcpToolIds ?? []);
+    const tools: Array<{ type: 'function'; function: { name: string; description?: string; parameters: Record<string, unknown> } }> = [];
+    for (const connection of enabled) {
+      let advertised: Awaited<ReturnType<AiMcpConnectionsService['listTools']>>;
+      try {
+        advertised = await this.mcpConnections.listTools(connection.id);
+      } catch (error) {
+        // One down server shrinks the surface; the rest still answer.
+        this.logger.warn('MCP tools/list failed for the chatbot', {
+          chatbotId: chatbot.id,
+          connectionId: connection.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        continue;
+      }
+      for (const tool of advertised) {
+        if (!TOOL_NAME_PATTERN.test(tool.name)) continue;
+        const fqName = mcpToolFqName(connection.id, tool.name);
+        if (selected.size > 0 && !selected.has(fqName)) continue;
+        tools.push({
+          type: 'function',
+          function: {
+            name: fqName,
+            description: tool.description ?? `Tool ${tool.name} on MCP server ${connection.name}.`,
+            parameters: tool.inputSchema ?? { type: 'object', properties: {} },
+          },
+        });
+      }
+    }
+    return tools;
+  }
+
+  /** Run one model-requested tool against the MCP server and shape the `tool` result turn. */
+  private async executeToolCall(chatbot: AiChatbot, call: ToolCallRequest): Promise<ChatCompletionMessage> {
+    const parsed = parseMcpToolFqName(call.name);
+    if (!parsed) {
+      return { role: 'tool', tool_call_id: call.id, content: `Error: unknown tool ${call.name}.` };
+    }
+    try {
+      const result = await this.mcpConnections.callTool(parsed.connectionId, parsed.toolName, call.args);
+      const text = summarizeToolResult(result);
+      return { role: 'tool', tool_call_id: call.id, content: call.parseError ? `Error: ${call.parseError}.` : text };
+    } catch (error) {
+      // Surface the failure to the MODEL, not as a thrown reply: it can apologize or answer
+      // without the tool.
+      const detail = error instanceof Error ? error.message : String(error);
+      return { role: 'tool', tool_call_id: call.id, content: `Error: tool call failed. ${detail.slice(0, 300)}` };
+    }
+  }
+
+  /**
+   * Show the typing indicator now and re-arm it every {@link TYPING_REFRESH_MS} so a slow LLM turn
+   * still reads as "typing" to the recipient. Returns the closer: one best-effort `paused`
+   * (only when a typing frame actually went out), timer cleared. Never throws.
+   */
+  private startTypingIndicator(sessionId: string, chatId: string): () => Promise<void> {
+    let shown = false;
+    let stopped = false;
+    const sendState = async (state: 'typing' | 'paused'): Promise<void> => {
+      try {
+        await this.sendChatState(sessionId, chatId, state);
+        if (state === 'typing') shown = true;
+      } catch (error) {
+        // Presence failures are cosmetic; the reply must not depend on them.
+        this.logger.debug('Chatbot presence update skipped', {
+          sessionId,
+          chatId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    };
+    void sendState('typing');
+    const timer: ReturnType<typeof setInterval> = setInterval(() => {
+      if (!stopped) void sendState('typing');
+    }, TYPING_REFRESH_MS);
+    // Never keep the process alive for a cosmetic presence tick.
+    timer.unref?.();
+    return async () => {
+      stopped = true;
+      clearInterval(timer);
+      // Only close an indicator the recipient actually saw: a presence failure means no typing
+      // frame ever went out, and `paused` would be a stray write.
+      if (shown) await sendState('paused');
+    };
+  }
+
+  /**
+   * Publish one chat state through the session port (`SessionService.sendChatState`), resolved
+   * lazily like the message port for the same module-cycle reason. Throws when the session has no
+   * live engine; callers here treat that as "no indicator shown".
+   */
+  private async sendChatState(sessionId: string, chatId: string, state: 'typing' | 'paused'): Promise<void> {
+    if (!this.sessionPort) {
+      this.sessionPort = this.moduleRef?.get<typeof PLUGIN_SESSION_PORT, PluginSessionPort>(PLUGIN_SESSION_PORT, {
+        strict: false,
+      });
+    }
+    if (!this.sessionPort) throw new Error('the session service is not resolvable');
+    await this.sessionPort.sendChatState(sessionId, chatId, state);
   }
 
   /**
@@ -496,7 +740,7 @@ export class AiChatbotService {
    * The recent messages of the chat, oldest first, as conversation history. The inbound message
    * itself is excluded (it is the user turn the caller appends).
    */
-  private async buildHistory(chatbot: AiChatbot, message: ChatbotInboundMessage): Promise<ChatTurn[]> {
+  private async buildHistory(chatbot: AiChatbot, message: ChatbotInboundMessage): Promise<ChatCompletionMessage[]> {
     try {
       const rows = await this.messageRepository.find({
         where: { sessionId: chatbot.sessionId, chatId: message.chatId },

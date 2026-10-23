@@ -1249,7 +1249,14 @@
       "replyGroups": "Grup sohbetlerinde yanıtla",
       "replyGroupsHint": "Varsayılan olarak kapalı: grupta bot tüm üyelerin önünde konuşur. Bot etkinken birebir sohbetler her zaman yanıtlanır — konuşma başına anahtarlar Chats sayfasındadır.",
       "groups": "Grup yanıtları",
-      "selectLlm": "Bir LLM modeli seçin…"
+      "selectLlm": "Bir LLM modeli seçin…",
+      "mcpTools": "MCP araçları",
+      "mcpToolsHint": "Hiçbir şey seçmeyin ve bot, etkin MCP sunucularının sunduğu her aracı çağırabilir — yeni araçlar otomatik olarak alınır. Daraltmak için belirli araçları işaretleyin.",
+      "mcpNoConnections": "Etkin MCP bağlantısı yok — bu bota araç vermek için MCP Sunucusu sekmesinden bir tane ekleyin.",
+      "mcpLoadTools": "Araç listesini yükle",
+      "mcpLoadingTools": "Araçlar alınıyor…",
+      "mcpNoTools": "Bu sunucu hiçbir araç sunmuyor.",
+      "mcpSelectedOf": "{{selected}}/{{total}} seçili"
     },
     "llm": {
       "emptyTitle": "Henüz LLM modeli yok",

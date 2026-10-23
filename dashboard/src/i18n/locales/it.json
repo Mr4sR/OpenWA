@@ -1255,7 +1255,14 @@
       "replyGroups": "Risponde nei gruppi",
       "replyGroupsHint": "Disattivato per impostazione predefinita: in un gruppo il bot parla davanti a tutti i membri. Le chat individuali ricevono sempre risposta finché il bot è attivo — gli interruttori per conversazione sono nella pagina Chats.",
       "groups": "Risposte di gruppo",
-      "selectLlm": "Seleziona un modello LLM…"
+      "selectLlm": "Seleziona un modello LLM…",
+      "mcpTools": "Strumenti MCP",
+      "mcpToolsHint": "Non selezionare nulla e il bot potrà chiamare tutti gli strumenti offerti dai server MCP abilitati — i nuovi strumenti vengono rilevati automaticamente. Seleziona strumenti specifici per restringere l’elenco.",
+      "mcpNoConnections": "Nessuna connessione MCP abilitata — aggiungine una nella scheda Server MCP per dare strumenti a questo bot.",
+      "mcpLoadTools": "Carica elenco strumenti",
+      "mcpLoadingTools": "Recupero degli strumenti…",
+      "mcpNoTools": "Questo server non espone alcuno strumento.",
+      "mcpSelectedOf": "{{selected}}/{{total}} selezionati"
     },
     "llm": {
       "emptyTitle": "Nessun modello LLM presente",

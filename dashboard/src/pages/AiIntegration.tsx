@@ -105,7 +105,14 @@ export function AiIntegration() {
       ) : (
         <>
           {section === 'chatbots' && (
-            <ChatbotsSection t={t} canWrite={canWrite} invalidate={invalidate} creating={creating} onCreated={() => setCreating(false)} />
+            <ChatbotsSection
+              t={t}
+              canWrite={canWrite}
+              invalidate={invalidate}
+              creating={creating}
+              onCreated={() => setCreating(false)}
+              mcpConnections={mcpQuery.data ?? []}
+            />
           )}
           {section === 'llm' && (
             <LlmSection t={t} canWrite={canWrite} invalidate={invalidate} creating={creating} onCreated={() => setCreating(false)} />
@@ -154,18 +161,24 @@ function ChatbotsSection({
   invalidate,
   creating,
   onCreated,
+  mcpConnections,
 }: {
   t: TFn;
   canWrite: boolean;
   invalidate: Invalidate;
   creating: boolean;
   onCreated: () => void;
+  /** Enabled-filtered by the caller; the MCP servers whose tools the bots may be offered. */
+  mcpConnections: AiMcpConnection[];
 }) {
   const toast = useToast();
   const { data: chatbots = [] } = useAiChatbotsQuery(true);
   const { data: llmModels = [] } = useAiLlmModelsQuery(true);
   const { data: ragModels = [] } = useAiRagModelsQuery(true);
   const { data: sessions = [] } = useSessionsQuery();
+  // Only enabled connections can contribute tools to a bot. The LIST itself comes from the page's
+  // own MCP query via props (`mcpConnections`) — a second hook with the same key that lands in an
+  // error state makes TanStack retry-on-mount on every section render, an observable refetch loop.
 
   const [editing, setEditing] = useState<AiChatbot | null>(null);
   const [deleting, setDeleting] = useState<AiChatbot | null>(null);
@@ -179,8 +192,8 @@ function ChatbotsSection({
       name: chatbot.name,
       llmModelId: chatbot.llmModelId,
       ragModelId: chatbot.ragModelId ?? '',
-      persona: chatbot.persona ?? '',
       replyGroups: chatbot.replyGroups,
+      mcpToolIds: chatbot.mcpToolIds ?? [],
       enabled: chatbot.enabled,
     });
   };
@@ -242,10 +255,10 @@ function ChatbotsSection({
           title={t('ai.chatbots.createTitle')}
           llmModels={llmModels}
           ragModels={ragModels}
+          mcpConnections={mcpConnections.filter(c => c.enabled)}
           sessions={sessions.map(s => ({ id: s.id, name: s.name }))}
           draft={draft}
           setDraft={setDraft}
-          onClose={onCreated}
           onSubmit={async () => {
             const ok = await runMutation(t, toast, () => aiApi.createChatbot(draft.sessionId, toChatbotPayload(draft)), 'ai.toasts.created', invalidate, ['chatbots']);
             if (ok) {
@@ -262,6 +275,7 @@ function ChatbotsSection({
           title={t('ai.chatbots.editTitle')}
           llmModels={llmModels}
           ragModels={ragModels}
+          mcpConnections={mcpConnections.filter(c => c.enabled)}
           sessions={sessions.map(s => ({ id: s.id, name: s.name }))}
           draft={draft}
           setDraft={setDraft}
@@ -309,6 +323,8 @@ interface AiChatbotDraft {
   ragModelId: string;
   persona: string;
   replyGroups: boolean;
+  /** `"<connectionId>:<toolName>"` the bot may call; empty = every tool the MCP servers offer. */
+  mcpToolIds: string[];
   enabled: boolean;
 }
 
@@ -319,6 +335,7 @@ const EMPTY_CHATBOT: AiChatbotDraft = {
   ragModelId: '',
   persona: '',
   replyGroups: false,
+  mcpToolIds: [],
   enabled: true,
 };
 
@@ -329,6 +346,8 @@ function toChatbotPayload(draft: AiChatbotDraft) {
     ragModelId: draft.ragModelId || null,
     persona: draft.persona.trim() || null,
     replyGroups: draft.replyGroups,
+    // An empty selection is stored as null: "every tool the enabled MCP servers advertise".
+    mcpToolIds: selected.length > 0 ? selected : null,
     enabled: draft.enabled,
   };
 }
@@ -337,6 +356,7 @@ function ChatbotModal({
   title,
   llmModels,
   ragModels,
+  mcpConnections,
   sessions,
   draft,
   setDraft,
@@ -348,6 +368,7 @@ function ChatbotModal({
   title: string;
   llmModels: AiLlmModel[];
   ragModels: AiRagModel[];
+  mcpConnections: AiMcpConnection[];
   sessions: Array<{ id: string; name: string }>;
   draft: AiChatbotDraft;
   setDraft: (draft: AiChatbotDraft) => void;
@@ -356,6 +377,40 @@ function ChatbotModal({
   lockSession?: boolean;
   t: TFn;
 }) {
+  // Tool catalogues fetch live, once per connection the operator expands: the server may have
+  // gained tools since the last visit, so a cached copy would lie about what can be offered.
+  const [toolCatalogue, setToolCatalogue] = useState<Record<string, Array<{ name: string; description?: string }>>>({});
+  const [fetchingTools, setFetchingTools] = useState<string | null>(null);
+  const fetchTools = async (connectionId: string) => {
+    setFetchingTools(connectionId);
+    try {
+      const { tools } = await aiApi.listMcpTools(connectionId);
+      setToolCatalogue(previous => ({ ...previous, [connectionId]: tools }));
+    } catch {
+      setToolCatalogue(previous => ({ ...previous, [connectionId]: [] }));
+    } finally {
+      setFetchingTools(null);
+    }
+  };
+  // A selection that came from the draft (an edit) starts with its connections already fetched.
+  // Runtime drafts can predate the field (a stale state snapshot), so every read guards.
+  const selected = draft.mcpToolIds ?? [];
+  useEffect(() => {
+    for (const toolId of selected) {
+      const connectionId = toolId.split(':')[0];
+      if (!toolCatalogue[connectionId] && fetchingTools !== connectionId) void fetchTools(connectionId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected.length]);
+  const toggleTool = (connectionId: string, toolName: string) => {
+    const toolId = `${connectionId}:${toolName}`;
+    setDraft({
+      ...draft,
+      mcpToolIds: selected.includes(toolId)
+        ? selected.filter(entry => entry !== toolId)
+        : [...selected, toolId],
+    });
+  };
   const valid = draft.sessionId && draft.name.trim() && draft.llmModelId;
   return (
     <Modal
@@ -433,6 +488,49 @@ function ChatbotModal({
         placeholder={t('ai.chatbots.personaPlaceholder')}
         onChange={e => setDraft({ ...draft, persona: e.target.value })}
       />
+      <span className="ai-subhead">{t('ai.chatbots.mcpTools')}</span>
+      <span className="hint">{t('ai.chatbots.mcpToolsHint')}</span>
+      {mcpConnections.length === 0 ? (
+        <p className="hint">{t('ai.chatbots.mcpNoConnections')}</p>
+      ) : (
+        <div className="ai-mcp-tool-picker">
+          {mcpConnections.map(connection => {
+            const catalogue = toolCatalogue[connection.id];
+            const selectedHere = selected.filter(entry => entry.startsWith(`${connection.id}:`)).length;
+            return (
+              <details key={connection.id} className="ai-mcp-tool-group" open={selectedHere > 0}>
+                <summary>
+                  <span>{connection.name}</span>
+                  <span className="ai-mcp-tool-count">
+                    {catalogue ? t('ai.chatbots.mcpSelectedOf', { selected: selectedHere, total: catalogue.length }) : t('ai.chatbots.mcpLoadTools')}
+                  </span>
+                </summary>
+                {fetchingTools === connection.id && (
+                  <p className="hint">
+                    <Loader2 size={14} className="animate-spin" /> {t('ai.chatbots.mcpLoadingTools')}
+                  </p>
+                )}
+                {catalogue && catalogue.length === 0 && <p className="hint">{t('ai.chatbots.mcpNoTools')}</p>}
+                {catalogue?.map(tool => {
+                  const toolId = `${connection.id}:${tool.name}`;
+                  return (
+                    <label key={tool.name} className="ai-checkbox-row ai-mcp-tool-row" title={tool.description}>
+                      <input type="checkbox" checked={selected.includes(toolId)} onChange={() => toggleTool(connection.id, tool.name)} />
+                      <code>{tool.name}</code>
+                      {tool.description && <span className="hint">{tool.description.slice(0, 90)}</span>}
+                    </label>
+                  );
+                })}
+                {!catalogue && fetchingTools !== connection.id && (
+                  <button type="button" className="btn-secondary" onClick={() => void fetchTools(connection.id)}>
+                    {t('ai.chatbots.mcpLoadTools')}
+                  </button>
+                )}
+              </details>
+            );
+          })}
+        </div>
+      )}
       <label className="ai-checkbox-row">
         <input
           type="checkbox"

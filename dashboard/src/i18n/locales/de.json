@@ -1249,7 +1249,14 @@
       "replyGroups": "In Gruppen antworten",
       "replyGroupsHint": "Standardmäßig aus: In einer Gruppe spricht der Bot vor allen Mitgliedern. Einzelchats werden immer beantwortet, solange der Bot aktiv ist — die Schalter pro Unterhaltung liegen auf der Chats-Seite.",
       "groups": "Gruppen-Antworten",
-      "selectLlm": "LLM-Modell wählen…"
+      "selectLlm": "LLM-Modell wählen…",
+      "mcpTools": "MCP-Werkzeuge",
+      "mcpToolsHint": "Lassen Sie alles unausgewählt, dann darf der Bot alle Werkzeuge verwenden, die die aktivierten MCP-Server anbieten — neue Werkzeuge werden automatisch übernommen. Wählen Sie gezielt einzelne Werkzeuge aus, um die Auswahl einzuschränken.",
+      "mcpNoConnections": "Keine aktivierten MCP-Verbindungen — fügen Sie im Tab „MCP-Server“ eine hinzu, um diesem Bot Werkzeuge bereitzustellen.",
+      "mcpLoadTools": "Werkzeugliste laden",
+      "mcpLoadingTools": "Werkzeuge werden abgerufen…",
+      "mcpNoTools": "Dieser Server bietet keine Werkzeuge an.",
+      "mcpSelectedOf": "{{selected}}/{{total}} ausgewählt"
     },
     "llm": {
       "emptyTitle": "Noch keine LLM-Modelle",

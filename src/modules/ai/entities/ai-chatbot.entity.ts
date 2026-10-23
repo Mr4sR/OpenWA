@@ -67,6 +67,17 @@ export class AiChatbot {
   persona!: string | null;
 
   /**
+   * Which MCP tools this bot may call, as `"<connectionId>:<toolName>"` entries.
+   *
+   * Empty (or null) means "every tool the enabled MCP connections advertise, re-read live": the
+   * selection is an OPERATOR narrowing, never a requirement to pre-register a tool. Adding a tool
+   * on the server then needs no edit here, and a tool that disappears from the server simply stops
+   * being offered — the bot is never bound to one integration.
+   */
+  @Column({ type: jsonColumnType(), nullable: true })
+  mcpToolIds!: string[] | null;
+
+  /**
    * Answer group chats too. Off by default: a bot that speaks in a group answers in front of
    * every member (and can ping-pong with another bot in the group), which is a conscious opt-in.
    * Channels / broadcast lists / status are never answered.

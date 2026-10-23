@@ -21,7 +21,7 @@ function jsonResponse(data: unknown, status = 200): Response {
 function installFetchStub(): void {
   globalThis.fetch = ((input: RequestInfo | URL): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const path = url.replace(/^https?:\/\/[^/]+/, '');
+    const path = url.replace(/^https?:\/\/[^/]+/, ''); process.stdout.write("FETCH " + path + " status=" + aiStatus + "\n");
     if (aiStatus !== 200 && path.startsWith('/api/ai/')) {
       return Promise.resolve(jsonResponse({ message: 'Insufficient permissions. Required: admin' }, aiStatus));
     }
@@ -30,6 +30,9 @@ function installFetchStub(): void {
     if (path === '/api/ai/chatbots') return Promise.resolve(jsonResponse(chatbotList));
     if (path === '/api/ai/rag-models') return Promise.resolve(jsonResponse(ragList));
     if (path === '/api/ai/mcp-connections') return Promise.resolve(jsonResponse(mcpList));
+    if (/^\/api\/ai\/mcp-connections\/[^/]+\/tools$/.test(path)) {
+      return Promise.resolve(jsonResponse({ tools: [{ name: 'cek_tagihan', description: 'Cek tagihan' }] }));
+    }
     if (/^\/api\/sessions\/[^/]+\/ai-chatbots\/[^/]+\/test$/.test(path)) {
       return Promise.resolve(jsonResponse({ ok: true, reply: 'Test reply', sources: [], warnings: [] }));
     }
@@ -111,6 +114,39 @@ test('an empty chatbot list shows the empty state, and the add action opens the 
   // The modal is the only place the session field exists.
   await rtl.screen.findByLabelText('Session');
   rtl.screen.getByLabelText('LLM model');
+});
+
+test('the chatbot modal lists MCP tools per connection and checks them into the draft', async () => {
+  mcpList = [
+    {
+      id: 'conn-1',
+      name: 'Billing MCP',
+      endpointUrl: 'https://mcp.example.com',
+      transport: 'streamable-http',
+      authKind: 'none',
+      authHeader: '',
+      authCredentialMasked: null,
+      hasHeaders: false,
+      hasCredential: false,
+      timeoutMs: 30000,
+      enabled: true,
+      lastStatus: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    },
+  ];
+  sessionList = [{ id: 's1', name: 'Primary', status: 'ready' }];
+  renderPage();
+  await rtl.screen.findByText('No chatbots yet');
+  rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Add chatbot' }));
+  await rtl.screen.findByText('MCP tools');
+  rtl.screen.getByText('Billing MCP');
+  // Expand the group and load the live catalogue.
+  rtl.fireEvent.click(rtl.screen.getByText('Billing MCP'));
+  const load = await rtl.screen.findByRole('button', { name: 'Load tool list' });
+  rtl.fireEvent.click(load);
+  const checkbox = await rtl.screen.findByRole('checkbox', { name: /cek_tagihan/ });
+  assert.ok(checkbox, 'the advertised tool did not render as a checkable row');
 });
 
 test('the LLM tab lists a connection with its masked key and endpoint', async () => {

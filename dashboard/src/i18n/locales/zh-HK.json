@@ -1249,7 +1249,14 @@
       "replyGroups": "在群組中回覆",
       "replyGroupsHint": "預設關閉：在群組中機器人會在所有成員面前發言。機器人啟用時私訊總是回覆 — 每個會話的開關在 Chats 頁面。",
       "groups": "群組回覆",
-      "selectLlm": "選擇 LLM 模型…"
+      "selectLlm": "選擇 LLM 模型…",
+      "mcpTools": "MCP 工具",
+      "mcpToolsHint": "不勾選任何工具時，機械人可呼叫所有已啟用 MCP 伺服器提供的工具 — 新工具會自動納入。勾選特定工具即可縮小範圍。",
+      "mcpNoConnections": "沒有已啟用的 MCP 連線 — 請在 MCP Server 分頁新增，以便為此機械人提供工具。",
+      "mcpLoadTools": "載入工具清單",
+      "mcpLoadingTools": "正在取得工具…",
+      "mcpNoTools": "此伺服器未提供任何工具。",
+      "mcpSelectedOf": "已選 {{selected}}/{{total}}"
     },
     "llm": {
       "emptyTitle": "尚未有任何 LLM 模型",

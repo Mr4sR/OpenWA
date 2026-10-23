@@ -1249,7 +1249,14 @@
       "replyGroups": "그룹 채팅에서 답변",
       "replyGroupsHint": "기본적으로 꺼짐: 그룹에서는 봇이 모든 멤버 앞에서 말합니다. 봇이 켜져 있는 동안 1:1 채팅은 항상 응답합니다 — 대화별 스위치는 Chats 페이지에 있습니다.",
       "groups": "그룹 응답",
-      "selectLlm": "LLM 모델 선택…"
+      "selectLlm": "LLM 모델 선택…",
+      "mcpTools": "MCP 도구",
+      "mcpToolsHint": "아무것도 선택하지 않으면 봇이 활성화된 MCP 서버가 제공하는 모든 도구를 호출할 수 있습니다 — 새 도구는 자동으로 반영됩니다. 특정 도구를 체크하면 범위를 좁힐 수 있습니다.",
+      "mcpNoConnections": "활성화된 MCP 연결이 없습니다 — 이 봇에게 도구를 주려면 MCP 서버 탭에서 추가하세요.",
+      "mcpLoadTools": "도구 목록 불러오기",
+      "mcpLoadingTools": "도구 가져오는 중…",
+      "mcpNoTools": "이 서버는 제공하는 도구가 없습니다.",
+      "mcpSelectedOf": "{{selected}}/{{total}}개 선택됨"
     },
     "llm": {
       "emptyTitle": "아직 LLM 모델이 없습니다",

@@ -1249,7 +1249,14 @@
       "replyGroups": "Reply in group chats",
       "replyGroupsHint": "Off by default: in a group the bot speaks in front of every member. Individual chats are always answered while the bot is enabled — per-conversation switches live on the Chats page.",
       "groups": "Group replies",
-      "selectLlm": "Select an LLM model…"
+      "selectLlm": "Select an LLM model…",
+      "mcpTools": "MCP tools",
+      "mcpToolsHint": "Leave nothing selected and the bot may call every tool the enabled MCP servers offer — new tools are picked up automatically. Tick specific tools to narrow it.",
+      "mcpNoConnections": "No enabled MCP connections — add one on the MCP Server tab to give this bot tools.",
+      "mcpLoadTools": "Load tool list",
+      "mcpLoadingTools": "Fetching tools…",
+      "mcpNoTools": "This server advertises no tools.",
+      "mcpSelectedOf": "{{selected}}/{{total}} selected"
     },
     "llm": {
       "emptyTitle": "No LLM models yet",

@@ -1595,6 +1595,8 @@ export interface AiChatbot {
   ragModelId: string | null;
   persona: string | null;
   replyGroups: boolean;
+  /** `"<connectionId>:<toolName>"` entries; null/empty = every tool the enabled MCP servers offer. */
+  mcpToolIds: string[] | null;
   enabled: boolean;
   lastRepliedAt: string | null;
   lastError: string | null;
@@ -1608,6 +1610,7 @@ export interface AiChatbotPayload {
   ragModelId?: string | null;
   persona?: string | null;
   replyGroups?: boolean;
+  mcpToolIds?: string[] | null;
   enabled?: boolean;
 }
 
