@@ -192,6 +192,7 @@ function ChatbotsSection({
       name: chatbot.name,
       llmModelId: chatbot.llmModelId,
       ragModelId: chatbot.ragModelId ?? '',
+      persona: chatbot.persona ?? '',
       replyGroups: chatbot.replyGroups,
       mcpToolIds: chatbot.mcpToolIds ?? [],
       enabled: chatbot.enabled,
@@ -259,6 +260,7 @@ function ChatbotsSection({
           sessions={sessions.map(s => ({ id: s.id, name: s.name }))}
           draft={draft}
           setDraft={setDraft}
+          onClose={onCreated}
           onSubmit={async () => {
             const ok = await runMutation(t, toast, () => aiApi.createChatbot(draft.sessionId, toChatbotPayload(draft)), 'ai.toasts.created', invalidate, ['chatbots']);
             if (ok) {
@@ -347,7 +349,7 @@ function toChatbotPayload(draft: AiChatbotDraft) {
     persona: draft.persona.trim() || null,
     replyGroups: draft.replyGroups,
     // An empty selection is stored as null: "every tool the enabled MCP servers advertise".
-    mcpToolIds: selected.length > 0 ? selected : null,
+    mcpToolIds: draft.mcpToolIds.length > 0 ? draft.mcpToolIds : null,
     enabled: draft.enabled,
   };
 }
