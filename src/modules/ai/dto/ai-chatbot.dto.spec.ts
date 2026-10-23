@@ -45,7 +45,7 @@ describe('UpdateAiChatbotDto under the global validation contract', () => {
     // Implicit conversion turns 42 into "42" — the app-wide contract, not this DTO's business.
     await expect(buildPipe().transform({ name: 42 }, meta)).resolves.toMatchObject({ name: '42' });
     await expect(buildPipe().transform({ persona: 'a\u0000b' }, meta)).rejects.toBeInstanceOf(BadRequestException);
-    await expect(buildPipe().transform({ persona: 'x'.repeat(5000) }, meta)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(buildPipe().transform({ persona: 'x'.repeat(32_001) }, meta)).rejects.toBeInstanceOf(BadRequestException);
     await expect(buildPipe().transform({ ragModelId: 7 }, meta)).rejects.toBeInstanceOf(BadRequestException);
   });
 

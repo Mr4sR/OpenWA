@@ -4,7 +4,12 @@ import { IsBoolean, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min, ValidateI
 import { ToStrictBoolean, ToStrictNumber } from '../../../common/utils/strict-boolean';
 import { MaxCodePoints } from '../../../common/validation/max-code-points';
 import { NoNulCharacter } from '../../../common/validation/no-nul-character';
-import { AI_CHATBOT_NAME_MAX_LENGTH, AI_CHATBOT_REPLY_MAX_LENGTH, AiChatbot } from '../entities/ai-chatbot.entity';
+import {
+  AI_CHATBOT_NAME_MAX_LENGTH,
+  AI_CHATBOT_PERSONA_MAX_LENGTH,
+  AI_CHATBOT_REPLY_MAX_LENGTH,
+  AiChatbot,
+} from '../entities/ai-chatbot.entity';
 
 export const AI_COOLDOWN_MAX_SECONDS = 86_400;
 
@@ -29,11 +34,11 @@ export class CreateAiChatbotDto {
   @ApiPropertyOptional({
     description:
       'The persona: the system prompt sent with every completion. Leave empty for a plain assistant. This is the ONLY persona — the LLM connection carries none.',
-    maxLength: AI_CHATBOT_REPLY_MAX_LENGTH,
+    maxLength: AI_CHATBOT_PERSONA_MAX_LENGTH,
   })
   @IsOptional()
   @IsString()
-  @MaxCodePoints(AI_CHATBOT_REPLY_MAX_LENGTH)
+  @MaxCodePoints(AI_CHATBOT_PERSONA_MAX_LENGTH)
   @NoNulCharacter()
   persona?: string | null;
 
@@ -77,7 +82,7 @@ export class UpdateAiChatbotDto {
   @ApiPropertyOptional({ description: 'The persona (system prompt); null or an empty string clears it', nullable: true })
   @ValidateIf((o: UpdateAiChatbotDto) => o.persona !== undefined && o.persona !== null)
   @IsString()
-  @MaxCodePoints(AI_CHATBOT_REPLY_MAX_LENGTH)
+  @MaxCodePoints(AI_CHATBOT_PERSONA_MAX_LENGTH)
   @NoNulCharacter()
   persona?: string | null;
 

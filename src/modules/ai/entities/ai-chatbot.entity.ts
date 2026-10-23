@@ -19,6 +19,13 @@ export const AI_CHATBOT_NAME_MAX_LENGTH = 100;
 export const AI_CHATBOT_REPLY_MAX_LENGTH = 4096;
 
 /**
+ * Longest persona (system prompt). Deliberately above the reply bound: a persona carries
+ * instructions of any length (role rules, tone, DO/DONT lists), while a REPLY rides the
+ * WhatsApp text-message cap. The column is `text`, so the limit is a validation choice only.
+ */
+export const AI_CHATBOT_PERSONA_MAX_LENGTH = 32_000;
+
+/**
  * One chatbot instance: the binding between the inbound messages of ONE WhatsApp session and
  * everything the reply needs — an LLM model, an optional RAG model and the persona prompt.
  *

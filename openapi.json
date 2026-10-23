@@ -22314,7 +22314,7 @@
           "persona": {
             "type": "object",
             "description": "The persona: the system prompt sent with every completion. Leave empty for a plain assistant. This is the ONLY persona — the LLM connection carries none.",
-            "maxLength": 4096
+            "maxLength": 32000
           },
           "replyGroups": {
             "type": "boolean",
