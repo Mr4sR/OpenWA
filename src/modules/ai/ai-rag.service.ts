@@ -310,7 +310,9 @@ export class AiRagService {
     } catch (error) {
       const detail = redactSsrfError(error).slice(0, 500);
       await this.repository.update({ id: model.id }, { lastIndexError: detail });
-      throw new Error(`Indexing failed: ${detail}`);
+      // NestJS turns a bare Error into an empty "Internal server error" 500; the operator reads the
+      // failure from this card's lastIndexError anyway, and a 400 keeps the real message on the wire.
+      throw new BadRequestException(`Indexing failed: ${detail}`);
     }
 
     const index: RagIndex = {
