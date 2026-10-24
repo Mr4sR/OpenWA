@@ -50,7 +50,8 @@
     "retry": "Erneut versuchen",
     "yes": "Ja",
     "no": "Nein",
-    "panelResize": "Panelgröße ändern"
+    "panelResize": "Panelgröße ändern",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "Hell",
@@ -1241,6 +1242,7 @@
       "selectSession": "Sitzung auswählen…",
       "name": "Name",
       "llmModel": "LLM-Modell",
+      "llmModelHint": "Ein mit „vision“ markiertes Modell kann Kundenfotos lesen; ungetestete Modelle erhalten die Markierung nach dem ersten Speichern/Test.",
       "ragModel": "RAG-Wissen",
       "noRag": "Keines",
       "persona": "Persona",
@@ -1279,7 +1281,11 @@
       "maxTokens": "Max. Tokens",
       "test": "Verbindung testen",
       "lastTest": "Letzter Test",
-      "testOk": "OK"
+      "testOk": "OK",
+      "visionChip": "vision",
+      "visionYes": "Dieses Modell akzeptiert Bilder — Kundenfotos werden daran gesendet.",
+      "visionNo": "Nachweislich ohne Bilderkennung — Fotofragen werden nur aus der Bildunterschrift beantwortet.",
+      "visionNoStrict": "Gespeichert, aber dieses Modell kann keine Bilder sehen — Fotofragen werden nur aus der Bildunterschrift beantwortet."
     },
     "rag": {
       "emptyTitle": "Noch keine RAG-Modelle",
@@ -1383,5 +1389,26 @@
       "note": "Antworten werden echt erzeugt (LLM + Wissen), aber nie an einen Chat zugestellt.",
       "sessionLabel": "Sitzung"
     }
+  },
+  "accounts": {
+    "title": "Konten",
+    "subtitle": "Mandanten, die WhatsApp-Sitzungen und eigene API-Schlüssel besitzen.",
+    "add": "Konto hinzufügen",
+    "name": "Kontoname",
+    "note": "Notiz",
+    "status": "Status",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "emptyTitle": "Noch keine Konten",
+    "emptyDescription": "Erstelle ein Konto pro Mandant; jedes Konto erhält seinen eigenen API-Schlüssel.",
+    "createTitle": "Konto hinzufügen",
+    "editTitle": "Konto bearbeiten",
+    "saved": "Konto gespeichert",
+    "created": "Konto erstellt",
+    "deleted": "Konto gelöscht",
+    "deleteTitle": "Konto löschen",
+    "deleteConfirm": "Konto {{name}} löschen? Nur ein Konto ohne Sitzungen und Schlüssel kann gelöscht werden.",
+    "hint": "Ein Kontoschlüssel erreicht nur seine eigenen Sitzungen; ein globaler Schlüssel erreicht alles.",
+    "activeAccount": "Konto"
   }
 }

@@ -85,14 +85,38 @@ flowchart LR
   gaining a tool needs no bot edit. A down server shrinks the surface; a failing tool lands to the
   model as an error string, never as a thrown reply.
 
+### Connection test and the vision capability probe
+
+Saving an LLM model (create or update) fires a probe in the background, and
+`POST /api/ai/llm-models/:id/test` runs the same probe on demand. Two steps: one minimal text
+completion (`ping`) that proves the endpoint URL, API key and model id, then one completion whose
+user turn carries a 70-byte 1×1 PNG as an OpenAI `image_url` content part that proves **vision**.
+The result lands on the row as `lastStatus` (`ok` / `error`) and `capabilities`
+(`{ vision: boolean, at }`), returned by the test route and every read — the dashboard shows the
+last result plus a `vision` chip with no extra call. A failed text completion is a connection
+error; a failed image completion is NOT — an image-blind model is still a working connection, it
+just records `vision: false`.
+
+### Customer photos
+
+When an inbound message carries an image (inline base64 bytes; `image/jpeg|png|webp|gif`; up to
+8 MiB), the chatbot builds a multimodal user turn: the caption as a `text` part, then the photo
+as an `image_url` data URI. This happens only when the linked model's `capabilities.vision` is
+`true`, so an image-blind provider is never sent bytes it cannot read. Every other case — no
+vision flag yet, omitted bytes (over the inbound cap), an unknown mimetype, an image the model
+rejects at runtime (one automatic retry as text) — degrades to a text turn with an explicit note
+(`[The customer sent an image …]`), so the bot still answers instead of stalling. A caption-less
+photo is evaluated like any other message; the empty body no longer drops it.
+
 ## 32.2 Data model
 
 Eight tables (migrations `1792000000000-AddAiIntegration`, `1793000000000-ReviseAiIntegration`,
-`1794000000000-AddAiChatbotMcpTools` and `1795000000000-ChatbotMultiSession`):
+`1794000000000-AddAiChatbotMcpTools`, `1795000000000-ChatbotMultiSession` and
+`1796000000000-AddAiLlmModelCapabilities`):
 
 | Table | Purpose |
 | --- | --- |
-| `ai_llm_models` | Provider connections; `apiKey`/`headers` stored plaintext, never returned. No persona — the chatbot owns it |
+| `ai_llm_models` | Provider connections; `apiKey`/`headers` stored plaintext, never returned. `lastStatus` + `capabilities` (`{ vision, at }`) are the probe's result. No persona — the chatbot owns it |
 | `ai_chatbots` | Bot instances serving ONE OR MANY sessions: `sessionIds` (JSON array; a session is served by at most one bot), THE persona, a `replyGroups` opt-in and an `mcpToolIds` tool narrowing (null = every tool the enabled MCP connections offer). Deleting a session prunes it from every bot's list; a bot losing its last session is deleted with it |
 | `ai_chat_overrides` | The Chats-page switches: one row per muted `(chatbotId, chatId)` pair; a missing row means answered |
 | `ai_rag_models` | Knowledge bases; the tree index lives as JSON on the row (`index`, `indexedAt`) |
@@ -120,7 +144,7 @@ way (unknown session → 400).
 | `/api/ai/llm-models` | GET | OPERATOR | List (masked keys) |
 | `/api/ai/llm-models` | POST | ADMIN | Create; 400 at `ai.llmModelsMax` |
 | `/api/ai/llm-models/:id` | PUT / DELETE | ADMIN | Update / delete |
-| `/api/ai/llm-models/:id/test` | POST | ADMIN | One minimal completion; records diagnostics |
+| `/api/ai/llm-models/:id/test` | POST | ADMIN | Text completion + vision probe; records `lastStatus` and `capabilities`, returns both |
 | `/api/ai/chatbots` | GET/POST | OPERATOR | List (session-scoped) / create with `sessionIds` (≥1; each session must be free or already the bot's) |
 | `/api/ai/chatbots/:id` | PUT / DELETE | OPERATOR | Update (sessions may be swapped; each new one must be free) / delete |
 | `/api/ai/chatbots/:id/test` | POST | OPERATOR | The Playground: one production-shaped answer for a pasted message, `?sessionId=` picks the history source (default: the bot's first), without sending it |

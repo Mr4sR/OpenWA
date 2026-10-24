@@ -20,6 +20,13 @@ export const LLM_REQUEST_TIMEOUT_MS = 60_000;
 /** The sampling defaults the dashboard placeholders advertise; a create without parameters gets them. */
 export const DEFAULT_LLM_PARAMETERS = { temperature: 0.7, maxTokens: 1024 };
 
+/**
+ * A valid 1×1 PNG (70 bytes) for the vision capability probe: the provider must accept an
+ * image_url content part and answer with text for the chatbot to route customer photos to it.
+ */
+const VISION_PROBE_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
 /** A completion answer is bounded by the reply cap; anything past it is a broken provider. */
 export const LLM_RESPONSE_MAX_BYTES = 4 * 1024 * 1024;
 
@@ -49,9 +56,7 @@ export class AiLlmModelsService {
     const existing = await this.repository.count();
     const max = this.configService?.get<number>('ai.llmModelsMax', AI_LLM_MODELS_MAX) ?? AI_LLM_MODELS_MAX;
     if (max > 0 && existing >= max) {
-      throw new BadRequestException(
-        `LLM model limit reached (${existing}/${max}); delete one before adding another`,
-      );
+      throw new BadRequestException(`LLM model limit reached (${existing}/${max}); delete one before adding another`);
     }
     // The unique index on `name` would surface as a driver 500; a duplicate is an ordinary client
     // error the dashboard renders inline.
@@ -74,7 +79,49 @@ export class AiLlmModelsService {
     void this.audit.logInfo(AuditAction.AI_LLM_MODEL_CREATED, {
       metadata: { llmModelId: saved.id, llmModelName: saved.name },
     });
+    this.probeInBackground(saved);
     return saved;
+  }
+
+  /**
+   * The one connection test: a minimal completion (the model id, key and endpoint answer at all),
+   * then the capability probe (vision). Never throws — the outcome is the return value, so the
+   * dashboard renders a refusal inline and the background probe can record it.
+   */
+  async test(model: AiLlmModel): Promise<{ ok: boolean; answer: string; capabilities: LlmCapabilities | null }> {
+    try {
+      const answer = await this.complete(model, [{ role: 'user', content: 'ping' }]);
+      const capabilities = await this.probeCapabilities(model);
+      // The probe already made the proving completion; a second ping would just spend the quota.
+      return { ok: true, answer: answer.slice(0, 200), capabilities };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      return { ok: false, answer: detail.slice(0, 300), capabilities: null };
+    }
+  }
+
+  /**
+   * Run the connection test the moment a model is saved, so the operator learns at save time
+   * whether the id/key/endpoint work and whether the model sees images. Detached and best-effort:
+   * a slow or unreachable provider never delays the HTTP response, and its outcome lands on the
+   * row (`lastStatus`, `capabilities`) for the dashboard card and the chatbot's image routing.
+   */
+  private probeInBackground(model: AiLlmModel): void {
+    void (async () => {
+      try {
+        const result = await this.test(model);
+        await this.recordStatus(model.id, {
+          ok: result.ok,
+          capabilities: result.capabilities ?? undefined,
+          ...(result.ok ? {} : { error: result.answer }),
+        });
+      } catch (error) {
+        this.logger.warn('Background capability probe failed', {
+          llmModelId: model.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
   }
 
   async findAll(): Promise<AiLlmModel[]> {
@@ -105,6 +152,9 @@ export class AiLlmModelsService {
     void this.audit.logInfo(AuditAction.AI_LLM_MODEL_UPDATED, {
       metadata: { llmModelId: saved.id, llmModelName: saved.name },
     });
+    // Endpoint, key or model id may all have changed: the stored capabilities describe a test
+    // against the OLD combination until this re-probe lands.
+    this.probeInBackground(saved);
     return saved;
   }
 
@@ -116,18 +166,27 @@ export class AiLlmModelsService {
     });
   }
 
-  /** Record connection-test diagnostics. Best-effort: never wedges the test response. */
-  async recordStatus(id: string, status: { ok: boolean; error?: string }): Promise<void> {
+  /** Record connection-test diagnostics plus the capabilities the probe proved. Best-effort. */
+  async recordStatus(
+    id: string,
+    status: { ok: boolean; error?: string; capabilities?: { vision: boolean; at: string } },
+  ): Promise<void> {
     try {
       await this.repository.update(
         { id },
         {
           lastStatus: { ok: status.ok, at: new Date().toISOString(), ...(status.error ? { error: status.error } : {}) },
           lastTestedAt: new Date(),
+          ...(status.capabilities ? { capabilities: status.capabilities } : {}),
         },
       );
       void this.audit.logInfo(AuditAction.AI_LLM_MODEL_TESTED, {
-        metadata: { llmModelId: id, ok: status.ok, ...(status.error ? { error: status.error.slice(0, 200) } : {}) },
+        metadata: {
+          llmModelId: id,
+          ok: status.ok,
+          ...(status.capabilities ? { vision: status.capabilities.vision } : {}),
+          ...(status.error ? { error: status.error.slice(0, 200) } : {}),
+        },
       });
     } catch (error) {
       this.logger.warn('Failed to record LLM connection status', {
@@ -138,13 +197,39 @@ export class AiLlmModelsService {
   }
 
   /**
-   * One chat completion. `messages` arrives pre-built by the caller (persona, RAG context,
-   * history); this only adds the endpoint, the key and the sampling parameters.
+   * Probe what the provider connection can actually do. One minimal text completion proves the
+   * endpoint/key/model id (it throws on refusal); a second completion over a 1×1 PNG proves
+   * vision. Vision failure is RECORDED, not thrown: an image-blind model is still a working
+   * connection, and the chatbot routes images around it.
    */
-  async complete(
-    model: AiLlmModel,
-    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-  ): Promise<string> {
+  async probeCapabilities(model: AiLlmModel): Promise<{ vision: boolean; at: string }> {
+    const at = new Date().toISOString();
+    await this.complete(model, [{ role: 'user', content: 'ping' }]);
+    try {
+      await this.complete(model, [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:image/png;base64,${VISION_PROBE_PNG_BASE64}` } },
+            { type: 'text', text: 'Reply with the single word: yes' },
+          ],
+        },
+      ]);
+      return { vision: true, at };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      this.logger.debug('Vision probe did not pass', { llmModelId: model.id, error: detail.slice(0, 200) });
+      return { vision: false, at };
+    }
+  }
+
+  /**
+   * One chat completion. `messages` arrives pre-built by the caller (persona, RAG context,
+   * history); this only adds the endpoint, the key and the sampling parameters. A user turn may
+   * ride the OpenAI multimodal shape — `content` as an array of `{type:'text'|'image_url', …}`
+   * parts — which the provider answers or refuses as a normal provider error.
+   */
+  async complete(model: AiLlmModel, messages: CompletionRequestMessage[]): Promise<string> {
     const parsed = await this.chatCompletions(model, { messages });
     const content = extractCompletionContent(parsed);
     if (!content) {
@@ -168,7 +253,10 @@ export class AiLlmModelsService {
   async completeWithTools(
     model: AiLlmModel,
     messages: Array<ChatCompletionMessage>,
-    tools: Array<{ type: 'function'; function: { name: string; description?: string; parameters: Record<string, unknown> } }>,
+    tools: Array<{
+      type: 'function';
+      function: { name: string; description?: string; parameters: Record<string, unknown> };
+    }>,
   ): Promise<{ content: string | null; toolCalls: ToolCallRequest[]; rawAssistant: unknown }> {
     const body: Record<string, unknown> = { messages, tools };
     const parsed = await this.chatCompletions(model, body);
@@ -302,6 +390,23 @@ export class AiLlmModelsService {
   }
 }
 
+/** What a provider connection proved it can do, stamped when the probe ran. */
+export interface LlmCapabilities {
+  vision: boolean;
+  at: string;
+}
+
+/**
+ * A request turn: plain text, or the OpenAI multimodal shape — `content` as an array of
+ * `{type:'text'}` / `{type:'image_url', image_url:{url}}` parts (a data URI or an https URL).
+ */
+export type CompletionRequestMessage =
+  | { role: 'system' | 'user' | 'assistant'; content: string }
+  | {
+      role: 'user';
+      content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
+    };
+
 /** One tool invocation the model asked for. `parseError` flags a malformed arguments payload. */
 export interface ToolCallRequest {
   id: string;
@@ -311,15 +416,18 @@ export interface ToolCallRequest {
 }
 
 /** The message shapes the tool loop builds (plain turns + the echoed assistant/tool turns). */
-export type ChatCompletionMessage = { role: 'system' | 'user' | 'assistant'; content: string } | {
-  role: 'assistant';
-  content: string | null;
-  tool_calls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>;
-} | {
-  role: 'tool';
-  tool_call_id: string;
-  content: string;
-};
+export type ChatCompletionMessage =
+  | { role: 'system' | 'user' | 'assistant'; content: string }
+  | {
+      role: 'assistant';
+      content: string | null;
+      tool_calls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>;
+    }
+  | {
+      role: 'tool';
+      tool_call_id: string;
+      content: string;
+    };
 
 interface RawToolCall {
   id?: unknown;
@@ -327,7 +435,10 @@ interface RawToolCall {
 }
 
 interface CompletionResponse {
-  choices?: Array<{ finish_reason?: unknown; message?: { content?: unknown; reasoning_content?: unknown; tool_calls?: unknown } }>;
+  choices?: Array<{
+    finish_reason?: unknown;
+    message?: { content?: unknown; reasoning_content?: unknown; tool_calls?: unknown };
+  }>;
   error?: { message?: unknown };
   content?: unknown;
   response?: unknown;
@@ -349,7 +460,9 @@ export function extractCompletionContent(parsed: {
 }): string | null {
   const message = parsed.choices?.[0]?.message;
   const content =
-    flattenContentParts(message?.content) ?? flattenContentParts(parsed.content) ?? flattenContentParts(parsed.response);
+    flattenContentParts(message?.content) ??
+    flattenContentParts(parsed.content) ??
+    flattenContentParts(parsed.response);
   if (content) return content;
   const reasoning = message?.reasoning_content;
   return typeof reasoning === 'string' && reasoning.trim().length > 0 ? reasoning : null;

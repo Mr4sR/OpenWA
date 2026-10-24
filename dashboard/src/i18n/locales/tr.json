@@ -50,7 +50,8 @@
     "retry": "Yeniden Dene",
     "yes": "Evet",
     "no": "Hayır",
-    "panelResize": "Paneli yeniden boyutlandır"
+    "panelResize": "Paneli yeniden boyutlandır",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "Açık",
@@ -1241,6 +1242,7 @@
       "selectSession": "Bir oturum seçin…",
       "name": "Ad",
       "llmModel": "LLM modeli",
+      "llmModelHint": "\"vision\" işaretli bir model müşteri fotoğraflarını okuyabilir; test edilmemiş modeller ilk kayıt/testten sonra işareti alır.",
       "ragModel": "RAG bilgisi",
       "noRag": "Yok",
       "persona": "Persona",
@@ -1279,7 +1281,11 @@
       "maxTokens": "Maks. token",
       "test": "Bağlantıyı test et",
       "lastTest": "Son test",
-      "testOk": "Tamam"
+      "testOk": "Tamam",
+      "visionChip": "vision",
+      "visionYes": "Bu model görüntüleri kabul eder — müşteri fotoğrafları ona gönderilir.",
+      "visionNo": "Görüntüleri göremediği kanıtlandı — fotoğraf soruları yalnızca altyazıdan yanıtlanır.",
+      "visionNoStrict": "Kaydedildi, ancak bu model görüntüleri göremez — fotoğraf soruları yalnızca altyazıdan yanıtlanır."
     },
     "rag": {
       "emptyTitle": "Henüz RAG modeli yok",
@@ -1383,5 +1389,26 @@
       "note": "Yanıtlar gerçekten üretilir (LLM + bilgi) ama hiçbir sohbete iletilmez.",
       "sessionLabel": "Oturum"
     }
+  },
+  "accounts": {
+    "title": "Hesaplar",
+    "subtitle": "WhatsApp oturumlarına ve kendi API anahtarlarına sahip kiracılar.",
+    "add": "Hesap ekle",
+    "name": "Hesap adı",
+    "note": "Not",
+    "status": "Durum",
+    "active": "Etkin",
+    "inactive": "Etkin değil",
+    "emptyTitle": "Henüz hesap yok",
+    "emptyDescription": "Kiracı başına bir hesap oluşturun; her hesap kendi API anahtarını alır.",
+    "createTitle": "Hesap ekle",
+    "editTitle": "Hesabı düzenle",
+    "saved": "Hesap kaydedildi",
+    "created": "Hesap oluşturuldu",
+    "deleted": "Hesap silindi",
+    "deleteTitle": "Hesabı sil",
+    "deleteConfirm": "{{name}} hesabı silinsin mi? Yalnızca oturumu ve anahtarı olmayan bir hesap silinebilir.",
+    "hint": "Hesap anahtarı yalnızca kendi oturumlarına ulaşır; genel anahtar her yere ulaşır.",
+    "activeAccount": "Hesap"
   }
 }

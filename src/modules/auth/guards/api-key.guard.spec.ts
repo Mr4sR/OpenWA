@@ -19,6 +19,7 @@ function createMockApiKey(overrides: Partial<ApiKey> = {}): ApiKey {
     role: ApiKeyRole.OPERATOR,
     allowedIps: null,
     allowedSessions: null,
+    accountId: null,
     allowedChats: null,
     isActive: true,
     expiresAt: null,
@@ -36,6 +37,7 @@ function createMockContext(
   socketIp = '127.0.0.1',
   body?: unknown,
   query: Record<string, unknown> = {},
+  method = 'GET',
 ): ExecutionContext {
   const request = {
     headers,
@@ -44,6 +46,7 @@ function createMockContext(
     socket: { remoteAddress: socketIp },
     body,
     query,
+    method,
   };
 
   return {
@@ -126,7 +129,7 @@ describe('ApiKeyGuard', () => {
     const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(authService.validateApiKey).toHaveBeenCalledWith('my-key', '127.0.0.1', undefined);
+    expect(authService.validateApiKey).toHaveBeenCalledWith('my-key', '127.0.0.1', undefined, expect.anything());
   });
 
   it('should accept Authorization Bearer header', async () => {
@@ -139,7 +142,7 @@ describe('ApiKeyGuard', () => {
     const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
-    expect(authService.validateApiKey).toHaveBeenCalledWith('my-bearer-key', '127.0.0.1', undefined);
+    expect(authService.validateApiKey).toHaveBeenCalledWith('my-bearer-key', '127.0.0.1', undefined, expect.anything());
   });
 
   // RFC 7235 section 2.1: the auth scheme is case-insensitive; MCP and metrics already read it so.
@@ -150,7 +153,7 @@ describe('ApiKeyGuard', () => {
     const result = await guard.canActivate(createMockContext({ authorization: header }));
 
     expect(result).toBe(true);
-    expect(authService.validateApiKey).toHaveBeenCalledWith('my-bearer-key', '127.0.0.1', undefined);
+    expect(authService.validateApiKey).toHaveBeenCalledWith('my-bearer-key', '127.0.0.1', undefined, expect.anything());
   });
 
   it('should reject when API key validation fails', async () => {
@@ -419,7 +422,7 @@ describe('ApiKeyGuard', () => {
     const context = createMockContext({ 'x-api-key': 'key' }, { sessionId: 'sess-123' });
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', 'sess-123');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', 'sess-123', expect.anything());
   });
 
   it('does not treat a non-session route :id as a session id (no @SessionScoped)', async () => {
@@ -435,7 +438,7 @@ describe('ApiKeyGuard', () => {
     const context = createMockContext({ 'x-api-key': 'key' }, { id: 'plugin-x' });
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', undefined);
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', undefined, expect.anything());
   });
 
   it('treats :id as the session id on a @SessionScoped controller (session scoping preserved)', async () => {
@@ -451,7 +454,7 @@ describe('ApiKeyGuard', () => {
     const context = createMockContext({ 'x-api-key': 'key' }, { id: 'sess-B' });
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', 'sess-B');
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', 'sess-B', expect.anything());
   });
 
   it('ignores X-Forwarded-For by default (no trusted proxies) to prevent IP spoofing', async () => {
@@ -467,7 +470,7 @@ describe('ApiKeyGuard', () => {
     });
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', undefined);
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '127.0.0.1', undefined, expect.anything());
   });
 
   it('uses the rightmost untrusted hop when the request comes from a trusted proxy', async () => {
@@ -485,7 +488,7 @@ describe('ApiKeyGuard', () => {
     );
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.50', undefined);
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.50', undefined, expect.anything());
   });
 
   it('ignores X-Forwarded-For when the direct peer is not a trusted proxy', async () => {
@@ -499,7 +502,7 @@ describe('ApiKeyGuard', () => {
     const context = createMockContext({ 'x-api-key': 'key', 'x-forwarded-for': '10.0.0.5' }, {}, '203.0.113.99');
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.99', undefined);
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.99', undefined, expect.anything());
   });
 
   it('normalizes an IPv4-mapped IPv6 proxy address (e.g. ::ffff:10.0.0.1)', async () => {
@@ -512,7 +515,7 @@ describe('ApiKeyGuard', () => {
     const context = createMockContext({ 'x-api-key': 'key', 'x-forwarded-for': '203.0.113.50' }, {}, '::ffff:10.0.0.1');
     await guard.canActivate(context);
 
-    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.50', undefined);
+    expect(authService.validateApiKey).toHaveBeenCalledWith('key', '203.0.113.50', undefined, expect.anything());
   });
 
   describe('chat scope enforcement', () => {

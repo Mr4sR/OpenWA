@@ -45,6 +45,7 @@ export class AuthController {
   private authzSnapshot(key: ApiKey) {
     return {
       role: key.role,
+      accountId: key.accountId,
       allowedIps: key.allowedIps,
       allowedSessions: key.allowedSessions,
       allowedChats: key.allowedChats,
@@ -58,6 +59,7 @@ export class AuthController {
       name: k.name,
       keyPrefix: k.keyPrefix,
       role: k.role,
+      accountId: k.accountId,
       allowedIps: k.allowedIps || undefined,
       allowedSessions: k.allowedSessions || undefined,
       allowedChats: k.allowedChats || undefined,

@@ -201,6 +201,8 @@ export interface ApiKey {
   name: string;
   keyPrefix: string;
   role: 'admin' | 'operator' | 'viewer';
+  /** The tenant this key acts for; null/omitted = a global key (reaches every account). */
+  accountId?: string | null;
   allowedIps?: string[];
   allowedSessions?: string[];
   allowedChats?: string[];
@@ -1092,6 +1094,43 @@ export const contactApi = {
 };
 
 // =============================================================================
+// Accounts (multi-tenancy) API
+// =============================================================================
+
+export interface Account {
+  id: string;
+  name: string;
+  note: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export const accountApi = {
+  list: () => request<Account[]>('/accounts'),
+  create: (data: { name: string; note?: string }) =>
+    request<Account>('/accounts', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: { name?: string; note?: string; isActive?: boolean }) =>
+    request<Account>(`/accounts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) => request<void>(`/accounts/${id}`, { method: 'DELETE' }),
+  listKeys: (id: string) => request<ApiKey[]>(`/accounts/${id}/api-keys`),
+  createKey: (
+    id: string,
+    data: {
+      name: string;
+      role: string;
+      allowedIps?: string[];
+      allowedSessions?: string[];
+      allowedChats?: string[];
+      expiresAt?: string;
+    },
+  ) =>
+    request<CreatedApiKey & { account: { id: string; name: string } }>(`/accounts/${id}/api-keys`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
+// =============================================================================
 // API Key API
 // =============================================================================
 
@@ -1570,6 +1609,8 @@ export interface AiLlmModel {
   enabled: boolean;
   lastTestedAt?: string | null;
   lastStatus?: { ok: boolean; at: string; error?: string } | null;
+  /** What the last probe proved; null until a save/test ran against this endpoint + model id. */
+  capabilities?: { vision: boolean; at: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1747,7 +1788,10 @@ export const aiApi = {
     request<AiLlmModel>(`/ai/llm-models/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteLlmModel: (id: string) => request<void>(`/ai/llm-models/${id}`, { method: 'DELETE' }),
   testLlmModel: (id: string) =>
-    request<{ ok: boolean; answer: string }>(`/ai/llm-models/${id}/test`, { method: 'POST' }),
+    request<{ ok: boolean; answer: string; capabilities: { vision: boolean; at: string } | null }>(
+      `/ai/llm-models/${id}/test`,
+      { method: 'POST' },
+    ),
 
   listChatbots: (sessionId?: string) =>
     request<AiChatbot[]>(sessionId ? `/ai/chatbots?sessionId=${encodeURIComponent(sessionId)}` : '/ai/chatbots'),
@@ -1776,7 +1820,11 @@ export const aiApi = {
   listRagDocuments: (id: string) => request<AiRagDocument[]>(`/ai/rag-models/${id}/documents`),
   addRagDocument: (id: string, body: AiRagDocumentPayload) =>
     request<AiRagDocument>(`/ai/rag-models/${id}/documents`, { method: 'POST', body: JSON.stringify(body) }),
-  updateRagDocument: (id: string, documentId: string, body: { title?: string | null; content?: string; sourceUrl?: string }) =>
+  updateRagDocument: (
+    id: string,
+    documentId: string,
+    body: { title?: string | null; content?: string; sourceUrl?: string },
+  ) =>
     request<AiRagDocument>(`/ai/rag-models/${id}/documents/${documentId}`, {
       method: 'PUT',
       body: JSON.stringify(body),
@@ -1795,8 +1843,7 @@ export const aiApi = {
       `/ai/mcp-connections/${id}/test`,
       { method: 'POST' },
     ),
-  listMcpTools: (id: string) =>
-    request<{ tools: AiMcpTool[] }>(`/ai/mcp-connections/${id}/tools`),
+  listMcpTools: (id: string) => request<{ tools: AiMcpTool[] }>(`/ai/mcp-connections/${id}/tools`),
 
   // Per-chat AI switches (the Chats page): which bots are muted in which conversation.
   getChatStates: (sessionId: string, chatIds: string[]) =>

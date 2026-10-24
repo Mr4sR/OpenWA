@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   sessionApi,
   webhookApi,
+  accountApi,
   templateApi,
   apiKeyApi,
   auditApi,
@@ -183,6 +184,16 @@ export function useDeleteTemplateMutation() {
     onSuccess: (_template, params) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.templates(params.sessionId) });
     },
+  });
+}
+
+// ── Accounts (multi-tenancy) ─────────────────────────────────────────
+
+export function useAccountsQuery() {
+  return useQuery({
+    queryKey: ['accounts'],
+    queryFn: accountApi.list,
+    staleTime: 30_000,
   });
 }
 

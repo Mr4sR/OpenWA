@@ -9,6 +9,11 @@ export enum AuditAction {
   API_KEY_DELETED = 'api_key_deleted',
   API_KEY_AUTH_FAILED = 'api_key_auth_failed',
 
+  // Account (tenant) events — the multi-account surface
+  ACCOUNT_CREATED = 'account_created',
+  ACCOUNT_UPDATED = 'account_updated',
+  ACCOUNT_DELETED = 'account_deleted',
+  ACCOUNT_KEY_CREATED = 'account_key_created',
   // Rate-limit enforcement (sampled: at most one row per subject+kind per minute — see
   // EventsGateway — so enforcing a limit never becomes an audit-write flood of its own).
   RATE_LIMIT_EXCEEDED = 'rate_limit_exceeded',

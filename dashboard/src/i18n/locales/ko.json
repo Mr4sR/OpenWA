@@ -50,7 +50,8 @@
     "retry": "다시 시도",
     "yes": "예",
     "no": "아니요",
-    "panelResize": "패널 크기 조정"
+    "panelResize": "패널 크기 조정",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "라이트",
@@ -1241,6 +1242,7 @@
       "selectSession": "세션 선택…",
       "name": "이름",
       "llmModel": "LLM 모델",
+      "llmModelHint": "\"vision\" 표시가 있는 모델은 고객 사진을 읽을 수 있습니다. 테스트되지 않은 모델은 첫 저장/테스트 후 표시를 얻습니다.",
       "ragModel": "RAG 지식",
       "noRag": "없음",
       "persona": "페르소나",
@@ -1279,7 +1281,11 @@
       "maxTokens": "최대 토큰 수",
       "test": "연결 테스트",
       "lastTest": "마지막 테스트",
-      "testOk": "정상"
+      "testOk": "정상",
+      "visionChip": "vision",
+      "visionYes": "이 모델은 이미지를 받습니다 — 고객 사진이 이 모델로 전송됩니다.",
+      "visionNo": "이미지를 볼 수 없는 것으로 확인됨 — 사진 관련 질문은 캡션만으로 답변됩니다.",
+      "visionNoStrict": "저장되었지만 이 모델은 이미지를 볼 수 없습니다 — 사진 관련 질문은 캡션만으로 답변됩니다."
     },
     "rag": {
       "emptyTitle": "아직 RAG 모델이 없습니다",
@@ -1383,5 +1389,26 @@
       "note": "답변은 실제로 생성되지만(LLM + 지식) 어떤 채팅에도 전달되지 않습니다.",
       "sessionLabel": "세션"
     }
+  },
+  "accounts": {
+    "title": "계정",
+    "subtitle": "WhatsApp 세션과 자체 API 키를 보유한 테넌트입니다.",
+    "add": "계정 추가",
+    "name": "계정 이름",
+    "note": "메모",
+    "status": "상태",
+    "active": "활성",
+    "inactive": "비활성",
+    "emptyTitle": "아직 계정이 없습니다",
+    "emptyDescription": "테넌트별로 계정을 만드세요. 각 계정은 자체 API 키를 받습니다.",
+    "createTitle": "계정 추가",
+    "editTitle": "계정 편집",
+    "saved": "계정 저장됨",
+    "created": "계정 생성됨",
+    "deleted": "계정 삭제됨",
+    "deleteTitle": "계정 삭제",
+    "deleteConfirm": "계정 {{name}}을(를) 삭제하시겠습니까? 세션과 키가 없는 계정만 삭제할 수 있습니다.",
+    "hint": "계정 키는 자신의 세션에만 접근합니다. 전역 키는 모든 곳에 접근합니다.",
+    "activeAccount": "계정"
   }
 }

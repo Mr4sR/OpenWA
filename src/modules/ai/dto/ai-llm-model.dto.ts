@@ -1,14 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Expose, plainToInstance } from 'class-transformer';
-import {
-  IsBoolean,
-  IsNotEmpty,
-  IsObject,
-  IsOptional,
-  IsString,
-  MaxLength,
-  ValidateIf,
-} from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsObject, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
 import { ToStrictBoolean } from '../../../common/utils/strict-boolean';
 import { MaxCodePoints } from '../../../common/validation/max-code-points';
 import { NoNulCharacter } from '../../../common/validation/no-nul-character';
@@ -17,7 +9,6 @@ import {
   LLM_API_KEY_MAX_LENGTH,
   LLM_ENDPOINT_MAX_LENGTH,
   LLM_NAME_MAX_LENGTH,
-  LLM_PERSONA_MAX_LENGTH,
 } from '../entities/ai-llm-model.entity';
 import { maskSecret } from '../ai-secrets';
 
@@ -192,6 +183,13 @@ export class AiLlmModelResponseDto {
   @Expose()
   @ApiPropertyOptional({ nullable: true })
   lastStatus?: { ok: boolean; at: string; error?: string } | null;
+
+  @Expose()
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'What the provider proved during the last connection test; null = not probed yet',
+  })
+  capabilities?: { vision: boolean; at: string } | null;
 
   @Expose()
   @ApiProperty()

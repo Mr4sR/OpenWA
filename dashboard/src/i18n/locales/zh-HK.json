@@ -50,7 +50,8 @@
     "retry": "重試",
     "yes": "是",
     "no": "否",
-    "panelResize": "調整面板大小"
+    "panelResize": "調整面板大小",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "淺色",
@@ -1241,6 +1242,7 @@
       "selectSession": "選擇一個工作階段…",
       "name": "名稱",
       "llmModel": "LLM 模型",
+      "llmModelHint": "標記為 \"vision\" 的模型可以讀取客戶照片；未測試的模型在首次儲存/測試後獲得該標記。",
       "ragModel": "RAG 知識庫",
       "noRag": "無",
       "persona": "人設",
@@ -1279,7 +1281,11 @@
       "maxTokens": "最大 token 數",
       "test": "測試連線",
       "lastTest": "上次測試",
-      "testOk": "正常"
+      "testOk": "正常",
+      "visionChip": "vision",
+      "visionYes": "該模型接受圖片 — 客戶的照片會發送給它。",
+      "visionNo": "已證實無法檢視圖片 — 有關照片的問題僅根據文字說明回答。",
+      "visionNoStrict": "已儲存，但該模型無法檢視圖片 — 有關照片的問題僅根據文字說明回答。"
     },
     "rag": {
       "emptyTitle": "尚未有任何 RAG 模型",
@@ -1383,5 +1389,26 @@
       "note": "回覆會真實產生（LLM + 知識），但絕不會投遞到任何聊天。",
       "sessionLabel": "工作階段"
     }
+  },
+  "accounts": {
+    "title": "帳戶",
+    "subtitle": "擁有 WhatsApp 會話和各自 API 金鑰的租戶。",
+    "add": "新增帳戶",
+    "name": "帳戶名稱",
+    "note": "備註",
+    "status": "狀態",
+    "active": "啟用",
+    "inactive": "停用",
+    "emptyTitle": "還沒有帳戶",
+    "emptyDescription": "為每個租戶建立一個帳戶；每個帳戶獲得自己的 API 金鑰。",
+    "createTitle": "新增帳戶",
+    "editTitle": "編輯帳戶",
+    "saved": "帳戶已儲存",
+    "created": "帳戶已建立",
+    "deleted": "帳戶已刪除",
+    "deleteTitle": "刪除帳戶",
+    "deleteConfirm": "刪除帳戶 {{name}}？只有沒有會話和金鑰的帳戶才能刪除。",
+    "hint": "帳戶金鑰只能存取自己的會話；全域金鑰可以存取全部。",
+    "activeAccount": "帳戶"
   }
 }

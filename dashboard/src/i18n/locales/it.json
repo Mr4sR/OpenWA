@@ -52,7 +52,8 @@
     "retry": "Riprova",
     "yes": "Sì",
     "no": "No",
-    "panelResize": "Ridimensiona pannello"
+    "panelResize": "Ridimensiona pannello",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "Chiaro",
@@ -1247,6 +1248,7 @@
       "selectSession": "Seleziona una sessione…",
       "name": "Nome",
       "llmModel": "Modello LLM",
+      "llmModelHint": "Un modello contrassegnato \"vision\" può leggere le foto dei clienti; i modelli non testati ricevono il contrassegno dopo il primo salvataggio/test.",
       "ragModel": "Conoscenza RAG",
       "noRag": "Nessuna",
       "persona": "Persona",
@@ -1285,7 +1287,11 @@
       "maxTokens": "Token max",
       "test": "Testa connessione",
       "lastTest": "Ultimo test",
-      "testOk": "OK"
+      "testOk": "OK",
+      "visionChip": "vision",
+      "visionYes": "Questo modello accetta immagini — le foto dei clienti gli vengono inviate.",
+      "visionNo": "È dimostrato che non vede le immagini — le domande sulle foto vengono risposte solo dalla didascalia.",
+      "visionNoStrict": "Salvato, ma questo modello non può vedere le immagini — le domande sulle foto vengono risposte solo dalla didascalia."
     },
     "rag": {
       "emptyTitle": "Nessun modello RAG presente",
@@ -1389,5 +1395,26 @@
       "note": "Le risposte sono prodotte davvero (LLM + conoscenza) ma mai consegnate a nessuna chat.",
       "sessionLabel": "Sessione"
     }
+  },
+  "accounts": {
+    "title": "Account",
+    "subtitle": "Tenant che possiedono sessioni WhatsApp e le proprie chiavi API.",
+    "add": "Aggiungi account",
+    "name": "Nome account",
+    "note": "Nota",
+    "status": "Stato",
+    "active": "Attivo",
+    "inactive": "Non attivo",
+    "emptyTitle": "Nessun account",
+    "emptyDescription": "Crea un account per tenant; ogni account riceve la propria chiave API.",
+    "createTitle": "Aggiungi account",
+    "editTitle": "Modifica account",
+    "saved": "Account salvato",
+    "created": "Account creato",
+    "deleted": "Account eliminato",
+    "deleteTitle": "Elimina account",
+    "deleteConfirm": "Eliminare l’account {{name}}? Si può eliminare solo un account senza sessioni né chiavi.",
+    "hint": "Una chiave di account raggiunge solo le sue sessioni; una chiave globale raggiunge tutto.",
+    "activeAccount": "Account"
   }
 }

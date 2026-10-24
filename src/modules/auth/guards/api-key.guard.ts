@@ -86,10 +86,12 @@ export class ApiKeyGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    // Resolve the session id used for the key's allowedSessions scope. `:sessionId` is always a
-    // session; the bare `:id` param is only a session on controllers marked @SessionScoped (i.e.
-    // SessionController) — on other routes `:id` is an unrelated resource id (API key, plugin, …)
-    // and must NOT be fed to the allowedSessions check, which would spuriously deny a scoped key.
+    // Resolve the session id used for the key's allowedSessions scope. A `:sessionId` route param is
+    // ALWAYS a WhatsApp session id (the convention every controller follows: `/sessions/:sessionId/…`,
+    // `/automation/sessions/:sessionId/…`, …), so it is fenced on any controller — not only the ones
+    // marked @SessionScoped. The bare `:id` param is a session only on those marked controllers
+    // (@SessionScoped); elsewhere `:id` is an unrelated resource id (API key, plugin, …) and must NOT
+    // be fed to the session check, which would spuriously deny a scoped key.
     const sessionScoped = this.reflector.getAllAndOverride<boolean>(SESSION_SCOPED_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -98,8 +100,10 @@ export class ApiKeyGuard implements CanActivate {
       string | undefined;
     const clientIp = this.getClientIp(request);
 
-    // Validate API key
-    const apiKey = await this.authService.validateApiKey(apiKeyHeader, clientIp, sessionId);
+    // Validate API key (the method lets a tenant key's global-session write be refused at the door)
+    const apiKey = await this.authService.validateApiKey(apiKeyHeader, clientIp, sessionId, {
+      method: request.method,
+    });
 
     // Stamp the resolved actor into the per-request async context so downstream audit log writes —
     // which fire from services deep in the call stack without DI access to the key — can attribute
@@ -133,18 +137,27 @@ export class ApiKeyGuard implements CanActivate {
       await this.assertChatsAllowed(request, apiKey, context);
     }
 
-    // Routes marked @RequireUnscopedKey carry no session dimension, so the allowedSessions check
-    // above can never bite on them. A session-scoped key reaching such a surface (e.g. API-key
-    // lifecycle management) could mint or widen credentials beyond its own confinement — reject it
-    // outright, whatever its role. The denial is audited by the caller's catch block.
+    // Routes marked @RequireUnscopedKey carry no session dimension, so the allowedSessions and
+    // account checks can never bite on them. A session- or account-scoped key reaching such a
+    // surface (e.g. API-key lifecycle management, accounts) could mint or widen credentials beyond
+    // its own confinement — reject it outright, whatever its role. Exception: a route ALSO marked
+    // @AllowAccountKeys (POST /sessions — creating a session IS the point of an account; the new
+    // row is stamped with the caller's account and cannot escape its tenant) admits an account key
+    // but still refuses a session-scoped one. The denial is audited by the caller's catch block.
     const requireUnscoped = this.reflector.getAllAndOverride<boolean>(UNSCOPED_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (requireUnscoped && (apiKey.allowedSessions?.length ?? 0) > 0) {
-      throw new ForbiddenException('Session-scoped API keys are not permitted on this route');
+    if (requireUnscoped) {
+      const allowAccountKeys = this.reflector.getAllAndOverride<boolean>('allowAccountKeys', [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      const reaching = (apiKey.allowedSessions?.length ?? 0) > 0 || (apiKey.accountId !== null && !allowAccountKeys);
+      if (reaching) {
+        throw new ForbiddenException('Session-scoped API keys are not permitted on this route');
+      }
     }
-
     // Attach API key to request for use in controllers
     (request as Request & { apiKey: typeof apiKey }).apiKey = apiKey;
     // Expose the trusted-proxy-aware client IP so controllers (e.g. the audit trail on key lifecycle

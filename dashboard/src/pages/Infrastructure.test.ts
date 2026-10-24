@@ -56,6 +56,14 @@ const SAVED_CONFIG: SavedConfig = {
     s3Endpoint: '',
     s3CredentialsSet: false,
   },
+  ai: {
+    mcpEnabled: false,
+    mcpReadonly: false,
+    llmModelsMax: 50,
+    chatbotsMaxPerSession: 1,
+    mcpConnectionsMax: 20,
+    allowPrivateAiEndpoints: false,
+  },
   // headless: false deliberately differs from the component's useState default (true) — asserting
   // it reads false is what proves this field came from /config, not from the initial state.
   engine: {

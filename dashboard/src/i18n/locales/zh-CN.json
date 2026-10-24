@@ -50,7 +50,8 @@
     "retry": "重试",
     "yes": "是",
     "no": "否",
-    "panelResize": "调整面板大小"
+    "panelResize": "调整面板大小",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "浅色",
@@ -1241,6 +1242,7 @@
       "selectSession": "选择一个会话…",
       "name": "名称",
       "llmModel": "LLM 模型",
+      "llmModelHint": "标记为 \"vision\" 的模型可以读取客户照片；未测试的模型在首次保存/测试后获得该标记。",
       "ragModel": "RAG 知识库",
       "noRag": "无",
       "persona": "人设",
@@ -1279,7 +1281,11 @@
       "maxTokens": "最大 token 数",
       "test": "测试连接",
       "lastTest": "上次测试",
-      "testOk": "正常"
+      "testOk": "正常",
+      "visionChip": "vision",
+      "visionYes": "该模型接受图片 — 客户的照片会发送给它。",
+      "visionNo": "已证实无法查看图片 — 有关照片的问题仅根据文字说明回答。",
+      "visionNoStrict": "已保存，但该模型无法查看图片 — 有关照片的问题仅根据文字说明回答。"
     },
     "rag": {
       "emptyTitle": "还没有 RAG 模型",
@@ -1383,5 +1389,26 @@
       "note": "回复会真实生成（LLM + 知识），但绝不会投递到任何聊天。",
       "sessionLabel": "会话"
     }
+  },
+  "accounts": {
+    "title": "账户",
+    "subtitle": "拥有 WhatsApp 会话和各自 API 密钥的租户。",
+    "add": "添加账户",
+    "name": "账户名称",
+    "note": "备注",
+    "status": "状态",
+    "active": "启用",
+    "inactive": "停用",
+    "emptyTitle": "还没有账户",
+    "emptyDescription": "为每个租户创建一个账户；每个账户获得自己的 API 密钥。",
+    "createTitle": "添加账户",
+    "editTitle": "编辑账户",
+    "saved": "账户已保存",
+    "created": "账户已创建",
+    "deleted": "账户已删除",
+    "deleteTitle": "删除账户",
+    "deleteConfirm": "删除账户 {{name}}？只有没有会话和密钥的账户才能删除。",
+    "hint": "账户密钥只能访问自己的会话；全局密钥可以访问全部。",
+    "activeAccount": "账户"
   }
 }

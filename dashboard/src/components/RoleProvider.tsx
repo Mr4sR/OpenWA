@@ -40,8 +40,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Session-scoped keys are refused on the cross-session routes (e.g. /stats/overview) whatever their
-  // role, so the UI needs the scope beside the role to avoid sending them.
+  // Session- or account-scoped keys are refused on the cross-session routes (e.g. /stats/overview)
+  // whatever their role, so the UI needs the scope beside the role to avoid sending them.
   const [scoped, setScopedState] = useState(() => sessionStorage.getItem('openwa_key_scoped') === 'true');
 
   const setScoped = useCallback((newScoped: boolean) => {
@@ -50,6 +50,18 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       sessionStorage.setItem('openwa_key_scoped', 'true');
     } else {
       sessionStorage.removeItem('openwa_key_scoped');
+    }
+  }, []);
+
+  // The tenant this tab's key acts for, per tab like the role (same outliving-its-key reasoning).
+  const [accountId, setAccountIdState] = useState<string | null>(() => sessionStorage.getItem('openwa_account_id'));
+
+  const setAccountId = useCallback((newAccountId: string | null) => {
+    setAccountIdState(newAccountId);
+    if (newAccountId) {
+      sessionStorage.setItem('openwa_account_id', newAccountId);
+    } else {
+      sessionStorage.removeItem('openwa_account_id');
     }
   }, []);
 
@@ -64,6 +76,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     setEngineType,
     scoped,
     setScoped,
+    accountId,
+    setAccountId,
   };
 
   return <RoleContext.Provider value={value}>{children}</RoleContext.Provider>;

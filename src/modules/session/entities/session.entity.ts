@@ -20,6 +20,14 @@ export class Session {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  /**
+   * The account (tenant) that created this session, or NULL for the global surface — every
+   * session written before accounts existed, reachable by every key. An account key resolves only
+   * sessions of its own account; a global key (NULL accountId on the key) reaches all.
+   */
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  accountId!: string | null;
+
   @Column({ type: 'varchar', length: 100, unique: true })
   name!: string;
 

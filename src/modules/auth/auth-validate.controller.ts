@@ -26,6 +26,7 @@ export class AuthValidateController {
     role?: string;
     engineType?: string;
     scoped?: boolean;
+    accountId?: string | null;
   } {
     // This route is behind the global API-key guard, so only a validated key reaches this handler
     // (a missing/invalid key 401s first). The guard has already verified the key — including its
@@ -40,11 +41,14 @@ export class AuthValidateController {
     // The engine rides along because GET /infra/engines/current is admin-only, and the dashboard needs
     // it for every role that can post a status or read channels. `scoped` lets it skip the routes that
     // refuse a session-scoped key (@RequireUnscopedKey) instead of sending reads the guard rejects.
+    // `accountId` is the multi-tenant half of the same story: a key bound to an account rides for
+    // that tenant only, and the dashboard shows the tenant rather than offering the global surfaces.
     return {
       valid: true,
       role: apiKey.role,
       engineType: this.engineFactory.getCurrentEngine(),
-      scoped: (apiKey.allowedSessions?.length ?? 0) > 0,
+      scoped: (apiKey.allowedSessions?.length ?? 0) > 0 || Boolean(apiKey.accountId),
+      accountId: apiKey.accountId ?? null,
     };
   }
 }

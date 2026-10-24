@@ -50,7 +50,8 @@
     "unknownError": "Unknown error",
     "retry": "Retry",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "Light",
@@ -1241,6 +1242,7 @@
       "selectSession": "Select a session…",
       "name": "Name",
       "llmModel": "LLM model",
+      "llmModelHint": "A model marked \"vision\" can read customer photos; untested models gain the mark after their first save/test.",
       "ragModel": "RAG knowledge",
       "noRag": "None",
       "persona": "Persona",
@@ -1279,7 +1281,11 @@
       "maxTokens": "Max tokens",
       "test": "Test connection",
       "lastTest": "Last test",
-      "testOk": "OK"
+      "testOk": "OK",
+      "visionChip": "vision",
+      "visionYes": "This model accepts images — customer photos are sent to it.",
+      "visionNo": "Proven not to see images — photo questions are answered from the caption only.",
+      "visionNoStrict": "Saved, but this model cannot view images — photo questions are answered from the caption only."
     },
     "rag": {
       "emptyTitle": "No RAG models yet",
@@ -1383,5 +1389,26 @@
       "note": "Replies are produced for real (LLM + knowledge) but never delivered to any chat.",
       "sessionLabel": "Session"
     }
+  },
+  "accounts": {
+    "title": "Accounts",
+    "subtitle": "Tenants that own WhatsApp sessions and their own API keys. Sessions created with an account key belong to that account and are invisible to the others.",
+    "add": "Add account",
+    "name": "Account name",
+    "note": "Note",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "emptyTitle": "No accounts yet",
+    "emptyDescription": "Create an account per tenant. Each account gets its own API key (POST /api/accounts/{id}/api-keys); that key can create and use its own WhatsApp sessions.",
+    "createTitle": "Add account",
+    "editTitle": "Edit account",
+    "saved": "Account saved",
+    "created": "Account created",
+    "deleted": "Account deleted",
+    "deleteTitle": "Delete account",
+    "deleteConfirm": "Delete the account {{name}}? Only an account with no sessions and no API keys can be deleted.",
+    "hint": "An account key reaches only its own sessions. Global keys (no account) keep reaching everything.",
+    "activeAccount": "Account"
   }
 }

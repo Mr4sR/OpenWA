@@ -310,10 +310,19 @@ export function AiDocumentEditor({
 
 export function AiLlmStatusCell({ model, t }: { model: AiLlmModel; t: TFunction }) {
   if (!model.lastStatus) return <span className="ai-meta-value">—</span>;
+  const vision = model.capabilities ? (
+    <span
+      className={`ai-cap-chip ${model.capabilities.vision ? 'ok' : 'off'}`}
+      title={model.capabilities.vision ? t('ai.llm.visionYes') : t('ai.llm.visionNo')}
+    >
+      {t('ai.llm.visionChip')}
+    </span>
+  ) : null;
   return (
     <span className="ai-meta-value">
       <span className={`ai-status-dot ${model.lastStatus.ok ? 'ok' : 'fail'}`} />
       {model.lastStatus.ok ? t('ai.llm.testOk') : model.lastStatus.error?.slice(0, 80)}
+      {vision}
     </span>
   );
 }

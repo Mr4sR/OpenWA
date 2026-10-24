@@ -10,8 +10,15 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository, UpdateQueryBuilder, DeleteQueryBuilder, type QueryDeepPartialEntity } from 'typeorm';
+import { InjectRepository, getDataSourceToken } from '@nestjs/typeorm';
+import {
+  DataSource,
+  In,
+  Repository,
+  UpdateQueryBuilder,
+  DeleteQueryBuilder,
+  type QueryDeepPartialEntity,
+} from 'typeorm';
 import { randomBytes } from 'crypto';
 import { ipMatches } from '../../common/utils/ip';
 import { hashApiKey } from './api-key-hash';
@@ -85,6 +92,17 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     private readonly moduleRef: ModuleRef,
     @Optional() private readonly keyIndex?: ActiveKeyIndex,
   ) {}
+
+  /**
+   * Account-scope resolution for one session, memoized per process for a few seconds. The guard
+   * calls this on every request that names a session, and the answer only changes when a session
+   * is created (with its account fixed for its whole life) or deleted — so a short TTL removes the
+   * per-request query without ever serving a stale ENFORCEMENT decision for long. A missing row
+   * (deleted session) is cached as the empty string so an account key is refused immediately.
+   */
+  private readonly sessionAccountCache = new Map<string, { accountId: string | null; at: number }>();
+  /** The data connection is resolved lazily: AuthModule is @Global and imported by the session module. */
+  private dataSource?: DataSource;
 
   async onModuleInit(): Promise<void> {
     // Seed a default API key if none exist
@@ -200,7 +218,10 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     return this.apiKeyRepository.save(apiKey);
   }
 
-  async createApiKey(dto: CreateApiKeyDto): Promise<{ apiKey: ApiKey; rawKey: string }> {
+  async createApiKey(
+    dto: CreateApiKeyDto,
+    accountId: string | null = null,
+  ): Promise<{ apiKey: ApiKey; rawKey: string }> {
     // Generate secure random key: owa_k1_<32 bytes hex>
     const rawKey = `owa_k1_${randomBytes(32).toString('hex')}`;
     const keyHash = this.hashKey(rawKey);
@@ -211,6 +232,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       keyHash,
       keyPrefix,
       role: dto.role || ApiKeyRole.OPERATOR,
+      accountId,
       allowedIps: dto.allowedIps || null,
       allowedSessions: normalizeScopeList(dto.allowedSessions),
       allowedChats: normalizeChatAllowList(dto.allowedChats),
@@ -222,6 +244,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`API key created: ${saved.name}`, {
       keyId: saved.id,
       role: saved.role,
+      accountId: saved.accountId ?? undefined,
       action: 'api_key_created',
     });
 
@@ -499,7 +522,7 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     rawKey: string,
     clientIp?: string,
     sessionId?: string,
-    { recordUsage = true }: { recordUsage?: boolean } = {},
+    { recordUsage = true, method }: { recordUsage?: boolean; method?: string } = {},
   ): Promise<ApiKey> {
     // Trim before hashing so every surface agrees on what the credential is. HTTP already strips
     // surrounding whitespace from header values, so a pasted key with a stray space/newline
@@ -546,10 +569,39 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Check session restriction
+    // Check session restriction: the key's explicit allowlist, then the ACCOUNT fence. A key bound
+    // to an account resolves sessions of its own account. Global sessions (no account — the
+    // deployment operator's) are READABLE through an account key, but never WRITABLE: a tenant
+    // must not start/stop/delete/logout the operator's own WhatsApp accounts. A mutating method
+    // against a global session is refused at the door, before any controller logic runs.
     if (apiKey.allowedSessions && apiKey.allowedSessions.length > 0 && sessionId) {
       if (!apiKey.allowedSessions.includes(sessionId)) {
         throw new ForbiddenException('API key not authorized for this session');
+      }
+    }
+    if (apiKey.accountId && sessionId && !sessionId.startsWith('*')) {
+      const sessionAccount = await this.readSessionAccount(sessionId);
+      const mutating = method !== undefined && method !== 'GET' && method !== 'HEAD';
+      if (sessionAccount !== null && sessionAccount !== undefined && sessionAccount !== apiKey.accountId) {
+        this.logger.warn('Account-key refused a foreign session', {
+          keyId: apiKey.id,
+          keyAccount: apiKey.accountId,
+          sessionAccount,
+          action: 'account_scope_rejected',
+        });
+        throw new ForbiddenException('API key is not authorized for this account');
+      }
+      // A session with no row (undefined) survives the fence and 404s in the service; a GLOBAL
+      // session (null) is read-only for a tenant key.
+      if (sessionAccount === null && mutating) {
+        this.logger.warn('Account-key refused to mutate a global session', {
+          keyId: apiKey.id,
+          keyAccount: apiKey.accountId,
+          sessionId,
+          method,
+          action: 'account_global_mutation_rejected',
+        });
+        throw new ForbiddenException('Global sessions can only be managed with a global API key');
       }
     }
 
@@ -558,6 +610,41 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     if (recordUsage) await this.usageTracker.record(apiKey);
 
     return apiKey;
+  }
+
+  /** How long a session's account binding is trusted before the next read. */
+  static readonly SESSION_ACCOUNT_TTL_MS = 10_000;
+
+  /**
+   * The account that owns a session: its `accountId`, null for a global (pre-accounts) session, or
+   * `undefined` when no such session row exists. Read off the DATA connection (sessions live there,
+   * not on the main/auth file), resolved lazily through ModuleRef so AuthModule — which is @Global
+   * and imported by SessionModule — never closes a module cycle. A failed read answers undefined
+   * (fails CLOSED for an account key); shared with the WebSocket gateway so REST and WS answer
+   * account-scope with one lookup and one cache.
+   */
+  async readSessionAccount(sessionId: string): Promise<string | null | undefined> {
+    const cached = this.sessionAccountCache.get(sessionId);
+    if (cached && Date.now() - cached.at < AuthService.SESSION_ACCOUNT_TTL_MS) {
+      return cached.accountId === '' ? undefined : cached.accountId;
+    }
+    if (!this.dataSource) {
+      this.dataSource = this.moduleRef.get<DataSource>(getDataSourceToken('data'), { strict: false });
+    }
+    const sql =
+      this.dataSource.options.type === 'postgres'
+        ? `SELECT "accountId" FROM "sessions" WHERE "id" = $1`
+        : `SELECT "accountId" FROM "sessions" WHERE "id" = ?`;
+    const rows = await this.dataSource.query<Array<{ accountId: string | null }>>(sql, [sessionId]);
+    const accountId = rows.length === 0 ? '' : (rows[0].accountId ?? null);
+    this.sessionAccountCache.set(sessionId, { accountId, at: Date.now() });
+    // Bounded: an install that churns sessions endlessly must not grow this map without limit.
+    if (this.sessionAccountCache.size > 10_000) {
+      for (const [key, entry] of this.sessionAccountCache) {
+        if (Date.now() - entry.at >= AuthService.SESSION_ACCOUNT_TTL_MS) this.sessionAccountCache.delete(key);
+      }
+    }
+    return accountId === '' ? undefined : accountId;
   }
 
   private hashKey(rawKey: string): string {

@@ -1,11 +1,4 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  Index,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { DateTransformer } from '../../../common/transformers/date.transformer';
 import { jsonColumnType, dateColumnType } from '../../../common/utils/column-types';
 
@@ -84,6 +77,14 @@ export class AiLlmModel {
 
   @Column({ type: dateColumnType(), nullable: true, transformer: DateTransformer })
   lastTestedAt!: Date | null;
+
+  /**
+   * Capabilities the provider proved during a connection test. `vision` is proven by answering a
+   * tiny image-input completion; null means the model has not been tested with the current
+   * endpoint/model id (a save re-probes).
+   */
+  @Column({ type: jsonColumnType(), nullable: true })
+  capabilities!: { vision: boolean; at: string } | null;
 
   @CreateDateColumn()
   createdAt!: Date;

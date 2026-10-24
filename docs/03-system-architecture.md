@@ -81,6 +81,8 @@ sequenceDiagram
 
 OpenWA is designed with a **Pluggable Architecture** that allows infrastructure components to be swapped without changing application code. This enables flexible deployments ranging from minimal single-session bots to larger single-node, multi-session installs.
 
+> **Multi-account:** one deployment can host several tenants (**accounts**). Each account owns its WhatsApp sessions and its own API keys (`POST /api/accounts/{id}/api-keys`); an account key resolves only its own account's sessions over REST and WebSocket, while a key without an account (the seeded master key, and every key created before accounts existed) remains global. Accounts are managed on the dashboard's **Accounts** page (`/accounts`, global ADMIN keys only) — see [02 - Multi-Account](02-multi-account.md).
+
 > **Note — single-instance:** the live WhatsApp engine layer is stateful and held in-process
 > (an in-memory `Map` in `EngineRegistry`). OpenWA currently runs as **one API instance per
 > session-data volume**; horizontal scaling across multiple API replicas is a future design

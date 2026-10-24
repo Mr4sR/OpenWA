@@ -630,9 +630,23 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     this.syncQrAccess(client, subscriberKey.role);
 
     // Enforce per-key session scope against the FRESH key: a key restricted to specific
-    // sessions must not subscribe to '*' or a session outside its allowlist (#221).
+    // sessions must not subscribe to '*' or a session outside its allowlist (#221). An ACCOUNT key
+    // additionally may not subscribe to another account's session (nor to '*': the wildcard would
+    // carry foreign tenants' events); the ownership read is the same cached lookup the REST guard
+    // uses, so REST and WS can never disagree about who owns a session.
     if (!isSessionSubscriptionAllowed(subscriberKey.allowedSessions, sessionId)) {
       return this.createError('FORBIDDEN_SESSION', 'API key is not authorized for this session', requestId);
+    }
+    if (subscriberKey.accountId) {
+      // `*` spans every tenant, so an account key may not take it; a named session is checked
+      // against its owner (the same cached lookup the REST guard uses).
+      if (sessionId === '*' || sessionId.startsWith('*')) {
+        return this.createError('FORBIDDEN_SESSION', 'An account key cannot subscribe to every session', requestId);
+      }
+      const sessionAccount = await this.authService.readSessionAccount(sessionId);
+      if (sessionAccount !== null && sessionAccount !== subscriberKey.accountId) {
+        return this.createError('FORBIDDEN_SESSION', 'API key is not authorized for this account', requestId);
+      }
     }
 
     // Validate events

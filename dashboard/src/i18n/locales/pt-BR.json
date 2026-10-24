@@ -52,7 +52,8 @@
     "retry": "Tentar novamente",
     "yes": "Sim",
     "no": "Não",
-    "panelResize": "Redimensionar painel"
+    "panelResize": "Redimensionar painel",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "Claro",
@@ -1247,6 +1248,7 @@
       "selectSession": "Selecione uma sessão…",
       "name": "Nome",
       "llmModel": "Modelo LLM",
+      "llmModelHint": "Um modelo marcado como \"vision\" pode ler fotos de clientes; modelos não testados recebem a marca após a primeira gravação/teste.",
       "ragModel": "Conhecimento RAG",
       "noRag": "Nenhum",
       "persona": "Persona",
@@ -1285,7 +1287,11 @@
       "maxTokens": "Máximo de tokens",
       "test": "Testar conexão",
       "lastTest": "Último teste",
-      "testOk": "OK"
+      "testOk": "OK",
+      "visionChip": "vision",
+      "visionYes": "Este modelo aceita imagens — as fotos dos clientes são enviadas a ele.",
+      "visionNo": "Comprovado que não vê imagens — perguntas sobre fotos são respondidas apenas pela legenda.",
+      "visionNoStrict": "Salvo, mas este modelo não consegue ver imagens — perguntas sobre fotos são respondidas apenas pela legenda."
     },
     "rag": {
       "emptyTitle": "Ainda não há modelos RAG",
@@ -1389,5 +1395,26 @@
       "note": "As respostas são geradas de verdade (LLM + conhecimento), mas nunca entregues a nenhum chat.",
       "sessionLabel": "Sessão"
     }
+  },
+  "accounts": {
+    "title": "Contas",
+    "subtitle": "Inquilinos que possuem sessões do WhatsApp e suas próprias chaves de API.",
+    "add": "Adicionar conta",
+    "name": "Nome da conta",
+    "note": "Nota",
+    "status": "Status",
+    "active": "Ativa",
+    "inactive": "Inativa",
+    "emptyTitle": "Nenhuma conta ainda",
+    "emptyDescription": "Crie uma conta por inquilino; cada conta recebe sua própria chave de API.",
+    "createTitle": "Adicionar conta",
+    "editTitle": "Editar conta",
+    "saved": "Conta salva",
+    "created": "Conta criada",
+    "deleted": "Conta excluída",
+    "deleteTitle": "Excluir conta",
+    "deleteConfirm": "Excluir a conta {{name}}? Só é possível excluir uma conta sem sessões e sem chaves.",
+    "hint": "Uma chave de conta alcança apenas suas sessões; uma chave global alcança tudo.",
+    "activeAccount": "Conta"
   }
 }

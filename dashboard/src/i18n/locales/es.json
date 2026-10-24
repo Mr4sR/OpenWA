@@ -52,7 +52,8 @@
     "retry": "Reintentar",
     "yes": "Sí",
     "no": "No",
-    "panelResize": "Redimensionar panel"
+    "panelResize": "Redimensionar panel",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "Claro",
@@ -1247,6 +1248,7 @@
       "selectSession": "Selecciona una sesión…",
       "name": "Nombre",
       "llmModel": "Modelo LLM",
+      "llmModelHint": "Un modelo marcado como \"vision\" puede leer fotos de clientes; los modelos sin probar reciben la marca tras el primer guardado/test.",
       "ragModel": "Conocimiento RAG",
       "noRag": "Ninguno",
       "persona": "Persona",
@@ -1285,7 +1287,11 @@
       "maxTokens": "Tokens máximos",
       "test": "Probar conexión",
       "lastTest": "Última prueba",
-      "testOk": "OK"
+      "testOk": "OK",
+      "visionChip": "vision",
+      "visionYes": "Este modelo acepta imágenes — las fotos de los clientes se le envían.",
+      "visionNo": "Se comprobó que no ve imágenes — las preguntas sobre fotos se responden solo con el texto.",
+      "visionNoStrict": "Guardado, pero este modelo no puede ver imágenes — las preguntas sobre fotos se responden solo con el texto."
     },
     "rag": {
       "emptyTitle": "Aún no hay modelos RAG",
@@ -1389,5 +1395,26 @@
       "note": "Las respuestas se generan de verdad (LLM + conocimiento), pero nunca se entregan a ningún chat.",
       "sessionLabel": "Sesión"
     }
+  },
+  "accounts": {
+    "title": "Cuentas",
+    "subtitle": "Inquilinos que poseen sesiones de WhatsApp y sus propias claves API.",
+    "add": "Añadir cuenta",
+    "name": "Nombre de la cuenta",
+    "note": "Nota",
+    "status": "Estado",
+    "active": "Activa",
+    "inactive": "Inactiva",
+    "emptyTitle": "Aún no hay cuentas",
+    "emptyDescription": "Crea una cuenta por inquilino; cada cuenta obtiene su propia clave API.",
+    "createTitle": "Añadir cuenta",
+    "editTitle": "Editar cuenta",
+    "saved": "Cuenta guardada",
+    "created": "Cuenta creada",
+    "deleted": "Cuenta eliminada",
+    "deleteTitle": "Eliminar cuenta",
+    "deleteConfirm": "¿Eliminar la cuenta {{name}}? Solo se puede eliminar una cuenta sin sesiones ni claves.",
+    "hint": "Una clave de cuenta solo alcanza sus sesiones; una clave global alcanza todo.",
+    "activeAccount": "Cuenta"
   }
 }

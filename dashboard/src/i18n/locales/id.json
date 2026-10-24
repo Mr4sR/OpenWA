@@ -50,7 +50,8 @@
     "retry": "Coba lagi",
     "yes": "Ya",
     "no": "Tidak",
-    "panelResize": "Ubah ukuran panel"
+    "panelResize": "Ubah ukuran panel",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "Terang",
@@ -1241,6 +1242,7 @@
       "selectSession": "Pilih sesi…",
       "name": "Nama",
       "llmModel": "Model LLM",
+      "llmModelHint": "Model bertanda \"vision\" bisa membaca foto pelanggan; model yang belum diuji mendapat tanda setelah simpan/tes pertama.",
       "ragModel": "Pengetahuan RAG",
       "noRag": "Tidak ada",
       "persona": "Persona",
@@ -1279,7 +1281,11 @@
       "maxTokens": "Token maks",
       "test": "Tes koneksi",
       "lastTest": "Tes terakhir",
-      "testOk": "OK"
+      "testOk": "OK",
+      "visionChip": "vision",
+      "visionYes": "Model ini menerima gambar — foto pelanggan dikirim ke model.",
+      "visionNo": "Terbukti tidak bisa melihat gambar — pertanyaan soal foto dijawab dari caption saja.",
+      "visionNoStrict": "Tersimpan, tetapi model ini tidak bisa melihat gambar — pertanyaan soal foto dijawab dari caption saja."
     },
     "rag": {
       "emptyTitle": "Belum ada model RAG",
@@ -1383,5 +1389,26 @@
       "note": "Balasan dihasilkan sungguhan (LLM + pengetahuan) tetapi tidak pernah dikirim ke obrolan mana pun.",
       "sessionLabel": "Sesi"
     }
+  },
+  "accounts": {
+    "title": "Akun",
+    "subtitle": "Tenant yang memiliki sesi WhatsApp dan API key-nya sendiri. Sesi yang dibuat dengan key akun menjadi milik akun itu dan tidak terlihat oleh akun lain.",
+    "add": "Tambah akun",
+    "name": "Nama akun",
+    "note": "Catatan",
+    "status": "Status",
+    "active": "Aktif",
+    "inactive": "Nonaktif",
+    "emptyTitle": "Belum ada akun",
+    "emptyDescription": "Buat satu akun per tenant. Setiap akun mendapat API key sendiri (POST /api/accounts/{id}/api-keys); key itu bisa membuat dan memakai sesi WhatsApp-nya sendiri.",
+    "createTitle": "Tambah akun",
+    "editTitle": "Ubah akun",
+    "saved": "Akun tersimpan",
+    "created": "Akun dibuat",
+    "deleted": "Akun dihapus",
+    "deleteTitle": "Hapus akun",
+    "deleteConfirm": "Hapus akun {{name}}? Hanya akun tanpa sesi dan tanpa API key yang bisa dihapus.",
+    "hint": "Key akun hanya menjangkau sesinya sendiri. Key global (tanpa akun) tetap menjangkau semuanya.",
+    "activeAccount": "Akun"
   }
 }

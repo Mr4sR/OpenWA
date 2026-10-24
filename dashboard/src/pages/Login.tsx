@@ -8,7 +8,7 @@ import { API_BASE_URL } from '../services/api';
 import './Login.css';
 
 interface LoginProps {
-  onLogin: (apiKey: string, role?: string, engineType?: string, scoped?: boolean) => void;
+  onLogin: (apiKey: string, role?: string, engineType?: string, scoped?: boolean, accountId?: string | null) => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
@@ -46,12 +46,15 @@ export function Login({ onLogin }: LoginProps) {
       if (response.ok) {
         // The validate body already carries the key's role — hand it up so the app can set it
         // directly instead of re-validating the same key a second time.
-        const data: { role?: string; engineType?: string; scoped?: unknown } = await response.json().catch(() => ({}));
+        const data: { role?: string; engineType?: string; scoped?: unknown; accountId?: unknown } = await response
+          .json()
+          .catch(() => ({}));
         onLogin(
           key,
           data.role,
           typeof data.engineType === 'string' ? data.engineType : undefined,
           data.scoped === true,
+          typeof data.accountId === 'string' ? data.accountId : null,
         );
       } else {
         // A 5xx, or a body that is not the gateway's JSON (a proxy error page while it restarts), says

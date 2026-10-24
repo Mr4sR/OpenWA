@@ -65,6 +65,8 @@ before(async () => {
     setEngineType: () => undefined,
     scoped: false,
     setScoped: () => undefined,
+    accountId: null,
+    setAccountId: () => undefined,
   });
   render = (engineType = 'whatsapp-web.js') =>
     rtl.render(

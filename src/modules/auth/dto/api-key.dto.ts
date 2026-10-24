@@ -112,9 +112,14 @@ export class ApiKeyResponseDto {
   @ApiProperty({ enum: ApiKeyRole })
   role!: ApiKeyRole;
 
+  @ApiPropertyOptional({
+    description: 'The account (tenant) this key acts for; null/omitted = a global key (every account).',
+    nullable: true,
+  })
+  accountId?: string | null;
+
   @ApiPropertyOptional()
   allowedIps?: string[];
-
   @ApiPropertyOptional()
   allowedSessions?: string[];
 
@@ -164,6 +169,12 @@ export class ValidateApiKeyResponseDto {
     example: false,
   })
   scoped?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'The account (tenant) the key acts for; null when the key is global (reaches every account).',
+    nullable: true,
+  })
+  accountId?: string | null;
 }
 
 export class UpdateApiKeyDto {

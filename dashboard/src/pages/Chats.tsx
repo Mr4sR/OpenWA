@@ -176,7 +176,7 @@ export function Chats() {
     queryFn: () => aiApi.listChatbots(),
     enabled: !!selectedSessionId,
     staleTime: 60_000,
-    select: (bots: AiChatbot[]) => bots.filter(b => b.sessionId === selectedSessionId && b.enabled),
+    select: (bots: AiChatbot[]) => bots.filter(b => b.sessionIds.includes(selectedSessionId) && b.enabled),
   });
   const aiChatbots = aiChatbotsQuery.data ?? [];
   // Gated on the bot list having LOADED, not on its derived length: with the derived gate, the very
@@ -189,8 +189,7 @@ export function Chats() {
 
   const aiStatesQuery = useQuery({
     queryKey: ['ai', 'chat-states', selectedSessionId, chatIdsKey(selectedSessionId)],
-    queryFn: () =>
-      aiApi.getChatStates(selectedSessionId, ALL_CHAT_IDS.get(selectedSessionId) ?? []),
+    queryFn: () => aiApi.getChatStates(selectedSessionId, ALL_CHAT_IDS.get(selectedSessionId) ?? []),
     enabled: statesGateReady,
     staleTime: 30_000,
   });
@@ -1451,4 +1450,3 @@ export function Chats() {
     </div>
   );
 }
-

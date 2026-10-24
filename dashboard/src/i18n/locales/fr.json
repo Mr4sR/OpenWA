@@ -52,7 +52,8 @@
     "retry": "Réessayer",
     "yes": "Oui",
     "no": "Non",
-    "panelResize": "Redimensionner le panneau"
+    "panelResize": "Redimensionner le panneau",
+    "error": "Error: {{message}}"
   },
   "theme": {
     "light": "Clair",
@@ -1247,6 +1248,7 @@
       "selectSession": "Sélectionnez une session…",
       "name": "Nom",
       "llmModel": "Modèle LLM",
+      "llmModelHint": "Un modèle marqué « vision » peut lire les photos des clients ; les modèles non testés obtiennent la marque après le premier enregistrement/test.",
       "ragModel": "Connaissances RAG",
       "noRag": "Aucune",
       "persona": "Persona",
@@ -1285,7 +1287,11 @@
       "maxTokens": "Tokens max",
       "test": "Tester la connexion",
       "lastTest": "Dernier test",
-      "testOk": "OK"
+      "testOk": "OK",
+      "visionChip": "vision",
+      "visionYes": "Ce modèle accepte les images — les photos des clients lui sont envoyées.",
+      "visionNo": "Il est prouvé qu’il ne voit pas les images — les questions photo sont répondues à partir de la légende uniquement.",
+      "visionNoStrict": "Enregistré, mais ce modèle ne peut pas voir les images — les questions photo sont répondues à partir de la légende uniquement."
     },
     "rag": {
       "emptyTitle": "Aucun modèle RAG pour le moment",
@@ -1389,5 +1395,26 @@
       "note": "Les réponses sont réellement produites (LLM + connaissances) mais jamais livrées dans une conversation.",
       "sessionLabel": "Session"
     }
+  },
+  "accounts": {
+    "title": "Comptes",
+    "subtitle": "Locataires possédant leurs sessions WhatsApp et leurs propres clés API.",
+    "add": "Ajouter un compte",
+    "name": "Nom du compte",
+    "note": "Note",
+    "status": "Statut",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "emptyTitle": "Aucun compte",
+    "emptyDescription": "Créez un compte par locataire ; chaque compte reçoit sa propre clé API.",
+    "createTitle": "Ajouter un compte",
+    "editTitle": "Modifier le compte",
+    "saved": "Compte enregistré",
+    "created": "Compte créé",
+    "deleted": "Compte supprimé",
+    "deleteTitle": "Supprimer le compte",
+    "deleteConfirm": "Supprimer le compte {{name}} ? Seul un compte sans sessions ni clés peut être supprimé.",
+    "hint": "Une clé de compte n’atteint que ses sessions ; une clé globale atteint tout.",
+    "activeAccount": "Compte"
   }
 }

@@ -11,7 +11,10 @@ export interface RoleContextType {
   /** Engine the gateway runs, as POST /auth/validate reported it; null until it has answered. */
   engineType: string | null;
   setEngineType: (engineType: string | null) => void;
-  /** Whether the key is restricted to selected sessions, so the cross-session routes refuse it. */
+  /** Whether the key is restricted (selected sessions or one account), so cross-session routes refuse it. */
   scoped: boolean;
   setScoped: (scoped: boolean) => void;
+  /** The account (tenant) the key acts for; null when the key is global (every account). */
+  accountId: string | null;
+  setAccountId: (accountId: string | null) => void;
 }

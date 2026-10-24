@@ -43,6 +43,7 @@ test('startup validation: 429/5xx keeps the cached role (transient failure, not 
 test('startup validation: ok + role refreshes the cached role from the server', () => {
   assert.deepEqual(resolveStartupValidation(200, { valid: true, role: 'viewer' }), {
     action: 'role',
+    accountId: null,
     role: 'viewer',
     scoped: false,
   });
@@ -51,6 +52,7 @@ test('startup validation: ok + role refreshes the cached role from the server', 
 test('startup validation: ok + role also carries the engine the server reports', () => {
   assert.deepEqual(resolveStartupValidation(200, { valid: true, role: 'operator', engineType: 'baileys' }), {
     action: 'role',
+    accountId: null,
     role: 'operator',
     scoped: false,
     engineType: 'baileys',
@@ -60,12 +62,14 @@ test('startup validation: ok + role also carries the engine the server reports',
 test('startup validation: ok + role carries whether the key is session-scoped', () => {
   assert.deepEqual(resolveStartupValidation(200, { valid: true, role: 'admin', scoped: true }), {
     action: 'role',
+    accountId: null,
     role: 'admin',
     scoped: true,
   });
   // Anything but a literal true is unscoped.
   assert.deepEqual(resolveStartupValidation(200, { valid: true, role: 'admin', scoped: 'yes' }), {
     action: 'role',
+    accountId: null,
     role: 'admin',
     scoped: false,
   });

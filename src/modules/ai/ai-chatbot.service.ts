@@ -27,7 +27,6 @@ import { CreateAiChatbotDto, UpdateAiChatbotDto } from './dto/ai-chatbot.dto';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 
-
 /** Default conversation history (prior messages) carried into the prompt. Not operator-tuned. */
 const CHATBOT_HISTORY_MESSAGES = 8;
 
@@ -76,7 +75,12 @@ function summarizeToolResult(result: unknown): string {
     const text = content
       .map(part => {
         if (typeof part === 'string') return part;
-        if (part && typeof part === 'object' && 'text' in part && typeof (part as { text: unknown }).text === 'string') {
+        if (
+          part &&
+          typeof part === 'object' &&
+          'text' in part &&
+          typeof (part as { text: unknown }).text === 'string'
+        ) {
           return (part as { text: string }).text;
         }
         return '';
@@ -121,6 +125,63 @@ export interface ChatbotInboundMessage {
   timestamp?: number;
   kind?: string;
   isGroup?: boolean;
+  /** The engine's media payload: base64 bytes for an image, or the `omitted` marker. */
+  media?: { mimetype?: string; data?: string; omitted?: boolean; sizeBytes?: number };
+  type?: string;
+}
+
+/** Image mimetypes an OpenAI-compatible provider accepts as an `image_url` data URI. */
+const VISION_MEDIA_TYPES: Record<string, true> = {
+  'image/jpeg': true,
+  'image/png': true,
+  'image/webp': true,
+  'image/gif': true,
+};
+
+/** The largest image worth sending to a provider: input is billed on all of its pixels. */
+const VISION_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * One user turn carrying a photo: the free-form text (caption), then the image itself. Mirrors
+ * the OpenAI multimodal shape every compatible gateway (OpenAI, Gemini compat, vLLM, Ollama)
+ * accepts; a model without vision answers with a provider error, which the caller routes around.
+ */
+function imageTurn(text: string, media: NonNullable<ChatbotInboundMessage['media']>): ChatCompletionMessage[] | null {
+  const mimetype = (media.mimetype ?? '').toLowerCase();
+  const data = media.data ?? '';
+  if (media.omitted || data.length === 0 || !VISION_MEDIA_TYPES[mimetype]) return null;
+  if (Buffer.byteLength(data, 'base64') > VISION_MAX_BYTES) return null;
+  const parts: Array<Record<string, unknown>> = [];
+  if (text.trim().length > 0) parts.push({ type: 'text', text });
+  parts.push({ type: 'image_url', image_url: { url: `data:${mimetype};base64,${data}` } });
+  return [{ role: 'user', content: parts } as unknown as ChatCompletionMessage];
+}
+
+/**
+ * The user turn(s) for one inbound message: a photo rides as an `image_url` content part beside
+ * its caption when the linked model proved vision, and degrades to a text note otherwise so the
+ * bot still answers ("I can't view the image") instead of stalling on an image-blind provider.
+ */
+export function buildUserTurns(message: ChatbotInboundMessage, visionCapable: boolean): ChatCompletionMessage[] {
+  const media = message.media;
+  const mimetype = (media?.mimetype ?? '').toLowerCase();
+  // An empty mimetype on an image-typed row is still a photo the customer sent (the engine keeps
+  // the type; only the payload marker can lose the mimetype), so it gets the same note.
+  const isImage =
+    media !== undefined && (mimetype.startsWith('image/') || (mimetype === '' && message.type === 'image'));
+  if (!media || !isImage) {
+    return [{ role: 'user', content: message.body }];
+  }
+  const text = message.body.trim();
+  if (visionCapable) {
+    const turn = imageTurn(text, media);
+    if (turn) return turn;
+  }
+  const note =
+    media.omitted || !media.data || !mimetype
+      ? '[The customer sent an image, but its bytes were not stored (unsupported type or over the size cap), so it cannot be viewed.]'
+      : '[The customer sent an image this model cannot view.]';
+  return [{ role: 'user', content: text.length > 0 ? `${text}\n\n${note}` : note }];
 }
 
 /**
@@ -201,11 +262,7 @@ export class AiChatbotService {
     const bots = await this.repository.find();
     const clash = bots
       .filter(bot => bot.id !== excludeChatbotId)
-      .flatMap(bot =>
-        bot.sessionIds
-          .filter(id => requestedIds.includes(id))
-          .map(sessionId => ({ bot, sessionId })),
-      );
+      .flatMap(bot => bot.sessionIds.filter(id => requestedIds.includes(id)).map(sessionId => ({ bot, sessionId })));
     if (clash.length > 0) {
       const first = clash[0];
       throw new BadRequestException(
@@ -345,7 +402,7 @@ export class AiChatbotService {
     const turns: ChatCompletionMessage[] = [
       ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
       ...history,
-      { role: 'user' as const, content: body },
+      ...buildUserTurns({ chatId: PLAYGROUND_CHAT_ID, body }, llm.capabilities?.vision === true),
     ];
     const reply = await this.completeWithMcpTools(chatbot, llm, turns);
     if (!reply) {
@@ -432,7 +489,10 @@ export class AiChatbotService {
    */
   async evaluateInbound(sessionId: string, message: ChatbotInboundMessage): Promise<void> {
     if (message.fromMe === true) return;
-    if (!message.chatId || !message.body?.trim()) return;
+    // A caption-less photo carries no body: an image-bearing message still reaches its bot, the
+    // vision path answers it, and a truly empty text message is dropped as before.
+    const isImage = (message.media?.mimetype ?? '').toLowerCase().startsWith('image/');
+    if (!message.chatId || (!message.body?.trim() && !isImage)) return;
     const timestamp = typeof message.timestamp === 'number' ? message.timestamp : null;
     if (timestamp !== null && Date.now() / 1000 - timestamp > MAX_MESSAGE_AGE_SECONDS) return;
 
@@ -454,7 +514,8 @@ export class AiChatbotService {
     // Fail-open inside the helper keeps a dead mapping read from breaking the receive path.
     if (await this.isChatHumanHeld(sessionId, message.chatId)) return;
 
-    const isGroup = message.isGroup ?? ((message.kind ?? 'individual') === GROUP_KIND || message.chatId.endsWith('@g.us'));
+    const isGroup =
+      message.isGroup ?? ((message.kind ?? 'individual') === GROUP_KIND || message.chatId.endsWith('@g.us'));
     // A group needs the operator's explicit opt-in: the bot speaks in front of every member.
     if (isGroup && !chatbot.replyGroups) return;
     // Channel / broadcast / status are never answered.
@@ -557,9 +618,22 @@ export class AiChatbotService {
       const turns: ChatCompletionMessage[] = [
         ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
         ...history,
-        { role: 'user' as const, content: message.body },
+        ...buildUserTurns(message, llm.capabilities?.vision === true),
       ];
-      const text = await this.completeWithMcpTools(chatbot, llm, turns);
+      let text: string;
+      try {
+        text = await this.completeWithMcpTools(chatbot, llm, turns);
+      } catch (error) {
+        // A stored vision flag can go stale (a model swapped behind the same id, a gateway that
+        // dropped image input). Retry once as text so the customer still gets an answer.
+        if (llm.capabilities?.vision !== true) throw error;
+        const plain: ChatCompletionMessage[] = [
+          ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+          ...history,
+          ...buildUserTurns(message, false),
+        ];
+        text = await this.completeWithMcpTools(chatbot, llm, plain);
+      }
       if (!text) {
         await this.recordError(chatbot, 'the model returned an empty answer');
         return false;
@@ -604,12 +678,18 @@ export class AiChatbotService {
    * arguments) lands back to the model as an error string so it can answer from what it has —
    * the failure never surfaces as a thrown reply.
    */
-  private async completeWithMcpTools(chatbot: AiChatbot, llm: AiLlmModel, turns: ChatCompletionMessage[]): Promise<string> {
+  private async completeWithMcpTools(
+    chatbot: AiChatbot,
+    llm: AiLlmModel,
+    turns: ChatCompletionMessage[],
+  ): Promise<string> {
     const tools = await this.resolveChatbotTools(chatbot);
     if (tools.length === 0) {
       // No MCP tools reachable (none configured, none enabled, or every server failed): the
       // answer is just the plain completion the bot always made.
-      return (await this.llmModels.complete(llm, turns as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>)).trim();
+      return (
+        await this.llmModels.complete(llm, turns as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>)
+      ).trim();
     }
     const conversation: ChatCompletionMessage[] = [...turns];
     for (let round = 0; round < MCP_TOOL_ROUNDS; round++) {
@@ -623,10 +703,15 @@ export class AiChatbotService {
       }
     }
     // Budget spent: force a textual answer with the knowledge already gathered.
-    conversation.push({ role: 'user', content: 'Finish now: answer the user with the information you already have, in one short message.' });
+    conversation.push({
+      role: 'user',
+      content: 'Finish now: answer the user with the information you already have, in one short message.',
+    });
     const final = await this.llmModels.complete(
       llm,
-      conversation.filter((turn): turn is { role: 'system' | 'user' | 'assistant'; content: string } => 'content' in turn),
+      conversation.filter(
+        (turn): turn is { role: 'system' | 'user' | 'assistant'; content: string } => 'content' in turn,
+      ),
     );
     return final.trim();
   }
@@ -637,7 +722,9 @@ export class AiChatbotService {
    */
   private async resolveChatbotTools(
     chatbot: AiChatbot,
-  ): Promise<Array<{ type: 'function'; function: { name: string; description?: string; parameters: Record<string, unknown> } }>> {
+  ): Promise<
+    Array<{ type: 'function'; function: { name: string; description?: string; parameters: Record<string, unknown> } }>
+  > {
     let connections: Awaited<ReturnType<AiMcpConnectionsService['findAll']>>;
     try {
       connections = await this.mcpConnections.findAll();
@@ -647,7 +734,10 @@ export class AiChatbotService {
     const enabled = connections.filter(connection => connection.enabled);
     if (enabled.length === 0) return [];
     const selected = new Set(chatbot.mcpToolIds ?? []);
-    const tools: Array<{ type: 'function'; function: { name: string; description?: string; parameters: Record<string, unknown> } }> = [];
+    const tools: Array<{
+      type: 'function';
+      function: { name: string; description?: string; parameters: Record<string, unknown> };
+    }> = [];
     for (const connection of enabled) {
       let advertised: Awaited<ReturnType<AiMcpConnectionsService['listTools']>>;
       try {
@@ -784,7 +874,10 @@ export class AiChatbotService {
    * The recent messages of the chat, oldest first, as conversation history. The inbound message
    * itself is excluded (it is the user turn the caller appends).
    */
-  private async buildHistory(sessionId: string | undefined, message: ChatbotInboundMessage): Promise<ChatCompletionMessage[]> {
+  private async buildHistory(
+    sessionId: string | undefined,
+    message: ChatbotInboundMessage,
+  ): Promise<ChatCompletionMessage[]> {
     if (!sessionId) return [];
     try {
       const rows = await this.messageRepository.find({

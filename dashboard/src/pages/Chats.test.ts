@@ -48,7 +48,7 @@ let searchHits: SearchHit[] = [];
 
 // The AI Integration side of the Chats page: the session's enabled chatbots, the chats each
 // bot is muted in, and a switch that makes the save fail (the page must then re-read the state).
-let aiChatbots: Array<{ id: string; name: string; sessionId: string; enabled: boolean }> = [];
+let aiChatbots: Array<{ id: string; name: string; sessionIds: string[]; enabled: boolean }> = [];
 let aiOverrides: Record<string, string[]> = {};
 let aiStateFails = false;
 // The engine the gateway reports: only whatsapp-web.js lists channels.
@@ -2053,7 +2053,7 @@ const THIRD_SESSION_HIT: SearchHit = {
 
 test('an enabled chatbot renders an AI on chip per chat, and clicking it mutes that chat', async () => {
   const { screen, waitFor } = rtl;
-  aiChatbots = [{ id: 'bot-1', name: 'Support bot', sessionId: SESSION.id, enabled: true }];
+  aiChatbots = [{ id: 'bot-1', name: 'Support bot', sessionIds: [SESSION.id], enabled: true }];
   resetFetchCalls();
   const { container } = renderChats();
 
@@ -2086,10 +2086,9 @@ test('an enabled chatbot renders an AI on chip per chat, and clicking it mutes t
   });
 });
 
-
 test('a muted chat renders the AI off chip, and clicking it re-enables the bot there', async () => {
   const { screen, waitFor } = rtl;
-  aiChatbots = [{ id: 'bot-1', name: 'Support bot', sessionId: SESSION.id, enabled: true }];
+  aiChatbots = [{ id: 'bot-1', name: 'Support bot', sessionIds: [SESSION.id], enabled: true }];
   aiOverrides = { [CHAT.id]: ['bot-1'] };
   resetFetchCalls();
   const { container } = renderChats();
@@ -2120,7 +2119,7 @@ test('a muted chat renders the AI off chip, and clicking it re-enables the bot t
 
 test('a failed mute save reverts the chip to the server state', async () => {
   const { screen, waitFor } = rtl;
-  aiChatbots = [{ id: 'bot-1', name: 'Support bot', sessionId: SESSION.id, enabled: true }];
+  aiChatbots = [{ id: 'bot-1', name: 'Support bot', sessionIds: [SESSION.id], enabled: true }];
   aiStateFails = true;
   resetFetchCalls();
   const { container } = renderChats();
@@ -2149,7 +2148,7 @@ test('a failed mute save reverts the chip to the server state', async () => {
 
 test('a disabled chatbot renders no AI chip at all', async () => {
   const { screen, waitFor } = rtl;
-  aiChatbots = [{ id: 'bot-2', name: 'Idle bot', sessionId: SESSION.id, enabled: false }];
+  aiChatbots = [{ id: 'bot-2', name: 'Idle bot', sessionIds: [SESSION.id], enabled: false }];
   const { container } = renderChats();
   await screen.findByText('Alice');
   // The staleTime-gated states query never fires for a zero-bot session; waiting for any

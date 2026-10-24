@@ -49,6 +49,7 @@ import { paginate } from '../../common/utils/paginate';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 import {
+  AllowAccountKeys,
   ChatScoped,
   CurrentApiKey,
   RequireRole,
@@ -86,9 +87,11 @@ export class SessionController {
   @RequireRole(ApiKeyRole.OPERATOR)
   // Creating a session has no existing session id for the class-level @SessionScoped fence to check,
   // and the new session is outside the caller's allowlist by construction — so a key restricted to
-  // specific sessions cannot create one. Different metadata key from @SessionScoped; they coexist.
+  // specific sessions cannot create one. An ACCOUNT key MAY: the new row is stamped with the
+  // caller's accountId, which is the whole point of accounts. Different metadata key from
+  // @SessionScoped; they coexist.
   @RequireUnscopedKey()
-  @ApiOperation({ summary: 'Create a new WhatsApp session' })
+  @AllowAccountKeys()
   @ApiResponse({
     status: 201,
     description: 'Session created',
@@ -108,10 +111,13 @@ export class SessionController {
     if (dto.proxyUrl && apiKey?.role !== ApiKeyRole.ADMIN) {
       throw new ForbiddenException('Setting proxyUrl requires an ADMIN key');
     }
-    const session = await this.sessionService.create(dto);
+    // The session is owned by the key's account: an account key creates a session of its tenant, a
+    // global (NULL-account) key creates a global session — the pre-accounts behaviour, unchanged.
+    const session = await this.sessionService.create(dto, apiKey?.accountId ?? null);
     await this.auditService.logInfo(AuditAction.SESSION_CREATED, {
       sessionId: session.id,
       sessionName: session.name,
+      metadata: { accountId: session.accountId },
     });
     return this.transformSession(session);
   }
@@ -146,12 +152,18 @@ export class SessionController {
       throw new BadRequestException('name must be a single non-empty value');
     }
     // Scope to the key's allowedSessions so a session-restricted key cannot enumerate every
-    // session. A null/empty allowlist lists all whatever the key's role; a scoped ADMIN key is filtered too.
-    const sessions = await this.sessionService.findAll(apiKey?.allowedSessions, {
-      limit: limit ? parseInt(limit, 10) : undefined,
-      offset: offset ? parseInt(offset, 10) : undefined,
-      name,
-    });
+    // session, and to the key's ACCOUNT so a tenant sees only its own sessions. A global key
+    // (NULL accountId) lists all — a null/empty allowlist also lists all whatever the key's role;
+    // a scoped ADMIN key is filtered too.
+    const sessions = await this.sessionService.findAll(
+      apiKey?.allowedSessions,
+      {
+        limit: limit ? parseInt(limit, 10) : undefined,
+        offset: offset ? parseInt(offset, 10) : undefined,
+        name,
+      },
+      apiKey?.accountId ?? null,
+    );
     return sessions.map(s => this.transformSession(s));
   }
 

@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Smartphone,
   MessageSquare,
+  ShieldCheck,
   Webhook,
   Key,
   FileText,
@@ -44,6 +45,7 @@ const allNavItems = [
   { to: '/number-checker', icon: UserCheck, key: 'numberChecker' as const, adminOnly: false },
   { to: '/webhooks', icon: Webhook, key: 'webhooks' as const, adminOnly: false },
   { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
+  { to: '/accounts', icon: ShieldCheck, key: 'accounts' as const, adminOnly: true, unscopedOnly: true },
   { to: '/api-keys', icon: Key, key: 'apiKeys' as const, adminOnly: true, unscopedOnly: true },
   { to: '/message-tester', icon: Send, key: 'messageTester' as const, adminOnly: false },
   // Backend /infra/* is ADMIN-only; hide the nav item from non-admins (UX + defense-in-depth).
@@ -66,7 +68,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
     value: t(`theme.${theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'}`),
   });
 
-  const { scoped } = useRole();
+  const { scoped, accountId } = useRole();
   const navItems = allNavItems.filter(
     item => (!item.adminOnly || userRole === 'admin') && (!item.unscopedOnly || !scoped),
   );
@@ -200,6 +202,12 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
             <div className="sidebar-brand">
               <span className="brand-name">{t('common.appName')}</span>
               <span className="brand-version">v{version}</span>
+              {/* The tenant this tab's key acts for; a global key (null) reads as the operator view. */}
+              {accountId && (
+                <span className="brand-account" title={t('accounts.activeAccount')}>
+                  {t('accounts.activeAccount')}: {accountId.slice(0, 8)}
+                </span>
+              )}
               {update && (
                 <a className="brand-update" href={update.url} target="_blank" rel="noopener noreferrer">
                   {t('common.updateAvailable', { version: update.latest })}

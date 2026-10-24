@@ -36,6 +36,16 @@ export class ApiKey {
   @Column({ type: 'simple-array', nullable: true })
   allowedSessions!: string[] | null;
 
+  /**
+   * The account (tenant) this key acts for, or NULL for the global surface — the seeded master
+   * key and every key written before accounts existed. A key bound to an account only reaches
+   * that account's sessions (guard fence) and only issues credentials for that account; a global
+   * key keeps reaching everything, which is what keeps a single-tenant install unchanged.
+   */
+  @Index('IDX_api_keys_accountId', ['accountId'], { where: '"accountId" IS NOT NULL' })
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  accountId!: string | null;
+
   // Chat-level allowlist, independent of allowedSessions and the same fail-open semantic: NULL or
   // empty means "every chat". Entries are WhatsApp chat ids (a group `<id>@g.us`, a contact
   // `<phone>@c.us` / `<lid>@lid`, or a bare phone number). Enforced on the read surface and on

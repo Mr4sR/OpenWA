@@ -21,6 +21,7 @@ describe('SessionController — create() response contract', () => {
     name: 'test-session',
     status: SessionStatus.CREATED,
     phone: null,
+    accountId: null,
     pushName: null,
     config: { engine: 'whatsapp-web.js', webhook: 'https://internal.example/hook' },
     proxyUrl: 'http://user:pass@proxy.internal:8080',
@@ -156,6 +157,7 @@ describe('SessionController — logout() audit + error forwarding contract', () 
     name: 'test-session',
     status: SessionStatus.DISCONNECTED,
     phone: null,
+    accountId: null,
     pushName: null,
     config: {},
     proxyUrl: null,
@@ -222,6 +224,7 @@ describe('SessionController — start/stop lifecycle', () => {
     name: 'test-session',
     status: SessionStatus.READY,
     phone: '628123',
+    accountId: null,
     pushName: null,
     config: {},
     proxyUrl: null,
@@ -383,20 +386,28 @@ describe('SessionController findAll name filter', () => {
     );
   });
 
-  it('forwards the name alongside the key allowlist and the window', async () => {
+  it('forwards the name alongside the key allowlist, the window and the account', async () => {
     await expect(controller.findAll(apiKey, '10', '5', 'my-bot')).resolves.toEqual([]);
 
-    expect(sessionService.findAll).toHaveBeenCalledWith(['sess-uuid-1'], { limit: 10, offset: 5, name: 'my-bot' });
+    expect(sessionService.findAll).toHaveBeenCalledWith(
+      ['sess-uuid-1'],
+      { limit: 10, offset: 5, name: 'my-bot' },
+      null,
+    );
   });
 
   it('leaves the query unfiltered when name is absent', async () => {
     await controller.findAll(apiKey);
 
-    expect(sessionService.findAll).toHaveBeenCalledWith(['sess-uuid-1'], {
-      limit: undefined,
-      offset: undefined,
-      name: undefined,
-    });
+    expect(sessionService.findAll).toHaveBeenCalledWith(
+      ['sess-uuid-1'],
+      {
+        limit: undefined,
+        offset: undefined,
+        name: undefined,
+      },
+      null,
+    );
   });
 
   // A repeated key arrives as an array and an empty value as ''. Dropping either would return every

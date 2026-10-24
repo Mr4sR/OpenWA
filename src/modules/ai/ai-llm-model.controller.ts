@@ -68,21 +68,24 @@ export class AiLlmModelController {
   @Post(':id/test')
   @RequireRole(ApiKeyRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Test the connection to the provider (one minimal completion)' })
+  @ApiOperation({
+    summary: 'Test the connection and probe capabilities (one text completion + one image completion)',
+  })
   @ApiParam({ name: 'id', description: 'Model ID' })
-  @ApiResponse({ status: 200, description: 'The provider answered.' })
-  @ApiResponse({ status: 400, description: 'The provider refused the call.' })
+  @ApiResponse({ status: 200, description: 'The probe ran; `ok` and `capabilities` say what passed.' })
   @ApiResponse({ status: 404, description: 'No such model.' })
-  async test(@Param('id') id: string): Promise<{ ok: boolean; answer: string }> {
+  async test(@Param('id') id: string): Promise<{
+    ok: boolean;
+    answer: string;
+    capabilities: { vision: boolean; at: string } | null;
+  }> {
     const model = await this.models.findOne(id);
-    try {
-      const answer = await this.models.complete(model, [{ role: 'user', content: 'ping' }]);
-      await this.models.recordStatus(id, { ok: true });
-      return { ok: true, answer: answer.slice(0, 200) };
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      await this.models.recordStatus(id, { ok: false, error: detail.slice(0, 300) });
-      return { ok: false, answer: detail.slice(0, 300) };
-    }
+    const result = await this.models.test(model);
+    await this.models.recordStatus(id, {
+      ok: result.ok,
+      capabilities: result.capabilities ?? undefined,
+      ...(result.ok ? {} : { error: result.answer }),
+    });
+    return result;
   }
 }

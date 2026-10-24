@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import { Plus, Bot, BrainCircuit, BookOpen, Plug, Loader2, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import {
-  Plus,
-  Bot,
-  BrainCircuit,
-  BookOpen,
-  Plug,
-  Loader2,
-  AlertCircle,
-  ChevronDown,
-  ChevronRight,
-} from 'lucide-react';
-import { aiApi, type AiChatbot, type AiLlmModel, type AiMcpConnection, type AiRagDocument, type AiRagModel } from '../services/api';
+  aiApi,
+  type AiChatbot,
+  type AiLlmModel,
+  type AiMcpConnection,
+  type AiRagDocument,
+  type AiRagModel,
+} from '../services/api';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRole } from '../hooks/useRole';
 import { useToast } from '../hooks/useToast';
@@ -61,13 +58,13 @@ export function AiIntegration() {
   const chatbotsQuery = useAiChatbotsQuery(true);
   const ragQuery = useAiRagModelsQuery(true);
   const mcpQuery = useAiMcpConnectionsQuery(true);
-  // Sessions feed the chatbot binding select and the RAG scope picker.
-  useSessionsQuery();
+  // Sessions feed the chatbot binding select, the RAG scope picker and the Playground's probe
+  // readout (which session a probe would answer from).
+  const { data: sessions = [] } = useSessionsQuery();
 
   const loading = llmQuery.isLoading || chatbotsQuery.isLoading || ragQuery.isLoading || mcpQuery.isLoading;
   const loadError = [llmQuery, chatbotsQuery, ragQuery, mcpQuery].find(q => q.error)?.error as
-    | (Error & { status?: number })
-    | undefined;
+    (Error & { status?: number }) | undefined;
 
   return (
     <div className="ai-page">
@@ -76,10 +73,7 @@ export function AiIntegration() {
         subtitle={t('ai.subtitle')}
         actions={
           canWrite && (
-            <button
-              className="btn-primary"
-              onClick={() => setCreating(true)}
-            >
+            <button className="btn-primary" onClick={() => setCreating(true)}>
               <Plus size={18} />
               {t(`ai.add.${section}`)}
             </button>
@@ -115,13 +109,31 @@ export function AiIntegration() {
             />
           )}
           {section === 'llm' && (
-            <LlmSection t={t} canWrite={canWrite} invalidate={invalidate} creating={creating} onCreated={() => setCreating(false)} />
+            <LlmSection
+              t={t}
+              canWrite={canWrite}
+              invalidate={invalidate}
+              creating={creating}
+              onCreated={() => setCreating(false)}
+            />
           )}
           {section === 'rag' && (
-            <RagSection t={t} canWrite={canWrite} invalidate={invalidate} creating={creating} onCreated={() => setCreating(false)} />
+            <RagSection
+              t={t}
+              canWrite={canWrite}
+              invalidate={invalidate}
+              creating={creating}
+              onCreated={() => setCreating(false)}
+            />
           )}
           {section === 'mcp' && (
-            <McpSection t={t} canWrite={canWrite} invalidate={invalidate} creating={creating} onCreated={() => setCreating(false)} />
+            <McpSection
+              t={t}
+              canWrite={canWrite}
+              invalidate={invalidate}
+              creating={creating}
+              onCreated={() => setCreating(false)}
+            />
           )}
           {section === 'playground' && (
             <Playground
@@ -129,6 +141,7 @@ export function AiIntegration() {
               chatbots={chatbotsQuery.data ?? []}
               llmModels={llmQuery.data ?? []}
               ragModels={ragQuery.data ?? []}
+              sessionNames={sessions.map(s => ({ id: s.id, name: s.name }))}
             />
           )}
         </>
@@ -140,16 +153,23 @@ export function AiIntegration() {
 type Invalidate = (keys: Array<'llm' | 'chatbots' | 'rag' | 'mcp'>) => void;
 type TFn = TFunction;
 
-/** Shared ok/error toast helper for every AI mutation. */
-async function runMutation(t: TFn, toast: ReturnType<typeof useToast>, what: () => Promise<unknown>, okMessage: string, invalidate?: Invalidate, keys?: Array<'llm' | 'chatbots' | 'rag' | 'mcp'>): Promise<boolean> {
+/** Shared ok/error toast helper for every AI mutation; resolves to what the call returned (null on failure). */
+async function runMutation<T>(
+  t: TFn,
+  toast: ReturnType<typeof useToast>,
+  what: () => Promise<T>,
+  okMessage: string,
+  invalidate?: Invalidate,
+  keys?: Array<'llm' | 'chatbots' | 'rag' | 'mcp'>,
+): Promise<T | null> {
   try {
-    await what();
+    const value = await what();
     toast.success(t(okMessage));
     if (invalidate && keys) invalidate(keys);
-    return true;
+    return value;
   } catch (err) {
     toast.error(t('ai.common.failed', { message: err instanceof Error ? err.message : String(err) }));
-    return false;
+    return null;
   }
 }
 
@@ -191,7 +211,6 @@ function ChatbotsSection({
   const [deleting, setDeleting] = useState<AiChatbot | null>(null);
   const [draft, setDraft] = useState<AiChatbotDraft>(EMPTY_CHATBOT);
 
-
   const openEdit = (chatbot: AiChatbot) => {
     setEditing(chatbot);
     setDraft({
@@ -229,7 +248,14 @@ function ChatbotsSection({
                   enabled={bot.enabled}
                   canWrite={canWrite}
                   onToggle={() =>
-                    void runMutation(t, toast, () => aiApi.updateChatbot(bot.id, { enabled: !bot.enabled }), 'ai.toasts.updated', invalidate, ['chatbots'])
+                    void runMutation(
+                      t,
+                      toast,
+                      () => aiApi.updateChatbot(bot.id, { enabled: !bot.enabled }),
+                      'ai.toasts.updated',
+                      invalidate,
+                      ['chatbots'],
+                    )
                   }
                   onEdit={() => openEdit(bot)}
                   onDelete={() => setDeleting(bot)}
@@ -244,9 +270,16 @@ function ChatbotsSection({
                 />
                 <AiMetaItem
                   label={t('ai.chatbots.ragModel')}
-                  value={bot.ragModelId ? ragModels.find(m => m.id === bot.ragModelId)?.name ?? '—' : t('ai.chatbots.noRag')}
+                  value={
+                    bot.ragModelId
+                      ? (ragModels.find(m => m.id === bot.ragModelId)?.name ?? '—')
+                      : t('ai.chatbots.noRag')
+                  }
                 />
-                <AiMetaItem label={t('ai.chatbots.groups')} value={bot.replyGroups ? t('common.yes') : t('common.no')} />
+                <AiMetaItem
+                  label={t('ai.chatbots.groups')}
+                  value={bot.replyGroups ? t('common.yes') : t('common.no')}
+                />
               </div>
               {bot.persona && <p className="hint">{bot.persona.slice(0, 160)}</p>}
               {bot.lastError && (
@@ -271,7 +304,14 @@ function ChatbotsSection({
           setDraft={setDraft}
           onClose={onCreated}
           onSubmit={async () => {
-            const ok = await runMutation(t, toast, () => aiApi.createChatbot(toChatbotPayload(draft)), 'ai.toasts.created', invalidate, ['chatbots']);
+            const ok = await runMutation(
+              t,
+              toast,
+              () => aiApi.createChatbot(toChatbotPayload(draft)),
+              'ai.toasts.created',
+              invalidate,
+              ['chatbots'],
+            );
             if (ok) {
               onCreated();
               setDraft(EMPTY_CHATBOT);
@@ -294,7 +334,14 @@ function ChatbotsSection({
           setDraft={setDraft}
           onClose={() => setEditing(null)}
           onSubmit={async () => {
-            const ok = await runMutation(t, toast, () => aiApi.updateChatbot(editing.id, toChatbotPayload(draft)), 'ai.toasts.updated', invalidate, ['chatbots']);
+            const ok = await runMutation(
+              t,
+              toast,
+              () => aiApi.updateChatbot(editing.id, toChatbotPayload(draft)),
+              'ai.toasts.updated',
+              invalidate,
+              ['chatbots'],
+            );
             if (ok) setEditing(null);
           }}
           t={t}
@@ -312,7 +359,11 @@ function ChatbotsSection({
             <button
               className="btn-danger"
               onClick={async () => {
-                if (await runMutation(t, toast, () => aiApi.deleteChatbot(deleting.id), 'ai.toasts.deleted', invalidate, ['chatbots'])) {
+                if (
+                  await runMutation(t, toast, () => aiApi.deleteChatbot(deleting.id), 'ai.toasts.deleted', invalidate, [
+                    'chatbots',
+                  ])
+                ) {
                   setDeleting(null);
                 }
               }}
@@ -424,9 +475,7 @@ function ChatbotModal({
     const toolId = `${connectionId}:${toolName}`;
     setDraft({
       ...draft,
-      mcpToolIds: selected.includes(toolId)
-        ? selected.filter(entry => entry !== toolId)
-        : [...selected, toolId],
+      mcpToolIds: selected.includes(toolId) ? selected.filter(entry => entry !== toolId) : [...selected, toolId],
     });
   };
   const toggleSession = (sessionId: string) => {
@@ -463,7 +512,11 @@ function ChatbotModal({
           const mine = draft.sessionIds.includes(session.id);
           const disabledByOther = Boolean(owned && owned !== editingId);
           return (
-            <label key={session.id} className="ai-checkbox-row ai-mcp-tool-row" title={disabledByOther ? t('ai.chatbots.sessionOwned', { bot: owned }) : undefined}>
+            <label
+              key={session.id}
+              className="ai-checkbox-row ai-mcp-tool-row"
+              title={disabledByOther ? t('ai.chatbots.sessionOwned', { bot: owned }) : undefined}
+            >
               <input
                 type="checkbox"
                 checked={mine}
@@ -493,9 +546,15 @@ function ChatbotModal({
         {llmModels.map(m => (
           <option key={m.id} value={m.id}>
             {m.name}
+            {m.capabilities
+              ? m.capabilities.vision
+                ? ` · 👁 ${t('ai.llm.visionChip')}`
+                : ` · ${t('ai.llm.visionChip')} ✕`
+              : ''}
           </option>
         ))}
       </select>
+      <span className="hint">{t('ai.chatbots.llmModelHint')}</span>
       <label htmlFor="ai-cb-rag">{t('ai.chatbots.ragModel')}</label>
       <select
         id="ai-cb-rag"
@@ -532,7 +591,9 @@ function ChatbotModal({
                 <summary>
                   <span>{connection.name}</span>
                   <span className="ai-mcp-tool-count">
-                    {catalogue ? t('ai.chatbots.mcpSelectedOf', { selected: selectedHere, total: catalogue.length }) : t('ai.chatbots.mcpLoadTools')}
+                    {catalogue
+                      ? t('ai.chatbots.mcpSelectedOf', { selected: selectedHere, total: catalogue.length })
+                      : t('ai.chatbots.mcpLoadTools')}
                   </span>
                 </summary>
                 {fetchingTools === connection.id && (
@@ -545,7 +606,11 @@ function ChatbotModal({
                   const toolId = `${connection.id}:${tool.name}`;
                   return (
                     <label key={tool.name} className="ai-checkbox-row ai-mcp-tool-row" title={tool.description}>
-                      <input type="checkbox" checked={selected.includes(toolId)} onChange={() => toggleTool(connection.id, tool.name)} />
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(toolId)}
+                        onChange={() => toggleTool(connection.id, tool.name)}
+                      />
                       <code>{tool.name}</code>
                       {tool.description && <span className="hint">{tool.description.slice(0, 90)}</span>}
                     </label>
@@ -648,10 +713,22 @@ function LlmSection({
                   </button>
                 }
                 onToggle={() =>
-                  void runMutation(t, toast, () => aiApi.updateLlmModel(model.id, { enabled: !model.enabled }), 'ai.toasts.updated', invalidate, ['llm'])
+                  void runMutation(
+                    t,
+                    toast,
+                    () => aiApi.updateLlmModel(model.id, { enabled: !model.enabled }),
+                    'ai.toasts.updated',
+                    invalidate,
+                    ['llm'],
+                  )
                 }
                 onEdit={() => {
-                  setDraft({ name: model.name, endpointUrl: model.endpointUrl, model: model.model, parameters: model.parameters ?? {} });
+                  setDraft({
+                    name: model.name,
+                    endpointUrl: model.endpointUrl,
+                    model: model.model,
+                    parameters: model.parameters ?? {},
+                  });
                   setNewKey('');
                   setEditing(model);
                 }}
@@ -677,10 +754,7 @@ function LlmSection({
           closeLabel={t('common.close')}
           footer={
             <>
-              <button
-                className="btn-secondary"
-                onClick={editing ? () => setEditing(null) : onCreated}
-              >
+              <button className="btn-secondary" onClick={editing ? () => setEditing(null) : onCreated}>
                 {t('common.cancel')}
               </button>
               <button
@@ -701,14 +775,44 @@ function LlmSection({
                     parameters,
                   };
                   const body = newKey ? { ...base, apiKey: newKey } : base;
-                  const ok = editing
-                    ? await runMutation(t, toast, () => aiApi.updateLlmModel(editing.id, body), 'ai.toasts.updated', invalidate, ['llm'])
-                    : await runMutation(t, toast, () => aiApi.createLlmModel({ ...body, apiKey: newKey } as never), 'ai.toasts.created', invalidate, ['llm']);
-                  if (ok) {
+                  const saved = editing
+                    ? await runMutation(
+                        t,
+                        toast,
+                        () => aiApi.updateLlmModel(editing.id, body),
+                        'ai.toasts.updated',
+                        invalidate,
+                        ['llm'],
+                      )
+                    : await runMutation(
+                        t,
+                        toast,
+                        () => aiApi.createLlmModel({ ...body, apiKey: newKey } as never),
+                        'ai.toasts.created',
+                        invalidate,
+                        ['llm'],
+                      );
+                  if (saved) {
                     onCreated();
                     setEditing(null);
                     setDraft(EMPTY_LLM);
                     setNewKey('');
+                    // Saving fired the backend's own background probe; this explicit test waits for
+                    // the result so the operator learns at save time whether the id/key work — and
+                    // whether the model can see customer photos.
+                    try {
+                      const result = await aiApi.testLlmModel(saved.id);
+                      if (!result.ok) {
+                        toast.error(t('ai.toasts.testFailed', { message: result.answer }));
+                      } else if (result.capabilities?.vision) {
+                        toast.info(t('ai.llm.visionYes'));
+                      } else if (result.capabilities) {
+                        toast.info(t('ai.llm.visionNoStrict'));
+                      }
+                      invalidate(['llm']);
+                    } catch {
+                      // The test endpoint refused (network, 403): the backend probe still runs.
+                    }
                   }
                 }}
               >
@@ -718,7 +822,12 @@ function LlmSection({
           }
         >
           <label htmlFor="ai-llm-name">{t('ai.llm.name')}</label>
-          <input id="ai-llm-name" type="text" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
+          <input
+            id="ai-llm-name"
+            type="text"
+            value={draft.name}
+            onChange={e => setDraft({ ...draft, name: e.target.value })}
+          />
           <label htmlFor="ai-llm-url">{t('ai.llm.endpoint')}</label>
           <input
             id="ai-llm-url"
@@ -760,7 +869,10 @@ function LlmSection({
                 onChange={e =>
                   setDraft({
                     ...draft,
-                    parameters: { ...draft.parameters, temperature: e.target.value === '' ? undefined : Number(e.target.value) },
+                    parameters: {
+                      ...draft.parameters,
+                      temperature: e.target.value === '' ? undefined : Number(e.target.value),
+                    },
                   })
                 }
               />
@@ -776,7 +888,10 @@ function LlmSection({
                 onChange={e =>
                   setDraft({
                     ...draft,
-                    parameters: { ...draft.parameters, maxTokens: e.target.value === '' ? undefined : Number(e.target.value) },
+                    parameters: {
+                      ...draft.parameters,
+                      maxTokens: e.target.value === '' ? undefined : Number(e.target.value),
+                    },
                   })
                 }
               />
@@ -796,7 +911,16 @@ function LlmSection({
             <button
               className="btn-danger"
               onClick={async () => {
-                if (await runMutation(t, toast, () => aiApi.deleteLlmModel(deleting.id), 'ai.toasts.deleted', invalidate, ['llm'])) {
+                if (
+                  await runMutation(
+                    t,
+                    toast,
+                    () => aiApi.deleteLlmModel(deleting.id),
+                    'ai.toasts.deleted',
+                    invalidate,
+                    ['llm'],
+                  )
+                ) {
                   setDeleting(null);
                 }
               }}
@@ -867,8 +991,7 @@ function RagSection({
   // status badges move on their own. Stops when every entry settles.
   useEffect(() => {
     if (!expanded) return;
-    const ingesting = () =>
-      documents.some(d => d.status === 'pending' || d.status === 'processing');
+    const ingesting = () => documents.some(d => d.status === 'pending' || d.status === 'processing');
     if (!ingesting()) return;
     const timer = setInterval(() => {
       aiApi
@@ -957,7 +1080,14 @@ function RagSection({
                     </>
                   }
                   onToggle={() =>
-                    void runMutation(t, toast, () => aiApi.updateRagModel(model.id, { enabled: !model.enabled }), 'ai.toasts.updated', invalidate, ['rag'])
+                    void runMutation(
+                      t,
+                      toast,
+                      () => aiApi.updateRagModel(model.id, { enabled: !model.enabled }),
+                      'ai.toasts.updated',
+                      invalidate,
+                      ['rag'],
+                    )
                   }
                   onEdit={() => {
                     setDraft({
@@ -1003,16 +1133,30 @@ function RagSection({
                     <Loader2 size={16} className="animate-spin" />
                   ) : (
                     <AiDocumentEditor
-                                            documents={documents}
+                      documents={documents}
                       canWrite={canWrite}
                       t={t}
                       onAdd={payload => {
-                        void runMutation(t, toast, () => aiApi.addRagDocument(model.id, payload), 'ai.toasts.created', invalidate, ['rag']).then(ok => {
+                        void runMutation(
+                          t,
+                          toast,
+                          () => aiApi.addRagDocument(model.id, payload),
+                          'ai.toasts.created',
+                          invalidate,
+                          ['rag'],
+                        ).then(ok => {
                           if (ok) void loadDocuments(model.id);
                         });
                       }}
                       onDelete={documentId => {
-                        void runMutation(t, toast, () => aiApi.deleteRagDocument(model.id, documentId), 'ai.toasts.deleted', invalidate, ['rag']).then(ok => {
+                        void runMutation(
+                          t,
+                          toast,
+                          () => aiApi.deleteRagDocument(model.id, documentId),
+                          'ai.toasts.deleted',
+                          invalidate,
+                          ['rag'],
+                        ).then(ok => {
                           if (ok) void loadDocuments(model.id);
                         });
                       }}
@@ -1071,15 +1215,27 @@ function RagSection({
                     sessionScope: draft.sessionScope,
                     sessionIds:
                       draft.sessionScope === 'selected'
-                        ? draft.sessionIdsText.split(',').map(s => s.trim()).filter(Boolean)
+                        ? draft.sessionIdsText
+                            .split(',')
+                            .map(s => s.trim())
+                            .filter(Boolean)
                         : null,
                     llmModelId: draft.llmModelId || null,
                     topK: draft.topK,
                     maxContextChars: draft.maxContextChars,
                   };
                   const ok = editing
-                    ? await runMutation(t, toast, () => aiApi.updateRagModel(editing.id, body), 'ai.toasts.updated', invalidate, ['rag'])
-                    : await runMutation(t, toast, () => aiApi.createRagModel(body), 'ai.toasts.created', invalidate, ['rag']);
+                    ? await runMutation(
+                        t,
+                        toast,
+                        () => aiApi.updateRagModel(editing.id, body),
+                        'ai.toasts.updated',
+                        invalidate,
+                        ['rag'],
+                      )
+                    : await runMutation(t, toast, () => aiApi.createRagModel(body), 'ai.toasts.created', invalidate, [
+                        'rag',
+                      ]);
                   if (ok) {
                     onCreated();
                     setEditing(null);
@@ -1093,7 +1249,12 @@ function RagSection({
           }
         >
           <label htmlFor="ai-rag-name">{t('ai.rag.name')}</label>
-          <input id="ai-rag-name" type="text" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
+          <input
+            id="ai-rag-name"
+            type="text"
+            value={draft.name}
+            onChange={e => setDraft({ ...draft, name: e.target.value })}
+          />
           <label htmlFor="ai-rag-scope">{t('ai.rag.scope')}</label>
           <select
             id="ai-rag-scope"
@@ -1116,7 +1277,10 @@ function RagSection({
               />
               <div className="ai-checkbox-group">
                 {sessions.map(s => {
-                  const ids = draft.sessionIdsText.split(',').map(x => x.trim()).filter(Boolean);
+                  const ids = draft.sessionIdsText
+                    .split(',')
+                    .map(x => x.trim())
+                    .filter(Boolean);
                   const checked = ids.includes(s.id);
                   return (
                     <label key={s.id} className="ai-checkbox-row">
@@ -1189,7 +1353,16 @@ function RagSection({
             <button
               className="btn-danger"
               onClick={async () => {
-                if (await runMutation(t, toast, () => aiApi.deleteRagModel(deleting.id), 'ai.toasts.deleted', invalidate, ['rag'])) {
+                if (
+                  await runMutation(
+                    t,
+                    toast,
+                    () => aiApi.deleteRagModel(deleting.id),
+                    'ai.toasts.deleted',
+                    invalidate,
+                    ['rag'],
+                  )
+                ) {
                   setDeleting(null);
                 }
               }}
@@ -1294,7 +1467,14 @@ function McpSection({
                   </button>
                 }
                 onToggle={() =>
-                  void runMutation(t, toast, () => aiApi.updateMcpConnection(connection.id, { enabled: !connection.enabled }), 'ai.toasts.updated', invalidate, ['mcp'])
+                  void runMutation(
+                    t,
+                    toast,
+                    () => aiApi.updateMcpConnection(connection.id, { enabled: !connection.enabled }),
+                    'ai.toasts.updated',
+                    invalidate,
+                    ['mcp'],
+                  )
                 }
                 onEdit={() => {
                   setDraft({
@@ -1317,7 +1497,11 @@ function McpSection({
               <AiMetaItem label={t('ai.mcp.transport')} value={connection.transport} code />
               <AiMetaItem
                 label={t('ai.mcp.auth')}
-                value={connection.authKind === 'none' ? t('ai.mcp.authNone') : `${connection.authKind} · ${connection.authCredentialMasked ?? '—'}`}
+                value={
+                  connection.authKind === 'none'
+                    ? t('ai.mcp.authNone')
+                    : `${connection.authKind} · ${connection.authCredentialMasked ?? '—'}`
+                }
                 code
               />
               <AiMetaItem label={t('ai.mcp.lastTest')} value={<AiMcpStatusCell connection={connection} t={t} />} />
@@ -1359,8 +1543,26 @@ function McpSection({
                     timeoutMs: draft.timeoutMs,
                   };
                   const ok = editing
-                    ? await runMutation(t, toast, () => aiApi.updateMcpConnection(editing.id, credential ? { ...base, authCredential: credential } : base), 'ai.toasts.updated', invalidate, ['mcp'])
-                    : await runMutation(t, toast, () => aiApi.createMcpConnection(credential ? { ...base, authCredential: credential } : base), 'ai.toasts.created', invalidate, ['mcp']);
+                    ? await runMutation(
+                        t,
+                        toast,
+                        () =>
+                          aiApi.updateMcpConnection(
+                            editing.id,
+                            credential ? { ...base, authCredential: credential } : base,
+                          ),
+                        'ai.toasts.updated',
+                        invalidate,
+                        ['mcp'],
+                      )
+                    : await runMutation(
+                        t,
+                        toast,
+                        () => aiApi.createMcpConnection(credential ? { ...base, authCredential: credential } : base),
+                        'ai.toasts.created',
+                        invalidate,
+                        ['mcp'],
+                      );
                   if (ok) {
                     onCreated();
                     setEditing(null);
@@ -1375,7 +1577,12 @@ function McpSection({
           }
         >
           <label htmlFor="ai-mcp-name">{t('ai.mcp.name')}</label>
-          <input id="ai-mcp-name" type="text" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} />
+          <input
+            id="ai-mcp-name"
+            type="text"
+            value={draft.name}
+            onChange={e => setDraft({ ...draft, name: e.target.value })}
+          />
           <label htmlFor="ai-mcp-url">{t('ai.mcp.endpoint')}</label>
           <input
             id="ai-mcp-url"
@@ -1453,7 +1660,16 @@ function McpSection({
             <button
               className="btn-danger"
               onClick={async () => {
-                if (await runMutation(t, toast, () => aiApi.deleteMcpConnection(deleting.id), 'ai.toasts.deleted', invalidate, ['mcp'])) {
+                if (
+                  await runMutation(
+                    t,
+                    toast,
+                    () => aiApi.deleteMcpConnection(deleting.id),
+                    'ai.toasts.deleted',
+                    invalidate,
+                    ['mcp'],
+                  )
+                ) {
                   setDeleting(null);
                 }
               }}

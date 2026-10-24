@@ -64,6 +64,8 @@ before(async () => {
     setEngineType: () => undefined,
     scoped: false,
     setScoped: () => undefined,
+  accountId: null,
+  setAccountId: () => undefined,
   };
   wrap = children =>
     createElement(

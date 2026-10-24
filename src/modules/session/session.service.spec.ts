@@ -89,6 +89,7 @@ function createMockSession(overrides: Partial<Session> = {}): Session {
     name: 'test-session',
     status: SessionStatus.CREATED,
     phone: null,
+    accountId: null,
     pushName: null,
     config: {},
     proxyUrl: null,

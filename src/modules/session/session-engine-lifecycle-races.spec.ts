@@ -34,6 +34,7 @@ const session = (overrides: Partial<Session> = {}): Session => ({
   name: NAME,
   status: SessionStatus.CREATED,
   phone: null,
+  accountId: null,
   pushName: null,
   config: {},
   proxyUrl: null,

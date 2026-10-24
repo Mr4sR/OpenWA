@@ -40,6 +40,15 @@ export const Public = () => SetMetadata(PUBLIC_KEY, true);
  */
 export const RequireUnscopedKey = () => SetMetadata(UNSCOPED_KEY, true);
 
+/**
+ * Mark a @RequireUnscopedKey route where an ACCOUNT key may still operate. Creating a session is
+ * the point of an account: the session has no id yet (the allowedSessions fence cannot bite) and
+ * is stamped with the caller's account, so it cannot escape its tenant. Without this mark the
+ * account key is refused with the session-scoped keys.
+ * @example @RequireUnscopedKey() @AllowAccountKeys() @Post()
+ */
+export const AllowAccountKeys = () => SetMetadata('allowAccountKeys', true);
+
 /** How a handler is safe for a chat-restricted key. See {@link ChatScoped}. */
 export type ChatScopeKind = 'fenced' | 'filtered' | 'agnostic';
 

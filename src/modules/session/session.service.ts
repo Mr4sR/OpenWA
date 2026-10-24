@@ -405,7 +405,13 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     }
   }
 
-  async create(dto: CreateSessionDto): Promise<Session> {
+  /**
+   * Create a session. `accountId` is the owning tenant taken from the requesting key: a key bound
+   * to an account creates sessions of that account; a global key (NULL) creates a global session,
+   * exactly as before accounts existed. The name stays table-wide UNIQUE on purpose — one QR data
+   * directory per name — so a taken name is a 409 for every tenant alike.
+   */
+  async create(dto: CreateSessionDto, accountId: string | null = null): Promise<Session> {
     // Check if session with same name exists
     const existing = await this.sessionRepository.findOne({
       where: { name: dto.name },
@@ -417,6 +423,7 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
 
     const session = this.sessionRepository.create({
       name: dto.name,
+      accountId,
       config: dto.config || {},
       proxyUrl: dto.proxyUrl || null,
       proxyType: dto.proxyType || null,
@@ -453,10 +460,16 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     return saved;
   }
 
-  async findAll(allowedSessions?: string[] | null, opts: SessionListOptions = {}): Promise<Session[]> {
+  async findAll(
+    allowedSessions?: string[] | null,
+    opts: SessionListOptions = {},
+    accountId?: string | null,
+  ): Promise<Session[]> {
     // A session-restricted key only lists its own sessions; an unrestricted key (null/empty
     // allowlist) lists all — mirroring the ApiKeyGuard allowedSessions model so a scoped key
-    // cannot enumerate every session through this aggregate route.
+    // cannot enumerate every session through this aggregate route. An ACCOUNT key additionally
+    // sees only its own account's sessions (plus the global NULL-account surface an operator may
+    // have created before accounts existed, or through the master key); a global key lists all.
     const { limit, offset } = resolveListWindow(opts.limit, opts.offset);
     // `id` tiebreaks the second-resolution `createdAt` so a paged walk has a total order.
     const options: FindManyOptions<Session> = {
@@ -467,6 +480,9 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     const where: FindOptionsWhere<Session> = {};
     if (allowedSessions && allowedSessions.length > 0) {
       where.id = In(allowedSessions);
+    }
+    if (accountId) {
+      where.accountId = accountId;
     }
     // Exact, case-sensitive match. Only a non-empty string reaches TypeORM: anything else (an
     // array from a repeated query key, an empty value) is not a name and must not become one.
