@@ -8,7 +8,7 @@
 > messages with an AI. Four instance kinds live under one surface — **Chatbot**, **AI LLM**,
 > **RAG Vectorless** and **MCP Server** — and each is a full create/read/update/delete
 > resource, managed from the dashboard's *AI Integration* page or the REST routes
-> (`/api/ai/*`, `/api/sessions/:sessionId/ai-chatbots`).
+> (`/api/ai/*`; chatbots at `/api/ai/chatbots`).
 
 | Component | Status | Location |
 | --- | --- | --- |
@@ -87,26 +87,33 @@ flowchart LR
 
 ## 32.2 Data model
 
-Seven tables (migrations `1792000000000-AddAiIntegration`, `1793000000000-ReviseAiIntegration` and `1794000000000-AddAiChatbotMcpTools`):
+Eight tables (migrations `1792000000000-AddAiIntegration`, `1793000000000-ReviseAiIntegration`,
+`1794000000000-AddAiChatbotMcpTools` and `1795000000000-ChatbotMultiSession`):
 
 | Table | Purpose |
 | --- | --- |
 | `ai_llm_models` | Provider connections; `apiKey`/`headers` stored plaintext, never returned. No persona — the chatbot owns it |
-| `ai_chatbots` | Per-session bot instances: THE persona, a `replyGroups` opt-in and an `mcpToolIds` tool narrowing (null = every tool the enabled MCP connections offer); varchar `sessionId` FK with `ON DELETE CASCADE`. No chat allowlist / cooldown / history knobs — the per-chat switches replaced them |
+| `ai_chatbots` | Bot instances serving ONE OR MANY sessions: `sessionIds` (JSON array; a session is served by at most one bot), THE persona, a `replyGroups` opt-in and an `mcpToolIds` tool narrowing (null = every tool the enabled MCP connections offer). Deleting a session prunes it from every bot's list; a bot losing its last session is deleted with it |
 | `ai_chat_overrides` | The Chats-page switches: one row per muted `(chatbotId, chatId)` pair; a missing row means answered |
 | `ai_rag_models` | Knowledge bases; the tree index lives as JSON on the row (`index`, `indexedAt`) |
 | `ai_rag_documents` | Knowledge entries with an ingestion `status` (`pending` → `processing` → `ready` \| `failed` + `statusError`); url/site/file are fetched in the background |
 | `ai_mcp_connections` | Outbound MCP servers; `transport` (`streamable-http` \| `sse`), `authCredential` write-only, masked on read |
 
-Account-wide rows (`ai_llm_models`, `ai_rag_models`, `ai_mcp_connections`) have unique
-`name`s; chatbots are unique per session by construction of the UI and capped per session.
+Account-wide rows (`ai_llm_models`, `ai_rag_models`, `ai_mcp_connections`) have unique `name`s.
+A chatbot is unique PER SESSION by the ownership rule (a second bot claiming a served session gets
+400), and ONE bot holds many sessions, so the bot count is bounded by how many sessions the
+operator has. Mutations land in the audit log under the `ai_llm_model_*`, `ai_chatbot_*`,
+`ai_rag_*` and `ai_mcp_connection_*` actions.
 
 ## 32.3 Routes
 
-All `/api/ai/*` routes require an API key. Reads are OPERATOR; everything that writes a row,
-its credential or its activation scope is ADMIN. Chatbot routes live under the session
-(`/api/sessions/:sessionId/ai-chatbots`) so the ApiKeyGuard's session fence scopes them like
-webhooks.
+All `/api/ai/*` routes require an API key. Reads are OPERATOR; writes are OPERATOR too, EXCEPT the
+resource-cap'd creates (LLM/MCP) and the credential-bearing updates, which are ADMIN. Chatbots live
+flat under `/api/ai/chatbots` (a bot is no longer owned by a session): the ownership rule is
+"ONE bot MAY serve MANY sessions; each session is served by AT MOST ONE bot", and the
+ApiKeyGuard's session fence still applies — scoped keys see only bots serving sessions inside
+their `allowedSessions`, and a create/update naming a session outside the fence degrades the same
+way (unknown session → 400).
 
 | Route | Method | Role | Notes |
 | --- | --- | --- | --- |
@@ -114,12 +121,25 @@ webhooks.
 | `/api/ai/llm-models` | POST | ADMIN | Create; 400 at `ai.llmModelsMax` |
 | `/api/ai/llm-models/:id` | PUT / DELETE | ADMIN | Update / delete |
 | `/api/ai/llm-models/:id/test` | POST | ADMIN | One minimal completion; records diagnostics |
-| `/api/sessions/:sid/ai-chatbots` | GET/POST | OPERATOR | List / create for the session |
-| `/api/sessions/:sid/ai-chatbots/:id` | PUT / DELETE | OPERATOR | Update / delete |
-| `/api/sessions/:sid/ai-chatbots/:id/test` | POST | OPERATOR | The Playground: one production-shaped answer for a pasted message, without sending it |
+| `/api/ai/chatbots` | GET/POST | OPERATOR | List (session-scoped) / create with `sessionIds` (≥1; each session must be free or already the bot's) |
+| `/api/ai/chatbots/:id` | PUT / DELETE | OPERATOR | Update (sessions may be swapped; each new one must be free) / delete |
+| `/api/ai/chatbots/:id/test` | POST | OPERATOR | The Playground: one production-shaped answer for a pasted message, `?sessionId=` picks the history source (default: the bot's first), without sending it |
 | `/api/ai/chat-states` | GET | OPERATOR | The per-chat AI switches (which bots are muted per conversation) |
 | `/api/ai/chat-state` | POST | OPERATOR | Flip one (chatbot, chat) switch — the Chats page toggles |
-| `/api/ai/chatbots` | GET | OPERATOR | Cross-session list, scoped to the key's `allowedSessions` |
+| `/api/ai/rag-models` | GET | OPERATOR | List with document counts and index state |
+| `/api/ai/rag-models` | POST | ADMIN | Create |
+| `/api/ai/rag-models/:id` | PUT / DELETE | ADMIN | Update (scope/topK/LLM override) / delete |
+| `/api/ai/rag-models/:id/index` | POST | ADMIN | Build/rebuild the tree (LLM-mediated; minutes on large knowledge) |
+| `/api/ai/rag-models/:id/query` | POST | OPERATOR | Retrieval probe: returns the cited nodes and the composed context |
+| `/api/ai/rag-models/:id/documents` | GET / POST | OPERATOR / ADMIN | List / add knowledge |
+| `/api/ai/rag-models/:id/documents/:docId` | PUT / DELETE | ADMIN | Update / delete knowledge |
+| `/api/ai/mcp-connections` | GET | OPERATOR | List (masked credentials) |
+| `/api/ai/mcp-connections` | POST | ADMIN | Create |
+| `/api/ai/mcp-connections/:id` | PUT / DELETE | ADMIN | Update / delete |
+| `/api/ai/mcp-connections/:id/test` | POST | OPERATOR | Connect + initialize + tools/list; records `lastStatus` |
+| `/api/ai/mcp-connections/:id/tools` | GET | OPERATOR | Live tools/list |
+</think>
+<tool_call>read<arg_key>i</arg_key><arg_value>Verifying the docs table body landed complete
 | `/api/ai/rag-models` | GET | OPERATOR | List with document counts and index state |
 | `/api/ai/rag-models` | POST | ADMIN | Create |
 | `/api/ai/rag-models/:id` | PUT / DELETE | ADMIN | Update (scope/topK/LLM override) / delete |
@@ -152,7 +172,7 @@ database, Redis, storage and engine settings, and apply after the restart that p
 | Expose the MCP server | `MCP_ENABLED` | Mount the OpenWA agent tool server at `POST /mcp` |
 | Read-only MCP tools | `MCP_READONLY` | Expose only read tools (default) |
 | Max LLM models | `AI_LLM_MODELS_MAX` | Cap on provider connections (default 50) |
-| Max bots / session | `AI_CHATBOTS_MAX_PER_SESSION` | Cap on chatbot instances per session (default 8) |
+| Chatbot count | — | No cap to tune: one session is served by exactly one bot (enforced per create/update) |
 | Max MCP connections | `AI_MCP_CONNECTIONS_MAX` | Cap on outbound MCP servers (default 50) |
 | Allow private AI endpoints | `SSRF_ALLOWED_HOSTS=*` | Let AI calls reach a self-hosted Ollama/vLLM on your network |
 
@@ -175,10 +195,14 @@ key, and `.env.example` documents them under the AI INTEGRATION banner.
   the `replyGroups` opt-in, the five-minute staleness floor and the per-chat
   `ai_chat_overrides` switches (default: every chat answered) bound what it can answer; the
   audit row on every mutation records who changed it.
-- **Backups.** All six AI tables ride `GET /api/infra/export-data` / `POST /api/infra/import-data`
+- **Chatbot blast radius per session.** Because one bot now spans many sessions, the review that
+  removes/edits a bot must consider every session in `sessionIds` at once; the create/update
+  refusals name the owning bot when a session conflicts, and the audit row records the final
+  `sessionIds` list.
+- **Backups.** All seven AI tables ride `GET /api/infra/export-data` / `POST /api/infra/import-data`
   (`aiLlmModels`, `aiChatbots`, `aiChatOverrides`, `aiRagModels`, `aiRagDocuments`,
-  `aiMcpConnections`): a chatbot dies with its session (CASCADE) and an override with its
-  bot, so restoring a backup reproduces the full AI setup — bots, personas, muted chats,
+  `aiMcpConnections`): an override dies with its bot (CASCADE); a bot keeps serving its sessions
+  (`sessionIds`), so restoring a backup reproduces the full AI setup — bots, personas, muted chats,
   knowledge bases and MCP connections — without re-entry. LLM API keys and MCP credentials in
   a backup are stored plaintext in the archive, like the rest of the export.
 - **RAG index budget.** One index build spends at most 120 completion calls and one retrieval
@@ -201,7 +225,7 @@ The **Playground** tab answers a typed message through the bot's real prompt and
 in a WhatsApp-shaped transcript, with the RAG source titles the answer stood on and any retrieval
 warnings under it. Pick the bot at the top; the header repeats its enable state, its LLM model and
 its knowledge base, each with the same dot. Nothing is sent: the probe calls
-`POST /api/sessions/:sid/ai-chatbots/:id/test`, which assembles persona + knowledge + history and
+`POST /api/ai/chatbots/:id/test`, which assembles persona + knowledge + history and
 returns the completion only, so no chat row, no `lastRepliedAt` write and no outbound WhatsApp
 message result. A disabled bot, or one whose LLM model is switched off, is flagged inline — the
 probe still reports why it cannot answer instead of pretending to be a live test. All of the

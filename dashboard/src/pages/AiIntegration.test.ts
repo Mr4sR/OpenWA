@@ -33,7 +33,7 @@ function installFetchStub(): void {
     if (/^\/api\/ai\/mcp-connections\/[^/]+\/tools$/.test(path)) {
       return Promise.resolve(jsonResponse({ tools: [{ name: 'cek_tagihan', description: 'Cek tagihan' }] }));
     }
-    if (/^\/api\/sessions\/[^/]+\/ai-chatbots\/[^/]+\/test$/.test(path)) {
+    if (/^\/api\/ai\/chatbots\/[^/]+\/test(\?.*)?$/.test(path)) {
       return Promise.resolve(jsonResponse({ ok: true, reply: 'Test reply', sources: [], warnings: [] }));
     }
     return Promise.resolve(jsonResponse({ message: `unstubbed ${path}` }, 404));
@@ -111,8 +111,9 @@ test('an empty chatbot list shows the empty state, and the add action opens the 
   renderPage();
   await rtl.screen.findByText('No chatbots yet');
   rtl.fireEvent.click(rtl.screen.getByRole('button', { name: 'Add chatbot' }));
-  // The modal is the only place the session field exists.
-  await rtl.screen.findByLabelText('Session');
+  // The modal is the only place the session picker exists (a checkbox group since a bot serves
+  // many sessions).
+  await rtl.screen.findByRole('group', { name: 'Sessions' });
   rtl.screen.getByLabelText('LLM model');
 });
 
@@ -224,19 +225,20 @@ test('the playground sends a message and renders the answer without WhatsApp', a
   rtl.screen.getByText('Hello bot');
 });
 
-function chatbotRow(overrides: { enabled: boolean }) {
+function chatbotRow(over: Record<string, unknown>) {
   return {
     id: 'bot-1',
-    sessionId: 's1',
+    sessionIds: ['s1'],
     name: 'Support bot',
     llmModelId: 'm1',
     ragModelId: null,
     persona: null,
     replyGroups: false,
+    mcpToolIds: null,
     lastRepliedAt: null,
     lastError: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
-    ...overrides,
+    ...over,
   };
 }

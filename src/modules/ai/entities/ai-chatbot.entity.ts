@@ -1,14 +1,4 @@
-import {
-  Column,
-  CreateDateColumn,
-  Entity,
-  Index,
-  ManyToOne,
-  JoinColumn,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
-import { Session } from '../../session/entities/session.entity';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { DateTransformer } from '../../../common/transformers/date.transformer';
 import { dateColumnType, jsonColumnType } from '../../../common/utils/column-types';
 
@@ -26,27 +16,30 @@ export const AI_CHATBOT_REPLY_MAX_LENGTH = 4096;
 export const AI_CHATBOT_PERSONA_MAX_LENGTH = 32_000;
 
 /**
- * One chatbot instance: the binding between the inbound messages of ONE WhatsApp session and
- * everything the reply needs — an LLM model, an optional RAG model and the persona prompt.
+ * One chatbot instance: the binding between WS sessions and everything the reply needs — an LLM
+ * model, an optional RAG model and the persona prompt — across ONE OR MANY WhatsApp sessions.
  *
- * `sessionId` is varchar to match `sessions.id` (the same reasoning as `webhooks.sessionId`).
+ * The ownership rule the table enforces (in the service, by validation):
+ *   - ONE chatbot may serve MANY sessions (`sessionIds` holds them all);
+ *   - each SESSION answers with AT MOST ONE chatbot — a second bot claiming an already-owned
+ *     session is refused, so an inbound message never has two candidate bots.
+ *
+ * `sessionIds` is a JSON array of session ids (varchar, matching `sessions.id`). A deleted session
+ * is pruned from every bot's list at deletion time (the sessions module calls `pruneSessions`).
  *
  * Which chats the bot answers is per-chat state on the Chats page (`ai_chat_overrides`, keyed
  * `(chatbotId, chatId)`): the default is ON-for-every-chat when the bot is enabled, and the
  * operator turns a specific conversation off from the chat list instead of typing JIDs here.
  */
 @Entity('ai_chatbots')
-@Index('IDX_ai_chatbots_sessionId', ['sessionId'])
+@Index('IDX_ai_chatbots_sessionIds', ['sessionIds'])
 export class AiChatbot {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar' })
-  sessionId!: string;
-
-  @ManyToOne(() => Session, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'sessionId' })
-  session!: Session;
+  /** The sessions this bot answers. At least one; each session may appear on at most one bot. */
+  @Column({ type: jsonColumnType() })
+  sessionIds!: string[];
 
   @Column({ type: 'varchar', length: AI_CHATBOT_NAME_MAX_LENGTH })
   name!: string;

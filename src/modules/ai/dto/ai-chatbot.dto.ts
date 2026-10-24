@@ -21,13 +21,23 @@ export class CreateAiChatbotDto {
   @NoNulCharacter()
   name!: string;
 
+  @ApiProperty({
+    description: 'Sessions this bot answers. At least one; each session may be served by only one chatbot.',
+    type: [String],
+    example: ['8f3c2b1a-9d4e-4c7a-8b2f-1e6d5a4c3b2a'],
+  })
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  sessionIds!: string[];
+
   @ApiProperty({ description: 'LLM model this chatbot answers with (`ai_llm_models.id`)' })
   @IsString()
   @IsNotEmpty()
   llmModelId!: string;
 
   @ApiPropertyOptional({ description: 'Optional RAG model whose knowledge rides along (`ai_rag_models.id`)' })
-  @IsOptional()
   @IsString()
   ragModelId?: string | null;
 
@@ -80,6 +90,17 @@ export class UpdateAiChatbotDto {
   @NoNulCharacter()
   name?: string;
 
+  @ApiPropertyOptional({
+    description: 'Replace the sessions this bot serves; every session must be free or already owned by this bot.',
+    type: [String],
+  })
+  @ValidateIf((o: UpdateAiChatbotDto) => o.sessionIds !== undefined)
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  sessionIds?: string[];
+
   @ApiPropertyOptional({ description: 'LLM model to answer with' })
   @ValidateIf((o: UpdateAiChatbotDto) => o.llmModelId !== undefined && o.llmModelId !== null)
   @IsString()
@@ -124,8 +145,8 @@ export class AiChatbotResponseDto {
   id!: string;
 
   @Expose()
-  @ApiProperty()
-  sessionId!: string;
+  @ApiProperty({ type: [String], description: 'Sessions this bot answers' })
+  sessionIds!: string[];
 
   @Expose()
   @ApiProperty()

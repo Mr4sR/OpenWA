@@ -79,7 +79,7 @@ describe('AiChatbotService — per-chat switches and the operator-managed gate',
     await ds.getRepository(AiLlmModel).insert({ id: llmId, name: 'llm', endpointUrl: 'http://x', apiKey: '' });
     bot = await ds.getRepository(AiChatbot).save(
       ds.getRepository(AiChatbot).create({
-        sessionId: SESSION,
+        sessionIds: [SESSION],
         name: 'Support',
         llmModelId: llmId,
         enabled: true,

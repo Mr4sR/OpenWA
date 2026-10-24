@@ -1262,7 +1262,10 @@
       "mcpLoadTools": "Carregar lista de ferramentas",
       "mcpLoadingTools": "Buscando ferramentas…",
       "mcpNoTools": "Este servidor não anuncia nenhuma ferramenta.",
-      "mcpSelectedOf": "{{selected}}/{{total}} selecionadas"
+      "mcpSelectedOf": "{{selected}}/{{total}} selecionadas",
+      "sessions": "Sessões",
+      "sessionsHint": "Um bot pode atender várias sessões; cada sessão só pode ser atendida por um bot.",
+      "sessionOwned": "Já usado por {{bot}}"
     },
     "llm": {
       "emptyTitle": "Ainda não há modelos LLM",
@@ -1383,7 +1386,8 @@
       "inputLabel": "Mensagem",
       "inputPlaceholder": "Digite uma mensagem para testar o bot…",
       "send": "Enviar",
-      "note": "As respostas são geradas de verdade (LLM + conhecimento), mas nunca entregues a nenhum chat."
+      "note": "As respostas são geradas de verdade (LLM + conhecimento), mas nunca entregues a nenhum chat.",
+      "sessionLabel": "Sessão"
     }
   }
 }

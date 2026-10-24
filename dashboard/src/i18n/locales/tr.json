@@ -1256,7 +1256,10 @@
       "mcpLoadTools": "Araç listesini yükle",
       "mcpLoadingTools": "Araçlar alınıyor…",
       "mcpNoTools": "Bu sunucu hiçbir araç sunmuyor.",
-      "mcpSelectedOf": "{{selected}}/{{total}} seçili"
+      "mcpSelectedOf": "{{selected}}/{{total}} seçili",
+      "sessions": "Oturumlar",
+      "sessionsHint": "Bir bot birden çok oturuma hizmet edebilir; her oturuma yalnızca bir bot hizmet edebilir.",
+      "sessionOwned": "Zaten {{bot}} tarafından kullanılıyor"
     },
     "llm": {
       "emptyTitle": "Henüz LLM modeli yok",
@@ -1377,7 +1380,8 @@
       "inputLabel": "Mesaj",
       "inputPlaceholder": "Botu test etmek için bir mesaj yazın…",
       "send": "Gönder",
-      "note": "Yanıtlar gerçekten üretilir (LLM + bilgi) ama hiçbir sohbete iletilmez."
+      "note": "Yanıtlar gerçekten üretilir (LLM + bilgi) ama hiçbir sohbete iletilmez.",
+      "sessionLabel": "Oturum"
     }
   }
 }

@@ -1256,7 +1256,10 @@
       "mcpLoadTools": "Muat daftar tool",
       "mcpLoadingTools": "Mengambil tool…",
       "mcpNoTools": "Server ini tidak menawarkan tool apa pun.",
-      "mcpSelectedOf": "{{selected}}/{{total}} dipilih"
+      "mcpSelectedOf": "{{selected}}/{{total}} dipilih",
+      "sessions": "Sesi",
+      "sessionsHint": "Satu bot boleh melayani banyak sesi; setiap sesi hanya bisa dilayani satu bot.",
+      "sessionOwned": "Sudah dipakai oleh {{bot}}"
     },
     "llm": {
       "emptyTitle": "Belum ada model LLM",
@@ -1377,7 +1380,8 @@
       "inputLabel": "Pesan",
       "inputPlaceholder": "Tulis pesan untuk menguji bot…",
       "send": "Kirim",
-      "note": "Balasan dihasilkan sungguhan (LLM + pengetahuan) tetapi tidak pernah dikirim ke obrolan mana pun."
+      "note": "Balasan dihasilkan sungguhan (LLM + pengetahuan) tetapi tidak pernah dikirim ke obrolan mana pun.",
+      "sessionLabel": "Sesi"
     }
   }
 }

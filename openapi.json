@@ -4597,20 +4597,10 @@
         ]
       }
     },
-    "/api/sessions/{sessionId}/ai-chatbots": {
+    "/api/ai/chatbots": {
       "post": {
         "operationId": "AiChatbotController_create",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -4633,7 +4623,7 @@
             }
           },
           "400": {
-            "description": "Unknown LLM/RAG model, invalid body, or the per-session chatbot limit is reached.",
+            "description": "Unknown LLM/RAG model or session, invalid body, or a requested session is already served by another chatbot.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4661,31 +4651,21 @@
                 }
               }
             }
-          },
-          "404": {
-            "description": "No session with this id.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         },
-        "summary": "Create a chatbot for the session",
+        "summary": "Create a chatbot bound to one or many sessions",
         "tags": [
           "ai"
         ]
       },
       "get": {
-        "operationId": "AiChatbotController_findAll",
+        "operationId": "AiIntegrationController_chatbotsIndex",
         "parameters": [
           {
             "name": "sessionId",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
+            "required": false,
+            "in": "query",
+            "description": "Filter to a single session",
             "schema": {
               "type": "string"
             }
@@ -4693,7 +4673,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Chatbots in creation order.",
+            "description": "Chatbots.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4726,25 +4706,16 @@
             }
           }
         },
-        "summary": "List the session’s chatbots",
+        "summary": "List chatbots visible to the calling key (scoped to its allowed sessions)",
         "tags": [
           "ai"
         ]
       }
     },
-    "/api/sessions/{sessionId}/ai-chatbots/{chatbotId}": {
+    "/api/ai/chatbots/{chatbotId}": {
       "get": {
         "operationId": "AiChatbotController_findOne",
         "parameters": [
-          {
-            "name": "sessionId",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "chatbotId",
             "required": true,
@@ -4777,7 +4748,7 @@
             }
           },
           "403": {
-            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
+            "description": "The bot serves no session this key may see. Also returned when the API key's role, session or chat scope, or IP allow-list does not allow this operation.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4787,7 +4758,7 @@
             }
           },
           "404": {
-            "description": "No such chatbot in this session.",
+            "description": "No such chatbot.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4805,15 +4776,6 @@
       "put": {
         "operationId": "AiChatbotController_update",
         "parameters": [
-          {
-            "name": "sessionId",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "chatbotId",
             "required": true,
@@ -4846,7 +4808,7 @@
             }
           },
           "400": {
-            "description": "The body is malformed, fails validation, or carries a field the DTO does not declare",
+            "description": "Unknown model/session, or a requested session is owned by another bot.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4876,7 +4838,7 @@
             }
           },
           "404": {
-            "description": "No such chatbot in this session.",
+            "description": "No such chatbot.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4886,7 +4848,7 @@
             }
           }
         },
-        "summary": "Update a chatbot",
+        "summary": "Update a chatbot (sessions, model, persona, tools…)",
         "tags": [
           "ai"
         ]
@@ -4894,15 +4856,6 @@
       "delete": {
         "operationId": "AiChatbotController_remove",
         "parameters": [
-          {
-            "name": "sessionId",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "chatbotId",
             "required": true,
@@ -4938,7 +4891,7 @@
             }
           },
           "404": {
-            "description": "No such chatbot in this session.",
+            "description": "No such chatbot.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4954,24 +4907,24 @@
         ]
       }
     },
-    "/api/sessions/{sessionId}/ai-chatbots/{chatbotId}/test": {
+    "/api/ai/chatbots/{chatbotId}/test": {
       "post": {
         "operationId": "AiChatbotController_test",
         "parameters": [
-          {
-            "name": "sessionId",
-            "required": true,
-            "in": "path",
-            "description": "Session ID",
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "chatbotId",
             "required": true,
             "in": "path",
             "description": "Chatbot ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "required": false,
+            "in": "query",
+            "description": "History source session; defaults to the bot’s first",
             "schema": {
               "type": "string"
             }
@@ -5029,7 +4982,7 @@
             }
           },
           "404": {
-            "description": "No such chatbot in this session.",
+            "description": "No such chatbot.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5040,61 +4993,6 @@
           }
         },
         "summary": "Produce one playground answer for a message without sending it",
-        "tags": [
-          "ai"
-        ]
-      }
-    },
-    "/api/ai/chatbots": {
-      "get": {
-        "operationId": "AiIntegrationController_chatbotsIndex",
-        "parameters": [
-          {
-            "name": "sessionId",
-            "required": false,
-            "in": "query",
-            "description": "Filter to a single session",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Chatbots.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AiChatbotResponseDto"
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "The API key is missing, unknown, revoked, or expired",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "The API key's role, session or chat scope, or IP allow-list does not allow this operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List chatbots visible to the calling key (scoped to its allowed sessions)",
         "tags": [
           "ai"
         ]
@@ -22303,6 +22201,16 @@
             "example": "Support bot",
             "maxLength": 100
           },
+          "sessionIds": {
+            "description": "Sessions this bot answers. At least one; each session may be served by only one chatbot.",
+            "example": [
+              "8f3c2b1a-9d4e-4c7a-8b2f-1e6d5a4c3b2a"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "llmModelId": {
             "type": "string",
             "description": "LLM model this chatbot answers with (`ai_llm_models.id`)"
@@ -22321,6 +22229,14 @@
             "description": "Answer group chats too. Off by default: in a group the bot speaks in front of every member. Individual chats are always answered while the bot is enabled.",
             "default": false
           },
+          "mcpToolIds": {
+            "description": "MCP tools this bot may call, as \"<connectionId>:<toolName>\" entries. Empty/omitted = every tool the enabled MCP connections advertise.",
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "enabled": {
             "type": "boolean",
             "description": "Whether the bot is active",
@@ -22329,6 +22245,7 @@
         },
         "required": [
           "name",
+          "sessionIds",
           "llmModelId"
         ]
       },
@@ -22338,8 +22255,12 @@
           "id": {
             "type": "string"
           },
-          "sessionId": {
-            "type": "string"
+          "sessionIds": {
+            "description": "Sessions this bot answers",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "name": {
             "type": "string"
@@ -22357,6 +22278,13 @@
           },
           "replyGroups": {
             "type": "boolean"
+          },
+          "mcpToolIds": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "enabled": {
             "type": "boolean"
@@ -22381,7 +22309,7 @@
         },
         "required": [
           "id",
-          "sessionId",
+          "sessionIds",
           "name",
           "llmModelId",
           "replyGroups",
@@ -22397,6 +22325,13 @@
             "type": "string",
             "description": "Display name",
             "maxLength": 100
+          },
+          "sessionIds": {
+            "description": "Replace the sessions this bot serves; every session must be free or already owned by this bot.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "llmModelId": {
             "type": "object",
@@ -22416,6 +22351,11 @@
             "type": "boolean",
             "description": "Answer group chats too",
             "default": false
+          },
+          "mcpToolIds": {
+            "type": "object",
+            "description": "MCP tools the bot may call; null clears an existing selection",
+            "nullable": true
           },
           "enabled": {
             "type": "boolean",
@@ -25664,10 +25604,6 @@
           "llmModelsMax": {
             "type": "number",
             "description": "Max LLM provider connections"
-          },
-          "chatbotsMaxPerSession": {
-            "type": "number",
-            "description": "Max chatbot instances per session"
           },
           "mcpConnectionsMax": {
             "type": "number",

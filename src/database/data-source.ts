@@ -62,6 +62,10 @@ const sqliteDataSourceOptions: DataSourceOptions = {
   database: process.env.DATABASE_NAME || './data/openwa.sqlite',
   entities: dataEntities,
   migrations: dataMigrations,
+  // `each` (the default) would wrap a whole migration in a transaction, where SQLite's
+  // `PRAGMA foreign_keys` is a no-op — the ChatbotMultiSession rebuild needs it OFF to swap the
+  // table that carried the sessions FK.
+  migrationsTransactionMode: 'none',
   synchronize: false,
   logging: process.env.DATABASE_LOGGING === 'true',
 };

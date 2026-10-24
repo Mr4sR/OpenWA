@@ -7449,10 +7449,11 @@ List chatbot instances across sessions. Rows are scoped to the calling key's
 
 **Response** `200` — `AiChatbot[]`
 
-#### POST /api/sessions/:sessionId/ai-chatbots
+#### POST /api/ai/chatbots
 
-Create a chatbot for the session. Both referenced models must exist (`400` otherwise); the
-per-session cap is `ai.chatbotsMaxPerSession` (default 8).
+Create a chatbot bound to one or many sessions (`sessionIds`, at least one). Both referenced models
+and every named session must exist (`400` otherwise); a session already served by ANOTHER chatbot
+is refused — one session is served by exactly one bot.
 
 **Auth:** API key (OPERATOR)
 
@@ -7464,13 +7465,16 @@ per-session cap is `ai.chatbotsMaxPerSession` (default 8).
 
 **Errors:** `400` unknown LLM/RAG model, or the per-session cap is reached · `404` unknown session
 
-#### GET /api/sessions/:sessionId/ai-chatbots
+#### GET /api/ai/chatbots
+
+List chatbots, scoped to the key's `allowedSessions`. Optional `?sessionId=` filters to bots
+serving that session.
 
 **Auth:** API key (OPERATOR)
 
-**Response** `200` — `AiChatbot[]` of this session
+**Response** `200` — `AiChatbot[]` (each carries `sessionIds`)
 
-#### GET /api/sessions/:sessionId/ai-chatbots/:chatbotId
+#### GET /api/ai/chatbots/:chatbotId
 
 **Auth:** API key (OPERATOR)
 
@@ -7478,17 +7482,18 @@ per-session cap is `ai.chatbotsMaxPerSession` (default 8).
 
 **Errors:** `404` unknown chatbot
 
-#### PUT /api/sessions/:sessionId/ai-chatbots/:chatbotId
+#### PUT /api/ai/chatbots/:chatbotId
 
 **Auth:** API key (OPERATOR)
 
-**Request** `UpdateAiChatbotDto` — any subset of the create fields.
+**Request** `UpdateAiChatbotDto` — any subset of the create fields; a new `sessionIds` must name
+only free sessions or the bot's own.
 
 **Response** `200` — `AiChatbot`
 
 **Errors:** `404` unknown chatbot
 
-#### DELETE /api/sessions/:sessionId/ai-chatbots/:chatbotId
+#### DELETE /api/ai/chatbots/:chatbotId
 
 **Auth:** API key (OPERATOR)
 
@@ -7496,7 +7501,7 @@ per-session cap is `ai.chatbotsMaxPerSession` (default 8).
 
 **Errors:** `404` unknown chatbot
 
-#### POST /api/sessions/:sessionId/ai-chatbots/:chatbotId/test
+#### POST /api/ai/chatbots/:chatbotId/test
 
 The AI Integration playground: produce ONE answer the bot would give for a pasted message, using
 the exact production prompt assembly (persona, RAG knowledge, recent history, the WhatsApp-answer

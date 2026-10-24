@@ -1256,7 +1256,10 @@
       "mcpLoadTools": "載入工具清單",
       "mcpLoadingTools": "正在取得工具…",
       "mcpNoTools": "此伺服器未提供任何工具。",
-      "mcpSelectedOf": "已選 {{selected}}/{{total}}"
+      "mcpSelectedOf": "已選 {{selected}}/{{total}}",
+      "sessions": "工作階段",
+      "sessionsHint": "一個機械人可服務多個工作階段；每個工作階段只能由一個機械人服務。",
+      "sessionOwned": "已被 {{bot}} 使用"
     },
     "llm": {
       "emptyTitle": "尚未有任何 LLM 模型",
@@ -1377,7 +1380,8 @@
       "inputLabel": "訊息",
       "inputPlaceholder": "輸入訊息以測試機械人…",
       "send": "發送",
-      "note": "回覆會真實產生（LLM + 知識），但絕不會投遞到任何聊天。"
+      "note": "回覆會真實產生（LLM + 知識），但絕不會投遞到任何聊天。",
+      "sessionLabel": "工作階段"
     }
   }
 }

@@ -81,7 +81,7 @@ describe('AiChatbotService setChatOverride dialect fix + typing indicator', () =
     // `find`, the switch paths read one bot through `findOne`
     const bot = {
       id: 'bot-1',
-      sessionId: 's1',
+      sessionIds: ['s1'],
       name: 'Support bot',
       llmModelId: 'm1',
       enabled: true,

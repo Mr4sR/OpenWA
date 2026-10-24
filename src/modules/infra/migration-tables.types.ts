@@ -282,7 +282,8 @@ export interface AiLlmModelRow {
 
 export interface AiChatbotRow {
   id: string;
-  sessionId: string;
+  /** JSON text array of session ids (the multi-session ownership column). */
+  sessionIds: string;
   name: string;
   llmModelId: string;
   ragModelId: string | null;

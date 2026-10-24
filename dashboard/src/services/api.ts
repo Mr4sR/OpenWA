@@ -1586,10 +1586,11 @@ export interface AiLlmModelPayload {
   enabled?: boolean;
 }
 
-/** One chatbot instance. `sessionId` binds it to a WhatsApp session. */
+/** One chatbot instance. `sessionIds` are the WhatsApp sessions it answers (one bot, many sessions). */
 export interface AiChatbot {
   id: string;
-  sessionId: string;
+  /** Sessions this bot serves; each session is served by at most one bot. */
+  sessionIds: string[];
   name: string;
   llmModelId: string;
   ragModelId: string | null;
@@ -1606,6 +1607,8 @@ export interface AiChatbot {
 
 export interface AiChatbotPayload {
   name: string;
+  /** At least one; every session must be free or already owned by this bot. */
+  sessionIds: string[];
   llmModelId: string;
   ragModelId?: string | null;
   persona?: string | null;
@@ -1746,20 +1749,20 @@ export const aiApi = {
   testLlmModel: (id: string) =>
     request<{ ok: boolean; answer: string }>(`/ai/llm-models/${id}/test`, { method: 'POST' }),
 
-  listChatbots: () => request<AiChatbot[]>('/ai/chatbots'),
-  createChatbot: (sessionId: string, body: AiChatbotPayload) =>
-    request<AiChatbot>(`/sessions/${sessionId}/ai-chatbots`, { method: 'POST', body: JSON.stringify(body) }),
-  updateChatbot: (sessionId: string, id: string, body: Partial<AiChatbotPayload>) =>
-    request<AiChatbot>(`/sessions/${sessionId}/ai-chatbots/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-  deleteChatbot: (sessionId: string, id: string) =>
-    request<void>(`/sessions/${sessionId}/ai-chatbots/${id}`, { method: 'DELETE' }),
+  listChatbots: (sessionId?: string) =>
+    request<AiChatbot[]>(sessionId ? `/ai/chatbots?sessionId=${encodeURIComponent(sessionId)}` : '/ai/chatbots'),
+  createChatbot: (body: AiChatbotPayload) =>
+    request<AiChatbot>('/ai/chatbots', { method: 'POST', body: JSON.stringify(body) }),
+  updateChatbot: (id: string, body: Partial<AiChatbotPayload>) =>
+    request<AiChatbot>(`/ai/chatbots/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteChatbot: (id: string) => request<void>(`/ai/chatbots/${id}`, { method: 'DELETE' }),
 
   /** The Playground: one production-shaped answer without sending anything. */
-  testChatbot: (sessionId: string, id: string, message: string) =>
-    request<AiChatbotTestResult>(`/sessions/${sessionId}/ai-chatbots/${id}/test`, {
-      method: 'POST',
-      body: JSON.stringify({ message }),
-    }),
+  testChatbot: (id: string, message: string, sessionId?: string) =>
+    request<AiChatbotTestResult>(
+      `/ai/chatbots/${id}/test${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`,
+      { method: 'POST', body: JSON.stringify({ message }) },
+    ),
 
   listRagModels: () => request<AiRagModel[]>('/ai/rag-models'),
   createRagModel: (body: AiRagModelPayload) =>

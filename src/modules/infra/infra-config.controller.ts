@@ -97,7 +97,6 @@ interface SavedConfigResponse {
     mcpEnabled: boolean;
     mcpReadonly: boolean;
     llmModelsMax: number;
-    chatbotsMaxPerSession: number;
     mcpConnectionsMax: number;
     allowPrivateAiEndpoints: boolean;
   };
@@ -192,7 +191,6 @@ export class InfraConfigController {
         // READONLY default true (read-only posture when unset — the MCP server's documented default).
         mcpReadonly: effective('MCP_READONLY') !== 'false',
         llmModelsMax: Number(effective('AI_LLM_MODELS_MAX')) || 50,
-        chatbotsMaxPerSession: Number(effective('AI_CHATBOTS_MAX_PER_SESSION')) || 8,
         mcpConnectionsMax: Number(effective('AI_MCP_CONNECTIONS_MAX')) || 50,
         allowPrivateAiEndpoints: (effective('SSRF_ALLOWED_HOSTS') ?? '').includes('*'),
       },

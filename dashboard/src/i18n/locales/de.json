@@ -1256,7 +1256,10 @@
       "mcpLoadTools": "Werkzeugliste laden",
       "mcpLoadingTools": "Werkzeuge werden abgerufen…",
       "mcpNoTools": "Dieser Server bietet keine Werkzeuge an.",
-      "mcpSelectedOf": "{{selected}}/{{total}} ausgewählt"
+      "mcpSelectedOf": "{{selected}}/{{total}} ausgewählt",
+      "sessions": "Sitzungen",
+      "sessionsHint": "Ein Bot kann mehrere Sitzungen bedienen; jede Sitzung kann nur von einem Bot bedient werden.",
+      "sessionOwned": "Bereits von {{bot}} verwendet"
     },
     "llm": {
       "emptyTitle": "Noch keine LLM-Modelle",
@@ -1377,7 +1380,8 @@
       "inputLabel": "Nachricht",
       "inputPlaceholder": "Nachricht zum Testen des Bots schreiben…",
       "send": "Senden",
-      "note": "Antworten werden echt erzeugt (LLM + Wissen), aber nie an einen Chat zugestellt."
+      "note": "Antworten werden echt erzeugt (LLM + Wissen), aber nie an einen Chat zugestellt.",
+      "sessionLabel": "Sitzung"
     }
   }
 }

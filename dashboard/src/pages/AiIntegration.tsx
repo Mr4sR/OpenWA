@@ -180,6 +180,13 @@ function ChatbotsSection({
   // own MCP query via props (`mcpConnections`) — a second hook with the same key that lands in an
   // error state makes TanStack retry-on-mount on every section render, an observable refetch loop.
 
+  // sessionId -> name of the bot that already serves it; the picker disables those checkboxes so
+  // one session cannot be claimed twice (the backend refuses it too — this is the UX guard).
+  const sessionOwners: Record<string, string> = {};
+  for (const bot of chatbots) {
+    for (const sessionId of bot.sessionIds) sessionOwners[sessionId] = bot.name;
+  }
+
   const [editing, setEditing] = useState<AiChatbot | null>(null);
   const [deleting, setDeleting] = useState<AiChatbot | null>(null);
   const [draft, setDraft] = useState<AiChatbotDraft>(EMPTY_CHATBOT);
@@ -188,7 +195,7 @@ function ChatbotsSection({
   const openEdit = (chatbot: AiChatbot) => {
     setEditing(chatbot);
     setDraft({
-      sessionId: chatbot.sessionId,
+      sessionIds: chatbot.sessionIds,
       name: chatbot.name,
       llmModelId: chatbot.llmModelId,
       ragModelId: chatbot.ragModelId ?? '',
@@ -209,7 +216,8 @@ function ChatbotsSection({
         </div>
       ) : (
         chatbots.map(bot => {
-          const sessionName = sessions.find(s => s.id === bot.sessionId)?.name ?? bot.sessionId.slice(0, 12);
+          const names = bot.sessionIds.map(id => sessions.find(s => s.id === id)?.name ?? id.slice(0, 12));
+          const sessionLabel = names.join(', ');
           return (
             <AiCard
               key={bot.id}
@@ -221,7 +229,7 @@ function ChatbotsSection({
                   enabled={bot.enabled}
                   canWrite={canWrite}
                   onToggle={() =>
-                    void runMutation(t, toast, () => aiApi.updateChatbot(bot.sessionId, bot.id, { enabled: !bot.enabled }), 'ai.toasts.updated', invalidate, ['chatbots'])
+                    void runMutation(t, toast, () => aiApi.updateChatbot(bot.id, { enabled: !bot.enabled }), 'ai.toasts.updated', invalidate, ['chatbots'])
                   }
                   onEdit={() => openEdit(bot)}
                   onDelete={() => setDeleting(bot)}
@@ -229,7 +237,7 @@ function ChatbotsSection({
               }
             >
               <div className="ai-meta">
-                <AiMetaItem label={t('ai.chatbots.session')} value={sessionName} />
+                <AiMetaItem label={t('ai.chatbots.session')} value={sessionLabel} />
                 <AiMetaItem
                   label={t('ai.chatbots.llmModel')}
                   value={llmModels.find(m => m.id === bot.llmModelId)?.name ?? bot.llmModelId.slice(0, 8)}
@@ -258,11 +266,12 @@ function ChatbotsSection({
           ragModels={ragModels}
           mcpConnections={mcpConnections.filter(c => c.enabled)}
           sessions={sessions.map(s => ({ id: s.id, name: s.name }))}
+          sessionOwners={sessionOwners}
           draft={draft}
           setDraft={setDraft}
           onClose={onCreated}
           onSubmit={async () => {
-            const ok = await runMutation(t, toast, () => aiApi.createChatbot(draft.sessionId, toChatbotPayload(draft)), 'ai.toasts.created', invalidate, ['chatbots']);
+            const ok = await runMutation(t, toast, () => aiApi.createChatbot(toChatbotPayload(draft)), 'ai.toasts.created', invalidate, ['chatbots']);
             if (ok) {
               onCreated();
               setDraft(EMPTY_CHATBOT);
@@ -279,12 +288,13 @@ function ChatbotsSection({
           ragModels={ragModels}
           mcpConnections={mcpConnections.filter(c => c.enabled)}
           sessions={sessions.map(s => ({ id: s.id, name: s.name }))}
+          sessionOwners={sessionOwners}
+          editingId={editing.id}
           draft={draft}
           setDraft={setDraft}
-          lockSession
           onClose={() => setEditing(null)}
           onSubmit={async () => {
-            const ok = await runMutation(t, toast, () => aiApi.updateChatbot(editing.sessionId, editing.id, toChatbotPayload(draft)), 'ai.toasts.updated', invalidate, ['chatbots']);
+            const ok = await runMutation(t, toast, () => aiApi.updateChatbot(editing.id, toChatbotPayload(draft)), 'ai.toasts.updated', invalidate, ['chatbots']);
             if (ok) setEditing(null);
           }}
           t={t}
@@ -302,7 +312,7 @@ function ChatbotsSection({
             <button
               className="btn-danger"
               onClick={async () => {
-                if (await runMutation(t, toast, () => aiApi.deleteChatbot(deleting.sessionId, deleting.id), 'ai.toasts.deleted', invalidate, ['chatbots'])) {
+                if (await runMutation(t, toast, () => aiApi.deleteChatbot(deleting.id), 'ai.toasts.deleted', invalidate, ['chatbots'])) {
                   setDeleting(null);
                 }
               }}
@@ -319,7 +329,8 @@ function ChatbotsSection({
 }
 
 interface AiChatbotDraft {
-  sessionId: string;
+  /** The sessions this bot serves; a session owned by another bot is disabled in the picker. */
+  sessionIds: string[];
   name: string;
   llmModelId: string;
   ragModelId: string;
@@ -331,7 +342,7 @@ interface AiChatbotDraft {
 }
 
 const EMPTY_CHATBOT: AiChatbotDraft = {
-  sessionId: '',
+  sessionIds: [],
   name: '',
   llmModelId: '',
   ragModelId: '',
@@ -344,6 +355,7 @@ const EMPTY_CHATBOT: AiChatbotDraft = {
 function toChatbotPayload(draft: AiChatbotDraft) {
   return {
     name: draft.name.trim(),
+    sessionIds: draft.sessionIds,
     llmModelId: draft.llmModelId,
     ragModelId: draft.ragModelId || null,
     persona: draft.persona.trim() || null,
@@ -360,11 +372,12 @@ function ChatbotModal({
   ragModels,
   mcpConnections,
   sessions,
+  sessionOwners,
+  editingId,
   draft,
   setDraft,
   onClose,
   onSubmit,
-  lockSession,
   t,
 }: {
   title: string;
@@ -372,11 +385,14 @@ function ChatbotModal({
   ragModels: AiRagModel[];
   mcpConnections: AiMcpConnection[];
   sessions: Array<{ id: string; name: string }>;
+  /** sessionId -> name of the bot that already serves it (the bot being edited keeps its own). */
+  sessionOwners: Record<string, string>;
+  /** Id of the bot being edited (undefined when creating), so its own sessions stay selectable. */
+  editingId?: string;
   draft: AiChatbotDraft;
   setDraft: (draft: AiChatbotDraft) => void;
   onClose: () => void;
   onSubmit: () => void;
-  lockSession?: boolean;
   t: TFn;
 }) {
   // Tool catalogues fetch live, once per connection the operator expands: the server may have
@@ -413,7 +429,15 @@ function ChatbotModal({
         : [...selected, toolId],
     });
   };
-  const valid = draft.sessionId && draft.name.trim() && draft.llmModelId;
+  const toggleSession = (sessionId: string) => {
+    setDraft({
+      ...draft,
+      sessionIds: draft.sessionIds.includes(sessionId)
+        ? draft.sessionIds.filter(entry => entry !== sessionId)
+        : [...draft.sessionIds, sessionId],
+    });
+  };
+  const valid = draft.sessionIds.length > 0 && draft.name.trim() && draft.llmModelId;
   return (
     <Modal
       open
@@ -431,23 +455,27 @@ function ChatbotModal({
         </>
       }
     >
-      {!lockSession && (
-        <>
-          <label htmlFor="ai-cb-session">{t('ai.chatbots.session')}</label>
-          <select
-            id="ai-cb-session"
-            value={draft.sessionId}
-            onChange={e => setDraft({ ...draft, sessionId: e.target.value })}
-          >
-            <option value="">{t('ai.chatbots.selectSession')}</option>
-            {sessions.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </>
-      )}
+      <label htmlFor="ai-cb-sessions">{t('ai.chatbots.sessions')}</label>
+      <div className="ai-mcp-tool-picker" id="ai-cb-sessions" role="group" aria-label={t('ai.chatbots.sessions')}>
+        <span className="hint">{t('ai.chatbots.sessionsHint')}</span>
+        {sessions.map(session => {
+          const owned = sessionOwners[session.id];
+          const mine = draft.sessionIds.includes(session.id);
+          const disabledByOther = Boolean(owned && owned !== editingId);
+          return (
+            <label key={session.id} className="ai-checkbox-row ai-mcp-tool-row" title={disabledByOther ? t('ai.chatbots.sessionOwned', { bot: owned }) : undefined}>
+              <input
+                type="checkbox"
+                checked={mine}
+                disabled={disabledByOther}
+                onChange={() => toggleSession(session.id)}
+              />
+              <span>{session.name}</span>
+              {disabledByOther && <span className="hint">{t('ai.chatbots.sessionOwned', { bot: owned })}</span>}
+            </label>
+          );
+        })}
+      </div>
       <label htmlFor="ai-cb-name">{t('ai.chatbots.name')}</label>
       <input
         id="ai-cb-name"

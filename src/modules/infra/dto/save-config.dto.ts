@@ -207,13 +207,6 @@ export class AiConfigDto {
   @Min(0)
   llmModelsMax?: number;
 
-  @ApiPropertyOptional({ description: 'Max chatbot instances per session' })
-  @ToStrictNumber()
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  chatbotsMaxPerSession?: number;
-
   @ApiPropertyOptional({ description: 'Max outbound MCP server connections' })
   @ToStrictNumber()
   @IsOptional()

@@ -1269,7 +1269,10 @@
       "mcpLoadTools": "טען רשימת כלים",
       "mcpLoadingTools": "מאחזר כלים…",
       "mcpNoTools": "השרת הזה אינו מציע כלים.",
-      "mcpSelectedOf": "נבחרו {{selected}}/{{total}}"
+      "mcpSelectedOf": "נבחרו {{selected}}/{{total}}",
+      "sessions": "הפעלות",
+      "sessionsHint": "בוט אחד יכול לשרת כמה הפעלות; כל הפעלה יכולה להיות בשירות בוט אחד בלבד.",
+      "sessionOwned": "כבר בשימוש על ידי {{bot}}"
     },
     "llm": {
       "emptyTitle": "אין עדיין מודלי LLM",
@@ -1390,7 +1393,8 @@
       "inputLabel": "הודעה",
       "inputPlaceholder": "כתוב הודעה כדי לבדוק את הבוט…",
       "send": "שלח",
-      "note": "התשובות נוצרות באמת (LLM + ידע) אך לעולם לא נמסרות לאף צ׳אט."
+      "note": "התשובות נוצרות באמת (LLM + ידע) אך לעולם לא נמסרות לאף צ׳אט.",
+      "sessionLabel": "הפעלה"
     }
   }
 }

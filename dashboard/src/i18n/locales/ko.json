@@ -1256,7 +1256,10 @@
       "mcpLoadTools": "도구 목록 불러오기",
       "mcpLoadingTools": "도구 가져오는 중…",
       "mcpNoTools": "이 서버는 제공하는 도구가 없습니다.",
-      "mcpSelectedOf": "{{selected}}/{{total}}개 선택됨"
+      "mcpSelectedOf": "{{selected}}/{{total}}개 선택됨",
+      "sessions": "세션",
+      "sessionsHint": "하나의 봇이 여러 세션을 담당할 수 있지만, 각 세션은 하나의 봇만 담당할 수 있습니다.",
+      "sessionOwned": "{{bot}}이(가) 이미 사용 중"
     },
     "llm": {
       "emptyTitle": "아직 LLM 모델이 없습니다",
@@ -1377,7 +1380,8 @@
       "inputLabel": "메시지",
       "inputPlaceholder": "봇을 테스트할 메시지를 입력하세요…",
       "send": "보내기",
-      "note": "답변은 실제로 생성되지만(LLM + 지식) 어떤 채팅에도 전달되지 않습니다."
+      "note": "답변은 실제로 생성되지만(LLM + 지식) 어떤 채팅에도 전달되지 않습니다.",
+      "sessionLabel": "세션"
     }
   }
 }

@@ -22,7 +22,7 @@ import { AuditService } from '../audit/audit.service';
 describe('AiChatbotService.previewReply', () => {
   const chatbot = {
     id: 'bot-1',
-    sessionId: 'session-1',
+    sessionIds: ['session-1'],
     llmModelId: 'model-1',
     ragModelId: 'rag-1',
     persona: 'You are an assistant.',

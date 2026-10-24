@@ -404,7 +404,9 @@ export function useAiLlmModelsQuery(enabled = true) {
 export function useAiChatbotsQuery(enabled = true) {
   return useQuery({
     queryKey: queryKeys.aiChatbots,
-    queryFn: aiApi.listChatbots,
+    // Arrow, not a bare method reference: React Query hands a context object as the first
+    // argument, and `listChatbots(sessionId?)` would read it as a session filter.
+    queryFn: () => aiApi.listChatbots(),
     staleTime: 30_000,
     retry: false,
     enabled,

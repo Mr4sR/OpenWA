@@ -30,12 +30,12 @@ import {
 import { AiRagModelResponseDto } from './dto/ai-rag-model.dto';
 
 /**
- * AI chatbots: one instance per (session, bot). The create/update/delete routes live under the
- * session they belong to, mirroring the webhook and automation-rule controllers, so the
- * ApiKeyGuard's session fence applies with no extra code.
+ * AI chatbots: ONE bot may serve MANY sessions; each session is served by AT MOST ONE bot. The
+ * routes live flat under /api/ai/chatbots (a bot is no longer owned by a session), and the
+ * ApiKeyGuard's session fence still scopes the views to the key's allowed sessions.
  */
 @ApiTags('ai')
-@Controller('sessions/:sessionId/ai-chatbots')
+@Controller('ai/chatbots')
 export class AiChatbotController {
   constructor(
     private readonly chatbots: AiChatbotService,
@@ -45,69 +45,66 @@ export class AiChatbotController {
 
   @Post()
   @RequireRole(ApiKeyRole.OPERATOR)
-  @ApiOperation({ summary: 'Create a chatbot for the session' })
-  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiOperation({ summary: 'Create a chatbot bound to one or many sessions' })
   @ApiResponse({ status: 201, description: 'Chatbot created.', type: AiChatbotResponseDto })
   @ApiResponse({
     status: 400,
-    description: 'Unknown LLM/RAG model, invalid body, or the per-session chatbot limit is reached.',
+    description: 'Unknown LLM/RAG model or session, invalid body, or a requested session is already served by another chatbot.',
   })
-  @ApiResponse({ status: 404, description: 'No session with this id.' })
-  async create(
-    @Param('sessionId') sessionId: string,
-    @Body() dto: CreateAiChatbotDto,
-  ): Promise<AiChatbotResponseDto> {
-    return AiChatbotResponseDto.fromEntity(await this.chatbots.create(sessionId, dto));
+  async create(@Body() dto: CreateAiChatbotDto): Promise<AiChatbotResponseDto> {
+    return AiChatbotResponseDto.fromEntity(await this.chatbots.create(dto));
   }
 
   @Get()
   @RequireRole(ApiKeyRole.OPERATOR)
-  @ApiOperation({ summary: 'List the session’s chatbots' })
-  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiOperation({ summary: 'List chatbots (scoped to the key’s allowed sessions)' })
+  @ApiQuery({ name: 'sessionId', required: false, description: 'Filter to bots serving this session' })
   @ApiResponse({ status: 200, description: 'Chatbots in creation order.', type: [AiChatbotResponseDto] })
-  async findAll(@Param('sessionId') sessionId: string): Promise<AiChatbotResponseDto[]> {
-    return AiChatbotResponseDto.fromEntities(await this.chatbots.findAll(sessionId));
+  async findAll(@CurrentApiKey() apiKey?: ApiKey, @Query('sessionId') sessionId?: string): Promise<AiChatbotResponseDto[]> {
+    const bots = await this.chatbots.findAllForSessions(apiKey?.allowedSessions ?? null);
+    const filtered = sessionId ? bots.filter(bot => bot.sessionIds.includes(sessionId)) : bots;
+    return AiChatbotResponseDto.fromEntities(filtered);
   }
 
   @Get(':chatbotId')
   @RequireRole(ApiKeyRole.OPERATOR)
   @ApiOperation({ summary: 'Get one chatbot' })
-  @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'chatbotId', description: 'Chatbot ID' })
   @ApiResponse({ status: 200, description: 'The chatbot.', type: AiChatbotResponseDto })
-  @ApiResponse({ status: 404, description: 'No such chatbot in this session.' })
-  async findOne(
-    @Param('sessionId') sessionId: string,
-    @Param('chatbotId') chatbotId: string,
-  ): Promise<AiChatbotResponseDto> {
-    return AiChatbotResponseDto.fromEntity(await this.chatbots.findOne(sessionId, chatbotId));
+  @ApiResponse({ status: 404, description: 'No such chatbot.' })
+  @ApiResponse({ status: 403, description: 'The bot serves no session this key may see.' })
+  async findOne(@Param('chatbotId') chatbotId: string, @CurrentApiKey() apiKey?: ApiKey): Promise<AiChatbotResponseDto> {
+    const bot = await this.chatbots.findOne(chatbotId);
+    this.assertReadable(bot, apiKey);
+    return AiChatbotResponseDto.fromEntity(bot);
   }
 
   @Put(':chatbotId')
   @RequireRole(ApiKeyRole.OPERATOR)
-  @ApiOperation({ summary: 'Update a chatbot' })
-  @ApiParam({ name: 'sessionId', description: 'Session ID' })
+  @ApiOperation({ summary: 'Update a chatbot (sessions, model, persona, tools…)' })
   @ApiParam({ name: 'chatbotId', description: 'Chatbot ID' })
   @ApiResponse({ status: 200, description: 'Updated chatbot.', type: AiChatbotResponseDto })
-  @ApiResponse({ status: 404, description: 'No such chatbot in this session.' })
+  @ApiResponse({ status: 400, description: 'Unknown model/session, or a requested session is owned by another bot.' })
+  @ApiResponse({ status: 404, description: 'No such chatbot.' })
   async update(
-    @Param('sessionId') sessionId: string,
     @Param('chatbotId') chatbotId: string,
     @Body() dto: UpdateAiChatbotDto,
+    @CurrentApiKey() apiKey?: ApiKey,
   ): Promise<AiChatbotResponseDto> {
-    return AiChatbotResponseDto.fromEntity(await this.chatbots.update(sessionId, chatbotId, dto));
+    await this.assertWritable(chatbotId, apiKey);
+    return AiChatbotResponseDto.fromEntity(await this.chatbots.update(chatbotId, dto));
   }
 
   @Delete(':chatbotId')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a chatbot' })
-  @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'chatbotId', description: 'Chatbot ID' })
   @ApiResponse({ status: 204, description: 'Chatbot deleted.' })
-  @ApiResponse({ status: 404, description: 'No such chatbot in this session.' })
-  async remove(@Param('sessionId') sessionId: string, @Param('chatbotId') chatbotId: string): Promise<void> {
-    await this.chatbots.remove(sessionId, chatbotId);
+  @ApiResponse({ status: 404, description: 'No such chatbot.' })
+  async remove(@Param('chatbotId') chatbotId: string, @CurrentApiKey() apiKey?: ApiKey): Promise<void> {
+    await this.assertWritable(chatbotId, apiKey);
+    await this.chatbots.remove(chatbotId);
   }
 
   /**
@@ -118,25 +115,42 @@ export class AiChatbotController {
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Produce one playground answer for a message without sending it' })
-  @ApiParam({ name: 'sessionId', description: 'Session ID' })
   @ApiParam({ name: 'chatbotId', description: 'Chatbot ID' })
+  @ApiQuery({ name: 'sessionId', required: false, description: 'History source session; defaults to the bot’s first' })
   @ApiResponse({ status: 200, description: 'The answer the bot would send, with RAG citations.', type: AiChatbotTestResponseDto })
   @ApiResponse({ status: 400, description: 'Empty message, or the bot failed to answer (the reason is in the response).' })
-  @ApiResponse({ status: 404, description: 'No such chatbot in this session.' })
+  @ApiResponse({ status: 404, description: 'No such chatbot.' })
   async test(
-    @Param('sessionId') sessionId: string,
     @Param('chatbotId') chatbotId: string,
     @Body() dto: AiChatbotTestDto,
+    @CurrentApiKey() apiKey?: ApiKey,
+    @Query('sessionId') sessionId?: string,
   ): Promise<AiChatbotTestResponseDto> {
-    const chatbot = await this.chatbots.findOne(sessionId, chatbotId);
+    const bot = await this.chatbots.findOne(chatbotId);
+    this.assertReadable(bot, apiKey);
+    const probeSession = sessionId && bot.sessionIds.includes(sessionId) ? sessionId : bot.sessionIds[0];
     try {
-      const result = await this.chatbots.previewReply(chatbot, dto.message);
-      void this.chatbots.auditTest(chatbot);
+      const result = await this.chatbots.previewReply(bot, dto.message, probeSession);
+      void this.chatbots.auditTest(bot);
       return AiChatbotTestResponseDto.ok(result);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new BadRequestException(detail.slice(0, 300));
     }
+  }
+
+  /** A bot is readable when any of its sessions is inside the key's session fence. */
+  private assertReadable(bot: { sessionIds: string[] }, apiKey?: ApiKey): void {
+    const allowed = apiKey?.allowedSessions ?? null;
+    if (allowed != null && !bot.sessionIds.some(sessionId => allowed.includes(sessionId))) {
+      throw new NotFoundException(`Chatbot not found`);
+    }
+  }
+
+  /** Writable has the same fence as readable, resolved through the stored bot. */
+  private async assertWritable(chatbotId: string, apiKey?: ApiKey): Promise<void> {
+    const bot = await this.chatbots.findOne(chatbotId);
+    this.assertReadable(bot, apiKey);
   }
 }
 
@@ -163,12 +177,10 @@ export class AiIntegrationController {
     @Query('sessionId') sessionId?: string,
   ): Promise<AiChatbotResponseDto[]> {
     const allowed = apiKey?.allowedSessions ?? null;
-    if (sessionId) {
-      const visible = allowed == null || allowed.length === 0 || allowed.includes(sessionId);
-      if (!visible) return [];
-      return AiChatbotResponseDto.fromEntities(await this.chatbots.findAll(sessionId));
-    }
-    return AiChatbotResponseDto.fromEntities(await this.chatbots.findAllForSessions(allowed));
+    const bots = await this.chatbots.findAllForSessions(allowed);
+    if (!sessionId) return AiChatbotResponseDto.fromEntities(bots);
+    if (allowed != null && allowed.length > 0 && !allowed.includes(sessionId)) return [];
+    return AiChatbotResponseDto.fromEntities(bots.filter(bot => bot.sessionIds.includes(sessionId)));
   }
 
   /**
@@ -215,7 +227,7 @@ export class AiIntegrationController {
       candidate => candidate.id === dto.chatbotId,
     );
     if (!chatbot) throw new NotFoundException(`Chatbot ${dto.chatbotId} not found`);
-    await this.chatbots.setChatOverride(chatbot.sessionId, dto.chatbotId, dto.chatId, dto.chatbotDisabled);
+    await this.chatbots.setChatOverride(undefined, dto.chatbotId, dto.chatId, dto.chatbotDisabled);
     return AiChatStateDto.fromRow({
       chatbotId: dto.chatbotId,
       chatId: dto.chatId,

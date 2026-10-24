@@ -27,7 +27,7 @@ describe('AiChatbotService MCP tool loop', () => {
   const connMcp = { id: CONNECTION_ID, name: 'Billing MCP', enabled: true };
   const chatbot = {
     id: 'bot-1',
-    sessionId: 's1',
+    sessionIds: ['s1'],
     llmModelId: 'm1',
     ragModelId: null,
     persona: null,

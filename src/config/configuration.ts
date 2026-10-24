@@ -516,15 +516,13 @@ export default () => ({
   },
 
   // AI Integration caps. Every cap has the same semantics: a create at/over the cap gets 400,
-  // existing rows are grandfathered, and 0 disables the cap.
+  // existing rows are grandfathered, and 0 disables the cap. The chatbot count is BOUNDED BY THE
+  // OWNERSHIP RULE instead (one session ⇔ one bot): a second bot claiming a served session is
+  // refused outright, so there is no per-session cap to tune.
   ai: {
     llmModelsMax: (() => {
       const n = parseInt(process.env.AI_LLM_MODELS_MAX ?? '', 10);
       return Number.isFinite(n) && n >= 0 ? n : 50;
-    })(),
-    chatbotsMaxPerSession: (() => {
-      const n = parseInt(process.env.AI_CHATBOTS_MAX_PER_SESSION ?? '', 10);
-      return Number.isFinite(n) && n >= 0 ? n : 8;
     })(),
     mcpConnectionsMax: (() => {
       const n = parseInt(process.env.AI_MCP_CONNECTIONS_MAX ?? '', 10);

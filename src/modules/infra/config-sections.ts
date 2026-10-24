@@ -251,7 +251,7 @@ export function applyEngineSection(
 }
 
 // AI Integration. NOTE: these keys must match what src/config/configuration.ts reads
-// (ai.llmModelsMax / ai.chatbotsMaxPerSession / ai.mcpConnectionsMax, MCP_ENABLED,
+// (ai.llmModelsMax / ai.mcpConnectionsMax, MCP_ENABLED,
 // MCP_READONLY) and what src/common/security/ssrf-guard.ts reads
 // (SSRF_ALLOWED_HOSTS='*' is how the page expresses "allow private AI endpoints").
 export function applyAiSection(ai: AiConfigDto, _existing: Record<string, string>, ctx: ConfigSectionContext): void {
@@ -259,7 +259,7 @@ export function applyAiSection(ai: AiConfigDto, _existing: Record<string, string
   if (ai.mcpEnabled !== undefined) updates.MCP_ENABLED = ai.mcpEnabled ? 'true' : 'false';
   if (ai.mcpReadonly !== undefined) updates.MCP_READONLY = ai.mcpReadonly ? 'true' : 'false';
   if (ai.llmModelsMax !== undefined) updates.AI_LLM_MODELS_MAX = String(ai.llmModelsMax);
-  if (ai.chatbotsMaxPerSession !== undefined) updates.AI_CHATBOTS_MAX_PER_SESSION = String(ai.chatbotsMaxPerSession);
+  // No chatbot cap: one session ⇔ one bot is enforced by the AI chatbot ownership rule.
   if (ai.mcpConnectionsMax !== undefined) updates.AI_MCP_CONNECTIONS_MAX = String(ai.mcpConnectionsMax);
   if (ai.allowPrivateAiEndpoints !== undefined) {
     // The SSRF guard reads a comma-separated allowlist; '*' is its documented "allow all hosts"

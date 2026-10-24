@@ -23,17 +23,20 @@ export function Playground({
   chatbots,
   llmModels,
   ragModels,
+  sessionNames,
   t,
 }: {
   chatbots: AiChatbot[];
   llmModels: AiLlmModel[];
   ragModels: AiRagModel[];
+  /** sessionId -> display name, for the probe-session picker. */
+  sessionNames: Array<{ id: string; name: string }>;
   t: TFunction;
 }) {
   const [selectedId, setSelectedId] = useState<string>('');
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<PlaygroundMessage[]>([]);
   const [pending, setPending] = useState(false);
+  const [messages, setMessages] = useState<PlaygroundMessage[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const nextId = useRef(1);
@@ -64,6 +67,10 @@ export function Playground({
   const llm = bot ? llmModels.find(model => model.id === bot.llmModelId) ?? null : null;
   const rag = bot?.ragModelId ? ragModels.find(model => model.id === bot.ragModelId) ?? null : null;
 
+  // History source: the operator picks among the bot's own sessions; default = the first.
+  const [probeSessionId, setProbeSessionId] = useState<string | undefined>(undefined);
+  const probeSession = probeSessionId && bot?.sessionIds.includes(probeSessionId) ? probeSessionId : bot?.sessionIds[0];
+
   const send = async () => {
     const text = input.trim();
     if (!bot || !text || pending) return;
@@ -73,7 +80,7 @@ export function Playground({
     setPending(true);
     setActiveId(bot.id);
     try {
-      const result = await aiApi.testChatbot(bot.sessionId, bot.id, text);
+      const result = await aiApi.testChatbot(bot.id, text, probeSession);
       setMessages(previous => [...previous, { id: nextId.current++, role: 'assistant', text: result.reply, result }]);
     } catch (error) {
       setMessages(previous => [
@@ -89,7 +96,7 @@ export function Playground({
       setPending(false);
       setActiveId(null);
     }
-  };
+  }
 
   const copy = (text: string) => {
     void navigator.clipboard?.writeText(text);
@@ -125,6 +132,22 @@ export function Playground({
               <AiStatusDot enabled={bot.enabled} />
               {bot.enabled ? t('ai.status.enabled') : t('ai.status.disabled')}
             </span>
+            {bot.sessionIds.length > 1 && sessionNames && (
+              <span className="ai-playground-state">
+                <label htmlFor="ai-pg-session">{t('ai.playground.sessionLabel')}</label>
+                <select
+                  id="ai-pg-session"
+                  value={probeSession ?? ''}
+                  onChange={event => setProbeSessionId(event.target.value)}
+                >
+                  {bot.sessionIds.map(sessionId => (
+                    <option key={sessionId} value={sessionId}>
+                      {sessionNames.find(s => s.id === sessionId)?.name ?? sessionId.slice(0, 12)}
+                    </option>
+                  ))}
+                </select>
+              </span>
+            )}
             <span className="ai-playground-state">
               <AiStatusDot enabled={Boolean(llm?.enabled)} />
               {t('ai.playground.llm')}: {llm ? llm.name : t('ai.playground.missingLlm')}

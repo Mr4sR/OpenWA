@@ -1256,7 +1256,10 @@
       "mcpLoadTools": "Load tool list",
       "mcpLoadingTools": "Fetching tools…",
       "mcpNoTools": "This server advertises no tools.",
-      "mcpSelectedOf": "{{selected}}/{{total}} selected"
+      "mcpSelectedOf": "{{selected}}/{{total}} selected",
+      "sessions": "Sessions",
+      "sessionsHint": "A bot may serve many sessions; each session can be served by only one bot.",
+      "sessionOwned": "Already used by {{bot}}"
     },
     "llm": {
       "emptyTitle": "No LLM models yet",
@@ -1377,7 +1380,8 @@
       "inputLabel": "Message",
       "inputPlaceholder": "Type a message to test the bot…",
       "send": "Send",
-      "note": "Replies are produced for real (LLM + knowledge) but never delivered to any chat."
+      "note": "Replies are produced for real (LLM + knowledge) but never delivered to any chat.",
+      "sessionLabel": "Session"
     }
   }
 }

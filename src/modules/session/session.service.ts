@@ -179,8 +179,12 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     // source the reconnect scheduler and the takeover sweep consult.
     @Optional()
     private readonly shutdownService?: ShutdownService,
+    // Optional like the two above: the running app always provides it (SessionModule imports
+    // AiModule), while direct-construction unit tests omit it — a deletion then simply skips the
+    // chatbot prune, `?.`-guarded below.
+    @Optional()
+    private readonly aiChatbots?: { pruneSession(sessionId: string): Promise<void> },
   ) {}
-
   /**
    * True from the start of the shutdown drain. An engine launched during the drain would be torn
    * down seconds later by onModuleDestroy, so starts are refused from here, not from teardown.
@@ -607,6 +611,10 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
       if (this.ownership) await this.assertNotHeldElsewhere(id);
       // A failed row read deleted nothing: the lifecycle drops the mark, and the count goes with it.
       await this.engineLifecycle.delete(id, { onReadFailed: () => this.uncountStopRequest(id) });
+      // The chatbot's sessionIds list is the one reference a deleted session still leaves behind
+      // (the FK is gone with the column): pruned here, so a dangling id cannot keep routing replies.
+      // A bot that loses its last session is removed with it.
+      await this.aiChatbots?.pruneSession(id);
       await this.ownership?.release(id);
       this.stopRequests.delete(id);
     } catch (error) {

@@ -580,16 +580,21 @@ export const TABLE_IMPORTERS: AnyTableImporter[] = [
   defineTableImporter({
     key: 'aiChatbots',
     label: 'chatbot',
-    sql: `INSERT INTO ai_chatbots (id, "sessionId", name, "llmModelId", "ragModelId", persona, "replyGroups", enabled, "lastRepliedAt", "lastError", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    // sessionIds is the JSON array of sessions the bot answers; serialized verbatim like the other
+    // JSON columns. The export carries session IDs — restoring onto a host with different sessions
+    // requires the same ids (documented in docs/05) — and mcpToolIds rides along so a restore keeps
+    // every tool binding.
+    sql: `INSERT INTO ai_chatbots (id, "sessionIds", name, "llmModelId", "ragModelId", persona, "replyGroups", "mcpToolIds", enabled, "lastRepliedAt", "lastError", "createdAt", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
     id: (b: AiChatbotRow) => b.id,
     map: (b: AiChatbotRow) => [
       b.id,
-      b.sessionId,
+      typeof b.sessionIds === 'string' ? b.sessionIds : JSON.stringify(b.sessionIds ?? []),
       nulFree(b.name),
       b.llmModelId,
       b.ragModelId ?? null,
       b.persona ?? null,
       b.replyGroups ?? false,
+      (b as unknown as { mcpToolIds?: string | null }).mcpToolIds ?? null,
       b.enabled ?? true,
       b.lastRepliedAt ?? null,
       b.lastError ?? null,

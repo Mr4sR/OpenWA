@@ -27,8 +27,6 @@ import { CreateAiChatbotDto, UpdateAiChatbotDto } from './dto/ai-chatbot.dto';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/audit-log.entity';
 
-/** Per-session cap on chatbot instances: every inbound message is evaluated against each of them. */
-export const AI_CHATBOTS_MAX_PER_SESSION = 8;
 
 /** Default conversation history (prior messages) carried into the prompt. Not operator-tuned. */
 const CHATBOT_HISTORY_MESSAGES = 8;
@@ -180,22 +178,48 @@ export class AiChatbotService {
     private readonly lidMappingStore?: LidMappingStoreService,
   ) {}
 
-  async create(sessionId: string, dto: CreateAiChatbotDto): Promise<AiChatbot> {
-    if (!(await this.sessionRepository.exists({ where: { id: sessionId } }))) {
-      throw new NotFoundException(`Session with id '${sessionId}' not found`);
+  /**
+   * Every session id the bot would own, validated against the sessions table. A session already
+   * owned by ANOTHER bot is refused — one session, one chatbot — so an inbound message never has
+   * two candidate bots.
+   */
+  private async resolveSessionIds(
+    requested: string[] | null | undefined,
+    excludeChatbotId?: string,
+  ): Promise<string[]> {
+    const requestedIds = [...new Set((requested ?? []).map(id => id.trim()).filter(id => id.length > 0))];
+    if (requestedIds.length === 0) {
+      throw new BadRequestException('at least one session must be selected for the chatbot');
     }
-    const existing = await this.repository.count({ where: { sessionId } });
-    const max =
-      this.configService?.get<number>('ai.chatbotsMaxPerSession', AI_CHATBOTS_MAX_PER_SESSION) ??
-      AI_CHATBOTS_MAX_PER_SESSION;
-    if (max > 0 && existing >= max) {
+    const unknown: string[] = [];
+    for (const sessionId of requestedIds) {
+      if (!(await this.sessionRepository.exists({ where: { id: sessionId } }))) unknown.push(sessionId);
+    }
+    if (unknown.length > 0) {
+      throw new BadRequestException(`Unknown session(s): ${unknown.join(', ')}`);
+    }
+    const bots = await this.repository.find();
+    const clash = bots
+      .filter(bot => bot.id !== excludeChatbotId)
+      .flatMap(bot =>
+        bot.sessionIds
+          .filter(id => requestedIds.includes(id))
+          .map(sessionId => ({ bot, sessionId })),
+      );
+    if (clash.length > 0) {
+      const first = clash[0];
       throw new BadRequestException(
-        `Chatbot limit reached for this session (${existing}/${max}); delete one before adding another`,
+        `Session '${first.sessionId}' is already served by chatbot '${first.bot.name}' — one session can be managed by only one chatbot.`,
       );
     }
+    return requestedIds;
+  }
+
+  async create(dto: CreateAiChatbotDto): Promise<AiChatbot> {
+    const sessionIds = await this.resolveSessionIds(dto.sessionIds);
     await this.assertModelRefs(dto.llmModelId, dto.ragModelId ?? null);
     const chatbot = this.repository.create({
-      sessionId,
+      sessionIds,
       name: dto.name,
       llmModelId: dto.llmModelId,
       ragModelId: dto.ragModelId ?? null,
@@ -206,38 +230,34 @@ export class AiChatbotService {
     });
     const saved = await this.repository.save(chatbot);
     void this.audit.logInfo(AuditAction.AI_CHATBOT_CREATED, {
-      sessionId,
-      metadata: { chatbotId: saved.id, chatbotName: saved.name },
+      metadata: { chatbotId: saved.id, chatbotName: saved.name, sessionIds },
     });
     return saved;
   }
 
-  async findAll(sessionId?: string): Promise<AiChatbot[]> {
-    return this.repository.find({
-      where: sessionId ? { sessionId } : {},
-      order: { createdAt: 'ASC', id: 'ASC' },
-    });
+  async findAll(): Promise<AiChatbot[]> {
+    return this.repository.find({ order: { createdAt: 'ASC', id: 'ASC' } });
   }
 
   /** The chatbots of the sessions a scoped key may see, unfiltered for an unrestricted key. */
   async findAllForSessions(sessionIds: string[] | null | undefined): Promise<AiChatbot[]> {
-    if (sessionIds != null && sessionIds.length === 0) return [];
-    return this.repository.find({
-      where: sessionIds ? { sessionId: In(sessionIds) } : {},
-      order: { createdAt: 'ASC', id: 'ASC' },
-    });
+    const all = await this.findAll();
+    if (sessionIds == null) return all;
+    const visible = new Set(sessionIds);
+    // A bot is visible when ANY of its sessions is inside the key's fence.
+    return all.filter(bot => bot.sessionIds.some(sessionId => visible.has(sessionId)));
   }
 
-  async findOne(sessionId: string, id: string): Promise<AiChatbot> {
-    const chatbot = await this.repository.findOne({ where: { id, sessionId } });
+  async findOne(id: string): Promise<AiChatbot> {
+    const chatbot = await this.repository.findOne({ where: { id } });
     if (!chatbot) {
-      throw new NotFoundException(`Chatbot ${id} not found in session ${sessionId}`);
+      throw new NotFoundException(`Chatbot ${id} not found`);
     }
     return chatbot;
   }
 
-  async update(sessionId: string, id: string, dto: UpdateAiChatbotDto): Promise<AiChatbot> {
-    const chatbot = await this.findOne(sessionId, id);
+  async update(id: string, dto: UpdateAiChatbotDto): Promise<AiChatbot> {
+    const chatbot = await this.findOne(id);
     // The LLM binding is required: a null there can never answer, so it is refused rather than
     // cleared. The RAG binding and the persona are optional — null detaches/clears them.
     if (dto.llmModelId === null) {
@@ -247,6 +267,9 @@ export class AiChatbotService {
       const llmModelId = dto.llmModelId ?? chatbot.llmModelId;
       const ragModelId = dto.ragModelId === undefined ? chatbot.ragModelId : dto.ragModelId;
       await this.assertModelRefs(llmModelId, ragModelId);
+    }
+    if (dto.sessionIds !== undefined) {
+      chatbot.sessionIds = await this.resolveSessionIds(dto.sessionIds, chatbot.id);
     }
     if (dto.name !== undefined) chatbot.name = dto.name;
     if (dto.llmModelId !== undefined) chatbot.llmModelId = dto.llmModelId;
@@ -258,19 +281,42 @@ export class AiChatbotService {
     if (dto.enabled !== undefined) chatbot.enabled = dto.enabled;
     const saved = await this.repository.save(chatbot);
     void this.audit.logInfo(AuditAction.AI_CHATBOT_UPDATED, {
-      sessionId: chatbot.sessionId,
-      metadata: { chatbotId: saved.id, chatbotName: saved.name },
+      metadata: { chatbotId: saved.id, chatbotName: saved.name, sessionIds: saved.sessionIds },
     });
     return saved;
   }
 
-  async remove(sessionId: string, id: string): Promise<void> {
-    const chatbot = await this.findOne(sessionId, id);
+  async remove(id: string): Promise<void> {
+    const chatbot = await this.findOne(id);
     await this.repository.remove(chatbot);
     void this.audit.logInfo(AuditAction.AI_CHATBOT_DELETED, {
-      sessionId: chatbot.sessionId,
-      metadata: { chatbotId: id, chatbotName: chatbot.name },
+      metadata: { chatbotId: id, chatbotName: chatbot.name, sessionIds: chatbot.sessionIds },
     });
+  }
+
+  /**
+   * Drop a deleted session from every bot's list. Called by the sessions module at deletion time:
+   * with the FK gone, a dangling id would otherwise keep routing a module-level "this session has a
+   * bot" answer. A bot that loses its LAST session is deleted with it (it can serve nobody).
+   */
+  async pruneSession(sessionId: string): Promise<void> {
+    const bots = await this.repository.find();
+    for (const bot of bots) {
+      if (!bot.sessionIds.includes(sessionId)) continue;
+      const remaining = bot.sessionIds.filter(id => id !== sessionId);
+      if (remaining.length === 0) {
+        await this.repository.remove(bot);
+        void this.audit.logInfo(AuditAction.AI_CHATBOT_DELETED, {
+          metadata: { chatbotId: bot.id, chatbotName: bot.name, reason: 'all sessions deleted' },
+        });
+      } else {
+        bot.sessionIds = remaining;
+        await this.repository.save(bot);
+        void this.audit.logInfo(AuditAction.AI_CHATBOT_UPDATED, {
+          metadata: { chatbotId: bot.id, chatbotName: bot.name, sessionIds: remaining },
+        });
+      }
+    }
   }
 
   /**
@@ -279,7 +325,7 @@ export class AiChatbotService {
    * instruction — over a synthetic chat id, so what the operator tests is what a real inbound
    * message gets. Returns the reply text plus RAG citations/warnings for the dashboard.
    */
-  async previewReply(chatbot: AiChatbot, body: string): Promise<ChatbotPreview> {
+  async previewReply(chatbot: AiChatbot, body: string, sessionId?: string): Promise<ChatbotPreview> {
     const llm = await this.llmRepository.findOne({ where: { id: chatbot.llmModelId } });
     if (!llm || !llm.enabled) {
       throw new BadRequestException('the linked LLM model is missing or disabled');
@@ -292,7 +338,10 @@ export class AiChatbotService {
       retrieval = await this.rag.retrieve(chatbot.ragModelId, body, { fallbackLlm: undefined });
     }
     const systemPrompt = await this.buildSystemPrompt(chatbot, body, retrieval);
-    const history = await this.buildHistory(chatbot, { chatId: PLAYGROUND_CHAT_ID, body });
+    // The playground probe reads history from ONE chosen session (the dashboard picks the bot's
+    // first session by default): the synthetic chat id keeps it from leaking a live chat either way.
+    const probeSession = sessionId ?? chatbot.sessionIds[0];
+    const history = await this.buildHistory(probeSession, { chatId: PLAYGROUND_CHAT_ID, body });
     const turns: ChatCompletionMessage[] = [
       ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
       ...history,
@@ -312,21 +361,20 @@ export class AiChatbotService {
   /** Audit the playground probe like the LLM/MCP tests: a diagnostic run, recorded best-effort. */
   async auditTest(chatbot: AiChatbot): Promise<void> {
     void this.audit.logInfo(AuditAction.AI_CHATBOT_TESTED, {
-      sessionId: chatbot.sessionId,
-      metadata: { chatbotId: chatbot.id, chatbotName: chatbot.name },
+      metadata: { chatbotId: chatbot.id, chatbotName: chatbot.name, sessionIds: chatbot.sessionIds },
     });
   }
 
   // ── Per-chat overrides (the Chats page switches) ─────────────────────────────────────────────
 
   /**
-   * The AI switches of the given session's chatbots for exactly the chats the page asks for. Chats
-   * without a row are implicitly ON (the bot's `enabled` state governs them), so only the OFF
+   * The AI switches of the given session's chatbot(s) for exactly the chats the page asks for.
+   * Chats without a row are implicitly ON (the bot's `enabled` state governs them), so only the OFF
    * conversations are stored. Resolved through the chat's id aliases: a mute written under one
    * dialect is reported on the other too, or the chip flips back ON at the next page load.
    */
   async getChatOverrides(sessionId: string, chatIds: string[]): Promise<Map<string, string[]>> {
-    const bots = await this.repository.find({ where: { sessionId } });
+    const bots = (await this.findAll()).filter(bot => bot.sessionIds.includes(sessionId));
     const byChat = new Map<string, string[]>();
     if (bots.length === 0 || chatIds.length === 0) return byChat;
     const botIds = bots.map(b => b.id);
@@ -349,12 +397,12 @@ export class AiChatbotService {
    * the alias row in place, and the switch stuck OFF no matter how often it was turned back on.
    */
   async setChatOverride(
-    sessionId: string,
+    _sessionId: string | undefined,
     chatbotId: string,
     chatId: string,
     chatbotDisabled: boolean,
   ): Promise<void> {
-    await this.findOne(sessionId, chatbotId);
+    await this.findOne(chatbotId);
     const aliases = await this.chatIdAliases(chatId);
     if (chatbotDisabled) {
       const existing = await this.overrideRepository.findOne({ where: { chatbotId, chatId: In(aliases) } });
@@ -374,7 +422,8 @@ export class AiChatbotService {
   // ── Inbound evaluation ────────────────────────────────────────────────────────────────────────
 
   /**
-   * Evaluate one inbound message against the session's chatbots; the first matching bot answers.
+   * Evaluate one inbound message against the session's chatbot — at most ONE, by the ownership
+   * rule (one session ⇔ one bot), so there is no "first matching bot" ordering to reason about.
    *
    * Called fire-and-forget from the projector's dispatch stage, which runs at most once per inbound
    * message (the UNIQUE(sessionId, waMessageId) insert oracle) — so a bot sees no engine re-fires.
@@ -387,12 +436,10 @@ export class AiChatbotService {
     const timestamp = typeof message.timestamp === 'number' ? message.timestamp : null;
     if (timestamp !== null && Date.now() / 1000 - timestamp > MAX_MESSAGE_AGE_SECONDS) return;
 
-    let chatbots: AiChatbot[];
+    let chatbot: AiChatbot | undefined;
     try {
-      chatbots = await this.repository.find({
-        where: { sessionId, enabled: true },
-        order: { createdAt: 'ASC', id: 'ASC' },
-      });
+      const all = await this.repository.find({ where: { enabled: true }, order: { createdAt: 'ASC', id: 'ASC' } });
+      chatbot = all.find(bot => bot.sessionIds.includes(sessionId));
     } catch (error) {
       this.logger.warn('Chatbot lookup failed', {
         sessionId,
@@ -400,23 +447,20 @@ export class AiChatbotService {
       });
       return;
     }
-    if (chatbots.length === 0) return;
+    if (!chatbot) return;
 
-    // A conversation a human holds (or one a relay closed) stays out of every bot's hands: checked
-    // once per message, before the bot loop, exactly like the plugin hook gate silences its bots.
+    // A conversation a human holds (or one a relay closed) stays out of the bot's hands: checked
+    // once per message, before the reply, exactly like the plugin hook gate silences its bots.
     // Fail-open inside the helper keeps a dead mapping read from breaking the receive path.
     if (await this.isChatHumanHeld(sessionId, message.chatId)) return;
 
     const isGroup = message.isGroup ?? ((message.kind ?? 'individual') === GROUP_KIND || message.chatId.endsWith('@g.us'));
-    for (const chatbot of chatbots) {
-      // A group needs the operator's explicit opt-in: the bot speaks in front of every member.
-      if (isGroup && !chatbot.replyGroups) continue;
-      // Channel / broadcast / status are never answered.
-      if (['channel', 'broadcast', 'status'].includes(message.kind ?? '')) continue;
-      if (await this.isChatDisabled(chatbot.id, message.chatId)) continue;
-      const answered = await this.answer(chatbot, message);
-      if (answered) return;
-    }
+    // A group needs the operator's explicit opt-in: the bot speaks in front of every member.
+    if (isGroup && !chatbot.replyGroups) return;
+    // Channel / broadcast / status are never answered.
+    if (['channel', 'broadcast', 'status'].includes(message.kind ?? '')) return;
+    if (await this.isChatDisabled(chatbot.id, message.chatId)) return;
+    await this.answer(sessionId, chatbot, message);
   }
 
   /**
@@ -497,11 +541,11 @@ export class AiChatbotService {
    * is only sent when the typing itself was shown — an *indicator the operator never saw* must not
    * become another outbound write.
    */
-  private async answer(chatbot: AiChatbot, message: ChatbotInboundMessage): Promise<boolean> {
+  private async answer(sessionId: string, chatbot: AiChatbot, message: ChatbotInboundMessage): Promise<boolean> {
     // The typing ticks run detached: `sendChatState` resolves against a live session port that is
     // resolved once and reused, so the timer cannot outlive the module or fire on a stopped engine
     // (a presence call on one is swallowed as best-effort).
-    const stopTyping = this.startTypingIndicator(chatbot.sessionId, message.chatId);
+    const stopTyping = this.startTypingIndicator(sessionId, message.chatId);
     try {
       const llm = await this.llmRepository.findOne({ where: { id: chatbot.llmModelId } });
       if (!llm || !llm.enabled) {
@@ -509,7 +553,7 @@ export class AiChatbotService {
         return false;
       }
       const systemPrompt = await this.buildSystemPrompt(chatbot, message.body);
-      const history = await this.buildHistory(chatbot, message);
+      const history = await this.buildHistory(sessionId, message);
       const turns: ChatCompletionMessage[] = [
         ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
         ...history,
@@ -525,17 +569,17 @@ export class AiChatbotService {
         await this.recordError(chatbot, 'the message service is not resolvable');
         return false;
       }
-      await messagePort.sendText(chatbot.sessionId, { chatId: message.chatId, text });
+      await messagePort.sendText(sessionId, { chatId: message.chatId, text });
       chatbot.lastRepliedAt = new Date();
       chatbot.lastError = null;
       await this.repository.save(chatbot);
-      this.logger.debug('Chatbot replied', { sessionId: chatbot.sessionId, chatbotId: chatbot.id });
+      this.logger.debug('Chatbot replied', { sessionId, chatbotId: chatbot.id });
       return true;
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       await this.recordError(chatbot, detail.slice(0, 500));
       this.logger.warn('Chatbot reply failed', {
-        sessionId: chatbot.sessionId,
+        sessionId,
         chatbotId: chatbot.id,
         error: detail,
       });
@@ -740,10 +784,11 @@ export class AiChatbotService {
    * The recent messages of the chat, oldest first, as conversation history. The inbound message
    * itself is excluded (it is the user turn the caller appends).
    */
-  private async buildHistory(chatbot: AiChatbot, message: ChatbotInboundMessage): Promise<ChatCompletionMessage[]> {
+  private async buildHistory(sessionId: string | undefined, message: ChatbotInboundMessage): Promise<ChatCompletionMessage[]> {
+    if (!sessionId) return [];
     try {
       const rows = await this.messageRepository.find({
-        where: { sessionId: chatbot.sessionId, chatId: message.chatId },
+        where: { sessionId, chatId: message.chatId },
         order: { createdAt: 'DESC', id: 'DESC' },
         take: CHATBOT_HISTORY_MESSAGES,
       });
@@ -758,7 +803,7 @@ export class AiChatbotService {
     } catch (error) {
       // A missing history is not a failed reply: the model still answers the current question.
       this.logger.warn('Chatbot history lookup failed', {
-        sessionId: chatbot.sessionId,
+        sessionId,
         error: error instanceof Error ? error.message : String(error),
       });
       return [];
