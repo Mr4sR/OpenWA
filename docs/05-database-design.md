@@ -887,7 +887,8 @@ Migrations are hand-authored and idempotent (`IF NOT EXISTS`) so they are safe t
 src/database/migrations-main/      # main connection (auth + audit, SQLite)
 ├── 1779900000000-CreateAuthAuditTables.ts   # creates api_keys + audit_logs
 ├── 1786600000000-AddApiKeyAllowedChats.ts   # adds api_keys.allowedChats
-└── 1786610000000-DropSynchronizeIndexDuplicates.ts  # drops synchronize-named duplicate indexes
+├── 1786610000000-DropSynchronizeIndexDuplicates.ts  # drops synchronize-named duplicate indexes
+└── 1787500000000-AddAccounts.ts   # accounts table + api_keys.accountId (multi-account tenant binding)
 
 src/database/migrations/           # data connection (pluggable)
 ├── 1770108659848-AddMessageStatus.ts
@@ -935,7 +936,11 @@ src/database/migrations/           # data connection (pluggable)
 ├── 1790812800000-AddMessageWindowIndexes.ts   # compound timestamp indexes for message-time pagination
 ├── 1791100000000-AddIntegrationDeliveryFailureDeliveryIndex.ts   # (pluginId, instanceId, deliveryId) index for the dead-letter guards
 ├── 1792000000000-AddAiIntegration.ts   # ai_llm_models, ai_chatbots, ai_rag_models, ai_rag_documents, ai_mcp_connections
-└── 1793000000000-ReviseAiIntegration.ts   # AI revision: per-chat overrides, RAG ingestion status, MCP transport
+├── 1793000000000-ReviseAiIntegration.ts   # AI revision: per-chat overrides, RAG ingestion status, MCP transport
+├── 1794000000000-AddAiChatbotMcpTools.ts   # ai_chatbots.mcpToolIds (per-bot MCP tool narrowing)
+├── 1795000000000-ChatbotMultiSession.ts   # one bot serves MANY sessions: sessionIds JSON array (dialect-split SQLite/PG rebuild)
+├── 1796000000000-AddAiLlmModelCapabilities.ts   # ai_llm_models.capabilities (connection-test vision probe)
+└── 1797800000000-AddSessionAccount.ts   # sessions.accountId (multi-account tenant binding, NULL = global)
 ```
 
 > [!NOTE]
