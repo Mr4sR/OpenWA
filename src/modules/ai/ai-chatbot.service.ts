@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { createLogger } from '../../common/services/logger.service';
+import { PlanLimitsService } from '../auth/plan-limits.service';
 import {
   PLUGIN_CONVERSATION_MAPPING_PORT,
   PLUGIN_MESSAGE_PORT,
@@ -237,6 +238,10 @@ export class AiChatbotService {
      */
     @Optional()
     private readonly lidMappingStore?: LidMappingStoreService,
+    // SaaS quota fence for create(). Optional like its siblings (direct constructions in tests);
+    // SessionModule/AiModule wiring provides it from the exported AuthModule provider.
+    @Optional()
+    private readonly planLimits?: PlanLimitsService,
   ) {}
 
   /**
@@ -274,9 +279,15 @@ export class AiChatbotService {
 
   async create(dto: CreateAiChatbotDto): Promise<AiChatbot> {
     const sessionIds = await this.resolveSessionIds(dto.sessionIds);
+    // SaaS quota fence: the bot is billed to the FIRST bound session's account (a bot always lives
+    // inside one tenant because a session belongs to exactly one account).
+    const owner = sessionIds.length > 0 ? await this.sessionRepository.findOne({ where: { id: sessionIds[0] } }) : null;
+    await this.planLimits?.assertWithinLimit(owner?.accountId ?? null, 'chatbots');
+    const ownerAccountId = owner?.accountId ?? null;
     await this.assertModelRefs(dto.llmModelId, dto.ragModelId ?? null);
     const chatbot = this.repository.create({
       sessionIds,
+      accountId: ownerAccountId,
       name: dto.name,
       llmModelId: dto.llmModelId,
       ragModelId: dto.ragModelId ?? null,

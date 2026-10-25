@@ -81,8 +81,9 @@ describe('WebhookService', () => {
     };
 
     sessionRepository = {
-      // Default to an existing session; the 404 cases below override this per test.
-      exists: jest.fn().mockResolvedValue(true),
+    // Default to an existing session; the 404 cases below override this per test. `create` now
+    // loads the row (for its accountId) instead of only probing existence.
+    findOne: jest.fn().mockResolvedValue({ id: 'sess-1', accountId: null }),
     };
 
     configService = {
@@ -181,7 +182,7 @@ describe('WebhookService', () => {
     // ── session existence ─────────────────────────────────
 
     it('returns 404 when the session does not exist, without persisting anything', async () => {
-      (sessionRepository.exists as jest.Mock).mockResolvedValue(false);
+      (sessionRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       await expect(service.create('sess-missing', { url: 'https://example.com/webhook' })).rejects.toThrow(
         NotFoundException,
@@ -200,7 +201,7 @@ describe('WebhookService', () => {
       (repository.save as jest.Mock).mockResolvedValue(webhook);
 
       await expect(service.create('sess-1', { url: 'https://example.com/webhook' })).resolves.toBeDefined();
-      expect(sessionRepository.exists).toHaveBeenCalledWith({ where: { id: 'sess-1' } });
+      expect(sessionRepository.findOne).toHaveBeenCalledWith({ where: { id: 'sess-1' } });
     });
 
     // ── validate URL at registration, default-on ──────────

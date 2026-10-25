@@ -1131,6 +1131,132 @@ export const accountApi = {
 };
 
 // =============================================================================
+// SaaS auth + platform API
+// =============================================================================
+
+export interface SaasUser {
+  id: string;
+  email: string;
+  name: string;
+  role: 'platform_admin' | 'account_admin' | 'account_member';
+  accountId: string | null;
+}
+
+export interface SaasSession {
+  token: string;
+  expiresAt: number;
+  user: SaasUser;
+  account?: { id: string; name: string; planSlug: string } | null;
+}
+
+export interface SaasPlan {
+  id: string;
+  slug: string;
+  name: string;
+  maxSessions: number;
+  maxChatbots: number;
+  maxWebhooks: number;
+  priceCents: number;
+  sort: number;
+  isActive: boolean;
+  subscribers?: number;
+}
+
+export interface SaasUsage {
+  sessions: { used: number; limit: number };
+  chatbots: { used: number; limit: number };
+  webhooks: { used: number; limit: number };
+}
+
+export interface SaasProfile {
+  user: SaasUser;
+  account: { id: string; name: string; status: 'active' | 'suspended'; planExpiresAt: string | null } | null;
+  plan: { slug: string; name: string; maxSessions: number; maxChatbots: number; maxWebhooks: number } | null;
+  usage: SaasUsage | null;
+}
+
+/** Bearer-token request: the SaaS session routes are PUBLIC for auth/* and JWT-checked after. */
+async function saasRequest<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      ...(init?.headers ?? {}),
+    },
+  });
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    throw new Error(typeof body.message === 'string' ? body.message : `Request failed (${response.status})`);
+  }
+  return body as T;
+}
+
+export const saasAuthApi = {
+  register: (data: { email: string; password: string; name?: string }) =>
+    request<SaasSession & { account: { id: string; name: string; planSlug: string }; apiKey?: string }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  login: (data: { email: string; password: string }) =>
+    request<SaasSession>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  me: (token: string) =>
+    saasRequest<SaasProfile>(`/auth/me`, token, { method: 'POST', body: JSON.stringify({ token }) }),
+  changePassword: (token: string, data: { currentPassword: string; newPassword: string }) =>
+    saasRequest<{ ok: true }>(`/auth/change-password`, token, {
+      method: 'POST',
+      body: JSON.stringify({ token, ...data }),
+    }),
+};
+
+export const platformApi = {
+  accounts: (token: string) => saasRequest<Array<Record<string, unknown>>>('/platform/accounts', token),
+  createAccount: (token: string, data: { name: string; note?: string }) =>
+    saasRequest<Record<string, unknown>>('/platform/accounts', token, {
+      method: 'POST',
+      body: JSON.stringify({ token, ...data }),
+    }),
+  setAccountStatus: (token: string, id: string, status: 'active' | 'suspended') =>
+    saasRequest<{ ok: true }>(`/platform/accounts/${id}/status`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ token, status }),
+    }),
+  setAccountPlan: (token: string, id: string, planSlug: string, planExpiresAt: string | null = null) =>
+    saasRequest<Record<string, unknown>>(`/platform/accounts/${id}/plan`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ token, planSlug, planExpiresAt }),
+    }),
+  deleteAccount: (token: string, id: string) =>
+    saasRequest<{ ok: true }>(`/platform/accounts/${id}?token=${encodeURIComponent(token)}`, token, {
+      method: 'DELETE',
+    }),
+  plans: (token: string) => saasRequest<SaasPlan[]>('/platform/plans', token),
+  createPlan: (token: string, data: Partial<SaasPlan>) =>
+    saasRequest<SaasPlan>('/platform/plans', token, { method: 'POST', body: JSON.stringify({ token, ...data }) }),
+  updatePlan: (token: string, slug: string, data: Partial<SaasPlan>) =>
+    saasRequest<SaasPlan>(`/platform/plans/${slug}`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ token, ...data }),
+    }),
+  deletePlan: (token: string, slug: string) =>
+    saasRequest<{ ok: true }>(`/platform/plans/${slug}?token=${encodeURIComponent(token)}`, token, {
+      method: 'DELETE',
+    }),
+  users: (token: string) =>
+    saasRequest<Array<SaasUser & { isActive: boolean; lastLoginAt: string | null }>>('/platform/users', token),
+  setUserActive: (token: string, id: string, isActive: boolean) =>
+    saasRequest<Record<string, unknown>>(`/platform/users/${id}/active`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ token, isActive }),
+    }),
+  setUserAccount: (token: string, id: string, accountId: string | null) =>
+    saasRequest<Record<string, unknown>>(`/platform/users/${id}/account`, token, {
+      method: 'PUT',
+      body: JSON.stringify({ token, accountId }),
+    }),
+};
+
+// =============================================================================
 // API Key API
 // =============================================================================
 

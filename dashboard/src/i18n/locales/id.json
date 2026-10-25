@@ -74,7 +74,9 @@
     "infrastructure": "Infrastruktur",
     "plugins": "Plugin",
     "logs": "Log",
-    "aiIntegration": "Integrasi AI"
+    "aiIntegration": "Integrasi AI",
+    "settings": "Akun",
+    "platform": "Platform"
   },
   "chats": {
     "media": {
@@ -1410,5 +1412,64 @@
     "deleteConfirm": "Hapus akun {{name}}? Hanya akun tanpa sesi dan tanpa API key yang bisa dihapus.",
     "hint": "Key akun hanya menjangkau sesinya sendiri. Key global (tanpa akun) tetap menjangkau semuanya.",
     "activeAccount": "Akun"
+  },
+  "saas": {
+    "signIn": "Masuk",
+    "signUp": "Daftar",
+    "needAccount": "Belum punya akun? Daftar",
+    "haveAccount": "Sudah punya akun? Masuk",
+    "email": "Email",
+    "emailPlaceholder": "anda@perusahaan.id",
+    "password": "Kata sandi",
+    "passwordPlaceholder": "Kata sandi Anda",
+    "passwordPlaceholderNew": "Minimal 8 karakter",
+    "name": "Nama lengkap",
+    "namePlaceholder": "Nama Anda",
+    "loginRequired": "Email dan kata sandi wajib diisi",
+    "registerRequired": "Semua kolom wajib diisi",
+    "passwordShort": "Kata sandi minimal 8 karakter",
+    "connectionError": "Tidak dapat menghubungi server",
+    "sessionMissing": "Sesi hilang; masuk kembali",
+    "passwordsDiffer": "Kata sandi baru tidak sama",
+    "passwordChanged": "Kata sandi diubah",
+    "settingsTitle": "Akun",
+    "settingsSubtitle": "Profil dan keamanan masuk Anda",
+    "profileTitle": "Profil",
+    "role": "Peran",
+    "currentPassword": "Kata sandi saat ini",
+    "newPassword": "Kata sandi baru",
+    "confirmPassword": "Konfirmasi kata sandi baru"
+  },
+  "platform": {
+    "title": "Platform",
+    "subtitle": "Semua akun, login, dan paket deployment ini.",
+    "tab": {
+      "accounts": "Akun",
+      "users": "Login",
+      "plans": "Paket"
+    },
+    "name": "Nama",
+    "plan": "Paket",
+    "status": "Status",
+    "users": "Pengguna",
+    "slug": "Slug",
+    "maxSessions": "Maks sesi",
+    "maxChatbots": "Maks chatbot",
+    "maxWebhooks": "Maks webhook",
+    "price": "Harga/bulan",
+    "subscribers": "Pelanggan",
+    "active": "Aktif",
+    "inactive": "Nonaktif",
+    "suspended": "Ditangguhkan",
+    "reactivate": "Aktifkan",
+    "suspend": "Tangguhkan",
+    "deleteTitle": "Hapus akun",
+    "deleteConfirm": "Hapus akun {{name}}?",
+    "accountDeleted": "Akun dihapus",
+    "planChanged": "Paket diubah",
+    "statusChanged": "Status diubah",
+    "userChanged": "Login diperbarui",
+    "disable": "Nonaktifkan",
+    "enable": "Aktifkan"
   }
 }

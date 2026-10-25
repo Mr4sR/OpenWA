@@ -158,6 +158,9 @@ services:
       # Security / boot knobs the app reads. Like the blocks above, this list is the only path into
       # the container; compose-parity.spec.ts derives the required set from .env.example.
       - API_MASTER_KEY=${API_MASTER_KEY:-}
+      - SAAS_JWT_SECRET=${SAAS_JWT_SECRET:-}
+      - SAAS_ADMIN_EMAIL=${SAAS_ADMIN_EMAIL:-}
+      - SAAS_ADMIN_PASSWORD=${SAAS_ADMIN_PASSWORD:-}
       - ALLOW_DEV_API_KEY=${ALLOW_DEV_API_KEY:-}
       - API_KEY_PEPPER=${API_KEY_PEPPER:-}
       - BOOTSTRAP_KEY_FILE=${BOOTSTRAP_KEY_FILE:-}

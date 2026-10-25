@@ -33,6 +33,16 @@ export class Webhook {
   @Column({ type: 'varchar', length: 2048 })
   url!: string;
 
+  /**
+   * The tenant owning the session (copied once at create). NULL for pre-SaaS rows — global,
+   * reachable by every key exactly as before. The plan-limit counter for the webhooks kind reads
+   * this column.
+   */
+  @Index('IDX_webhooks_accountId')
+  @Column({ type: 'varchar', nullable: true })
+  accountId?: string | null;
+
+
   @Column({ type: jsonColumnType(), default: '["message.received"]' })
   events!: string[];
 

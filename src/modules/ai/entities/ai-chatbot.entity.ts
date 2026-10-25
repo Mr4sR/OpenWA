@@ -41,6 +41,16 @@ export class AiChatbot {
   @Column({ type: jsonColumnType() })
   sessionIds!: string[];
 
+  /**
+   * The tenant owning this bot — the account of the FIRST bound session (backfilled by migration
+   * 1800000000000, stamped on create). NULL for pre-SaaS rows: global, reachable by every key. The
+   * plan-limit counter for the chatbots kind reads this column.
+   */
+  @Index('IDX_ai_chatbots_accountId')
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  accountId!: string | null;
+
+
   @Column({ type: 'varchar', length: AI_CHATBOT_NAME_MAX_LENGTH })
   name!: string;
 

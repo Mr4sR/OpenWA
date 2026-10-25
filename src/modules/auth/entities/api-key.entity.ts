@@ -46,6 +46,14 @@ export class ApiKey {
   @Column({ type: 'varchar', length: 36, nullable: true })
   accountId!: string | null;
 
+  /**
+   * The LOGIN that minted this key (SaaS): NULL for the seeded master key and pre-SaaS rows.
+   * A key belongs to the account of the user who created it; deleting/removing the user revokes
+   * its keys. Display-only for attribution — enforcement stays on `accountId`.
+   */
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  userId!: string | null;
+
   // Chat-level allowlist, independent of allowedSessions and the same fail-open semantic: NULL or
   // empty means "every chat". Entries are WhatsApp chat ids (a group `<id>@g.us`, a contact
   // `<phone>@c.us` / `<lid>@lid`, or a bare phone number). Enforced on the read surface and on

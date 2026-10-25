@@ -39,7 +39,7 @@ import { PLUGIN_SESSION_PORT } from '../../core/plugins/plugin-host-ports';
   providers: [
     // Global on purpose: any controller may carry a session dimension. Inert unless NODE_URL is set.
     { provide: APP_INTERCEPTOR, useClass: SessionProxyInterceptor },
-    SessionService,
+    SessionService, // PlanLimitsService (create fence) resolves through the @Global AuthModule export
     // onModuleInit only, and every module's runs before the first onApplicationBootstrap, so the
     // legacy name-keyed auth directories are moved onto their session ids before auto-start or the
     // HTTP listener can open one.

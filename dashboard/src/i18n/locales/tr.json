@@ -74,7 +74,9 @@
     "infrastructure": "Altyapı",
     "plugins": "Eklentiler",
     "logs": "Kayıtlar (Logs)",
-    "aiIntegration": "AI Entegrasyonu"
+    "aiIntegration": "AI Entegrasyonu",
+    "settings": "Account",
+    "platform": "Platform"
   },
   "chats": {
     "media": {
@@ -1410,5 +1412,64 @@
     "deleteConfirm": "{{name}} hesabı silinsin mi? Yalnızca oturumu ve anahtarı olmayan bir hesap silinebilir.",
     "hint": "Hesap anahtarı yalnızca kendi oturumlarına ulaşır; genel anahtar her yere ulaşır.",
     "activeAccount": "Hesap"
+  },
+  "saas": {
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "needAccount": "Don't have an account? Sign up",
+    "haveAccount": "Already have an account? Sign in",
+    "email": "Email",
+    "emailPlaceholder": "you@company.com",
+    "password": "Password",
+    "passwordPlaceholder": "Your password",
+    "passwordPlaceholderNew": "At least 8 characters",
+    "name": "Full name",
+    "namePlaceholder": "Your name",
+    "loginRequired": "Email and password are required",
+    "registerRequired": "All fields are required",
+    "passwordShort": "Password must be at least 8 characters",
+    "connectionError": "Cannot reach the server",
+    "sessionMissing": "Session missing; sign in again",
+    "passwordsDiffer": "New passwords do not match",
+    "passwordChanged": "Password changed",
+    "settingsTitle": "Account",
+    "settingsSubtitle": "Your profile and sign-in security",
+    "profileTitle": "Profile",
+    "role": "Role",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password"
+  },
+  "platform": {
+    "title": "Platform",
+    "subtitle": "Every account, login and plan of this deployment.",
+    "tab": {
+      "accounts": "Accounts",
+      "users": "Logins",
+      "plans": "Plans"
+    },
+    "name": "Name",
+    "plan": "Plan",
+    "status": "Status",
+    "users": "Users",
+    "slug": "Slug",
+    "maxSessions": "Max sessions",
+    "maxChatbots": "Max chatbots",
+    "maxWebhooks": "Max webhooks",
+    "price": "Price/month",
+    "subscribers": "Subscribers",
+    "active": "Active",
+    "inactive": "Disabled",
+    "suspended": "Suspended",
+    "reactivate": "Reactivate",
+    "suspend": "Suspend",
+    "deleteTitle": "Delete account",
+    "deleteConfirm": "Delete the account {{name}}?",
+    "accountDeleted": "Account deleted",
+    "planChanged": "Plan changed",
+    "statusChanged": "Status changed",
+    "userChanged": "Login updated",
+    "disable": "Disable",
+    "enable": "Enable"
   }
 }

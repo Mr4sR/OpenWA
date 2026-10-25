@@ -1,20 +1,28 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Languages } from 'lucide-react';
+import { Eye, EyeOff, Languages, Mail, User as UserIcon } from 'lucide-react';
 import { GithubIcon } from '../components/GithubIcon';
 import { CustomSelect } from '../components/CustomSelect';
 import { languageOptions, resolveSupportedLanguage, type SupportedLanguage } from '../i18n';
-import { API_BASE_URL } from '../services/api';
+import { saasAuthApi, type SaasUser } from '../services/api';
 import './Login.css';
 
-interface LoginProps {
-  onLogin: (apiKey: string, role?: string, engineType?: string, scoped?: boolean, accountId?: string | null) => void;
-}
-
-export function Login({ onLogin }: LoginProps) {
+/**
+ * The SaaS gate: email + password sign-in, with a sign-up toggle for new tenants. On success the
+ * session token lands in sessionStorage (`openwa_saas_token`) and the account's API key (picked
+ * next on the post-login flow) rides separately — the token proves WHO, the key proves WHAT.
+ */
+export function Login({
+  onLogin,
+}: {
+  onLogin: (token: string, user: SaasUser) => void;
+}) {
   const { t, i18n } = useTranslation();
-  const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const currentLang = resolveSupportedLanguage(i18n.resolvedLanguage || i18n.language);
@@ -25,46 +33,35 @@ export function Login({ onLogin }: LoginProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // The stored key is matched against key prefixes elsewhere, so a pasted space must not reach it.
-    const key = apiKey.trim();
-    if (!key) {
-      setError(t('login.apiKeyRequired'));
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !password) {
+      setError(t(mode === 'login' ? 'saas.loginRequired' : 'saas.registerRequired'));
+      return;
+    }
+    if (mode === 'register' && password.length < 8) {
+      setError(t('saas.passwordShort'));
       return;
     }
     setIsLoading(true);
     setError('');
-
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/validate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': key,
-        },
-      });
-
-      if (response.ok) {
-        // The validate body already carries the key's role — hand it up so the app can set it
-        // directly instead of re-validating the same key a second time.
-        const data: { role?: string; engineType?: string; scoped?: unknown; accountId?: unknown } = await response
-          .json()
-          .catch(() => ({}));
-        onLogin(
-          key,
-          data.role,
-          typeof data.engineType === 'string' ? data.engineType : undefined,
-          data.scoped === true,
-          typeof data.accountId === 'string' ? data.accountId : null,
-        );
+      if (mode === 'login') {
+        const session = await saasAuthApi.login({ email: trimmedEmail, password });
+        sessionStorage.setItem('openwa_saas_token', session.token);
+        onLogin(session.token, session.user);
       } else {
-        // A 5xx, or a body that is not the gateway's JSON (a proxy error page while it restarts), says
-        // nothing about the key; a refusal keeps the gateway's reason (expired, revoked, rate limited).
-        const errorData: { message?: unknown } = await response.json().catch(() => ({}));
-        const reason = response.status < 500 && typeof errorData.message === 'string' ? errorData.message : '';
-        setError(reason || t(response.status === 401 ? 'login.invalidKey' : 'login.connectionError'));
+        // Registration returns the session PLUS the tenant's first API key (raw value shown once).
+        const created = await saasAuthApi.register({
+          email: trimmedEmail,
+          password,
+          name: name.trim() || undefined,
+        });
+        sessionStorage.setItem('openwa_saas_token', created.token);
+        if (created.apiKey) sessionStorage.setItem('openwa_api_key', created.apiKey);
+        onLogin(created.token, created.user);
       }
-    } catch {
-      setError(t('login.connectionError'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('saas.connectionError'));
     } finally {
       setIsLoading(false);
     }
@@ -78,8 +75,6 @@ export function Login({ onLogin }: LoginProps) {
           <span className="version-info">
             {t('login.version', {
               version: __APP_VERSION__,
-              // ISO date (YYYYMMDD) so the format is stable across locales/regions instead of the
-              // locale-dependent toLocaleDateString() which renders differently per browser region.
               date: new Date(__BUILD_TIME__).toISOString().slice(0, 10).replace(/-/g, ''),
             })}
           </span>
@@ -96,54 +91,81 @@ export function Login({ onLogin }: LoginProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
+          {mode === 'register' && (
+            <div className="input-group">
+              <label htmlFor="name">{t('saas.name')}</label>
+              <div className="input-wrapper">
+                <UserIcon size={18} className="input-icon" />
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder={t('saas.namePlaceholder')}
+                  autoComplete="name"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="input-group">
-            <label htmlFor="apiKey">{t('login.apiKey')}</label>
+            <label htmlFor="email">{t('saas.email')}</label>
             <div className="input-wrapper">
+              <Mail size={18} className="input-icon" />
               <input
-                id="apiKey"
-                type={showKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                placeholder={t('login.apiKeyPlaceholder')}
+                id="email"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder={t('saas.emailPlaceholder')}
+                autoComplete="email"
                 className={error ? 'error' : ''}
               />
-              <button
-                type="button"
-                className="toggle-visibility"
-                onClick={() => setShowKey(!showKey)}
-                aria-label={showKey ? t('common.hideApiKey') : t('common.showApiKey')}
-              >
-                {showKey ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
             </div>
-            {error && <span className="error-message">{error}</span>}
           </div>
 
-          <button type="submit" className="connect-btn" disabled={isLoading}>
-            {isLoading ? t('login.connecting') : t('login.connect')}
+          <div className="input-group">
+            <label htmlFor="password">{t('saas.password')}</label>
+            <div className="input-wrapper">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder={t(mode === 'register' ? 'saas.passwordPlaceholderNew' : 'saas.passwordPlaceholder')}
+                autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                className={error ? 'error' : ''}
+              />
+              <button type="button" className="toggle-visibility" onClick={() => setShowPassword(v => !v)}>
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {error && <p className="login-error">{error}</p>}
+
+          <button type="submit" className="login-button" disabled={isLoading}>
+            {isLoading ? '…' : t(mode === 'login' ? 'saas.signIn' : 'saas.signUp')}
+          </button>
+
+          <button
+            type="button"
+            className="login-switch"
+            onClick={() => {
+              setMode(m => (m === 'login' ? 'register' : 'login'));
+              setError('');
+            }}
+          >
+            {mode === 'login' ? t('saas.needAccount') : t('saas.haveAccount')}
           </button>
         </form>
 
-        <p className="login-help">
-          {t('login.help')}{' '}
-          <a href="https://docs.open-wa.org" target="_blank" rel="noopener noreferrer">
-            {t('login.viewDocs')}
+        <div className="login-footer">
+          <a href="https://github.com/rmyndharis/openwa" target="_blank" rel="noreferrer">
+            <GithubIcon /> GitHub
           </a>
-        </p>
+        </div>
       </div>
-
-      <footer className="login-footer">
-        <span>{t('login.footer')}</span>
-        <a
-          href="https://github.com/rmyndharis/OpenWA"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="github-link"
-          aria-label="GitHub"
-        >
-          <GithubIcon size={18} />
-        </a>
-      </footer>
     </div>
   );
 }

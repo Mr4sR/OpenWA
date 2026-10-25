@@ -33,6 +33,7 @@ function createMockApiKey(overrides: Partial<ApiKey> = {}): ApiKey {
     allowedIps: null,
     allowedSessions: null,
     accountId: null,
+    userId: null,
     allowedChats: null,
     isActive: true,
     expiresAt: null,

@@ -29,6 +29,7 @@ import { setRequestActor } from '../../common/services/request-context';
 import { bootstrapKeyFilePath, readBootstrapKey, removeBootstrapKey, writeBootstrapKey } from './bootstrap-key-file';
 import { ApiKeyUsageTracker } from './api-key-usage-tracker.service';
 import { ActiveKeyIndex } from './active-key-index';
+import type { UsersService } from './users.service';
 import { apiKeyAuthorizationFingerprint, normalizeScopeList } from './api-key-authorization';
 import { normalizeChatAllowList } from '../../common/security/chat-scope';
 import { EventsGateway, type ApiKeyEvictionReason } from '../events/events.gateway';
@@ -91,6 +92,9 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
     private readonly usageTracker: ApiKeyUsageTracker,
     private readonly moduleRef: ModuleRef,
     @Optional() private readonly keyIndex?: ActiveKeyIndex,
+    // The SaaS bootstrap (platform admin login) rides the same seed step. Optional so the direct
+    // constructions in unit tests keep working without a users table.
+    @Optional() private readonly usersService?: UsersService,
   ) {}
 
   /**
@@ -105,6 +109,8 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
   private dataSource?: DataSource;
 
   async onModuleInit(): Promise<void> {
+    // (SaaS platform-admin bootstrap lives in UsersService.onModuleInit: it needs the users
+    // repository, and an @Optional dependency on a provider of this same module is not ready yet.)
     // Seed a default API key if none exist
     const count = await this.apiKeyRepository.count();
     let displayKey: string;
@@ -551,6 +557,17 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       throw new UnauthorizedException('API key has expired');
     }
 
+    // SaaS suspension fence: a key belonging to a SUSPENDED tenant (or one whose plan lapsed) is
+    // refused on every surface, exactly like a login in that account. The lookup is the same
+    // short-TTL read the session fence uses, so a suspension takes effect within seconds without a
+    // restart. A platform/global key (accountId NULL) is never fenced here.
+    if (apiKey.accountId) {
+      const tenant = await this.readAccountSubscription(apiKey.accountId);
+      if (tenant && (tenant.status === 'suspended' || (tenant.planExpiresAt && tenant.planExpiresAt.getTime() < Date.now()))) {
+        throw new UnauthorizedException('This account is suspended or its plan has expired');
+      }
+    }
+
     // A live key refused by its own IP or session restriction answers 403, like every other scope
     // refusal (role, chats): the key is valid, so a client must not read it as one to discard.
 
@@ -645,6 +662,25 @@ export class AuthService implements OnModuleInit, OnModuleDestroy {
       }
     }
     return accountId === '' ? undefined : accountId;
+  }
+
+  /**
+   * The subscription surface of one account: `{ status, planExpiresAt }`, or null when the row is
+   * gone. Accounts live on the MAIN connection alongside api_keys, so this is a plain repository
+   * query on the same pool. NOT cached: a suspension clicked in the dashboard must bite on the
+   * next key use (better-sqlite3 makes this costless — microseconds, same process).
+   */
+  async readAccountSubscription(accountId: string): Promise<{ status: string; planExpiresAt: Date | null } | null> {
+    const rows = await this.apiKeyRepository.manager.query(
+      `SELECT "status", "planExpiresAt" FROM "accounts" WHERE "id" = ?`,
+      [accountId],
+    );
+    const row = (rows as Array<{ status: string; planExpiresAt: string | null }>)[0];
+    if (!row) return null;
+    return {
+      status: row.status,
+      planExpiresAt: row.planExpiresAt ? new Date(row.planExpiresAt) : null,
+    };
   }
 
   private hashKey(rawKey: string): string {

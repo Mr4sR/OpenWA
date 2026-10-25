@@ -53,6 +53,7 @@ import { isTransientDbError, isUniqueViolation } from '../../common/utils/db-err
 import { resolveFeatureFlags } from '../../config/feature-flags';
 import { IWhatsAppEngine, ChatSummary, ChatState } from '../../engine/interfaces/whatsapp-engine.interface';
 import { createLogger } from '../../common/services/logger.service';
+import { PlanLimitsService } from '../auth/plan-limits.service';
 import { ShutdownService } from '../../common/services/shutdown.service';
 import { HookManager } from '../../core/hooks';
 import { LidMappingStoreService } from '../../engine/identity/lid-mapping-store.service';
@@ -184,6 +185,10 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     // chatbot prune, `?.`-guarded below.
     @Optional()
     private readonly aiChatbots?: { pruneSession(sessionId: string): Promise<void> },
+    // Plan quota fence for the SaaS create path. Optional: a direct-construction unit test omits
+    // it, and callers guard with `?.` so a bare construction is simply unlimited (pre-SaaS).
+    @Optional()
+    private readonly planLimits?: PlanLimitsService,
   ) {}
   /**
    * True from the start of the shutdown drain. An engine launched during the drain would be torn
@@ -412,6 +417,9 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
    * directory per name — so a taken name is a 409 for every tenant alike.
    */
   async create(dto: CreateSessionDto, accountId: string | null = null): Promise<Session> {
+    // SaaS quota fence BEFORE anything else: a tenant at its ceiling answers 403 naming the plan,
+    // and no staging/partial state exists to roll back. The global surface (no account) skips it.
+    await this.planLimits?.assertWithinLimit(accountId, 'sessions');
     // Check if session with same name exists
     const existing = await this.sessionRepository.findOne({
       where: { name: dto.name },

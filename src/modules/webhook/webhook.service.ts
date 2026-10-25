@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindManyOptions, In, IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -7,6 +7,7 @@ import { WebhookDeliveryFailure } from './entities/webhook-delivery-failure.enti
 import { Session } from '../session/entities/session.entity';
 import { CreateWebhookDto, UpdateWebhookDto } from './dto';
 import { createLogger } from '../../common/services/logger.service';
+import { PlanLimitsService } from '../auth/plan-limits.service';
 import { resolveSessionScope } from '../../common/security/session-scope';
 import { ListOptions, resolveListWindow } from '../../common/utils/paginate';
 import { generateDeliveryId } from './utils/idempotency.util';
@@ -53,6 +54,9 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
     private readonly sessionRepository: Repository<Session>,
     private readonly configService: ConfigService,
     private readonly delivery: WebhookDeliveryService,
+    // SaaS quota fence for create(). Optional like its siblings (direct constructions in tests).
+    @Optional()
+    private readonly planLimits?: PlanLimitsService,
   ) {}
 
   /**
@@ -177,10 +181,13 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
   async create(sessionId: string, dto: CreateWebhookDto): Promise<Webhook> {
     // The webhooks.sessionId FK makes a missing session surface as a driver error (500) at save time;
     // check first so the caller gets a truthful 404 for a session that does not exist.
-    const sessionExists = await this.sessionRepository.exists({ where: { id: sessionId } });
-    if (!sessionExists) {
+    const session = await this.sessionRepository.findOne({ where: { id: sessionId } });
+    if (!session) {
       throw new NotFoundException(`Session with id '${sessionId}' not found`);
     }
+    // SaaS quota fence: a webhook is billed to its session's account (sessions belong to exactly
+    // one tenant, so the ownership is unambiguous).
+    await this.planLimits?.assertWithinLimit(session.accountId ?? null, 'webhooks');
     await this.validateWebhookUrl(dto.url);
     // Per-session fan-out cap. Soft by design: a concurrent create can race the count check — the
     // cap bounds amplification, it is not a hard invariant. Webhooks already above the cap are left
@@ -196,6 +203,7 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
     }
     const webhook = this.webhookRepository.create({
       sessionId,
+      accountId: session.accountId ?? null,
       url: dto.url,
       events: dto.events || ['message.received'],
       secret: dto.secret || null,

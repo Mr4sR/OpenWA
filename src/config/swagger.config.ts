@@ -30,6 +30,21 @@ export const PUBLIC_PATHS = [
   '/api/health/ready',
   '/api/infra/health',
   '/api/ingress/{pluginId}/{instanceId}/{path}',
+  // SaaS sign-up/sign-in: the visitor has no key yet, so the guard skips them.
+  '/api/auth/register',
+  '/api/auth/login',
+  '/api/auth/me',
+  '/api/auth/change-password',
+  '/api/auth/my-api-keys',
+  '/api/platform/accounts',
+  '/api/platform/accounts/{id}',
+  '/api/platform/accounts/{id}/status',
+  '/api/platform/accounts/{id}/plan',
+  '/api/platform/users',
+  '/api/platform/users/{id}/active',
+  '/api/platform/users/{id}/account',
+  '/api/platform/plans',
+  '/api/platform/plans/{slug}',
 ];
 
 const HTTP_METHODS = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace', 'search'] as const;

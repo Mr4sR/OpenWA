@@ -8,8 +8,8 @@ import { ToastProvider } from './components/Toast';
 import { useRole } from './hooks/useRole';
 import { RoleProvider } from './components/RoleProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { API_BASE_URL } from './services/api';
-import { clearActorState, isUserRole, resolveStartupValidation } from './utils/authLifecycle';
+import { saasAuthApi, type SaasUser } from './services/api';
+import { clearActorState, isUserRole } from './utils/authLifecycle';
 import './App.css';
 
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
@@ -26,6 +26,8 @@ const Infrastructure = lazy(() => import('./pages/Infrastructure').then(m => ({ 
 const Plugins = lazy(() => import('./pages/Plugins'));
 const AiIntegration = lazy(() => import('./pages/AiIntegration').then(m => ({ default: m.AiIntegration })));
 const Accounts = lazy(() => import('./pages/Accounts').then(m => ({ default: m.Accounts })));
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const Platform = lazy(() => import('./pages/Platform').then(m => ({ default: m.Platform })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,74 +44,91 @@ function AppContent() {
   // handleLogin stores a fresh key would re-fire the startup re-validation effect below and
   // double the /auth/validate request on every sign-in — the effect is for genuine page
   // refreshes with a saved key only.
-  const [savedKey] = useState(() => sessionStorage.getItem('openwa_api_key'));
-  const [isAuthenticated, setIsAuthenticated] = useState(!!savedKey);
-  const [, setApiKey] = useState(savedKey || '');
+  // SaaS session token (email+password login). The API key is picked on the post-login step and
+  // rides separately; the token identifies the USER, the key authorizes the WIRE.
+  const [savedToken] = useState(() => sessionStorage.getItem('openwa_saas_token'));
+  const [isAuthenticated, setIsAuthenticated] = useState(!!savedToken);
   const { setRole, role, setEngineType, setScoped, scoped, setAccountId } = useRole();
+  // Read once: the platform route is developer-only, and the server refuses it regardless.
+  const [isPlatformAdmin] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('openwa_saas_user');
+      return raw ? (JSON.parse(raw) as { role?: string }).role === 'platform_admin' : false;
+    } catch {
+      return false;
+    }
+  });
 
-  const handleLogin = (
-    key: string,
-    validatedRole?: string,
-    engineType?: string,
-    scoped = false,
-    validatedAccountId?: string | null,
-  ) => {
-    setApiKey(key);
-    sessionStorage.setItem('openwa_api_key', key);
+  const handleLogin = (token: string, user: SaasUser) => {
+    sessionStorage.setItem('openwa_saas_token', token);
+    sessionStorage.setItem('openwa_saas_user', JSON.stringify(user));
 
     // The login page's validate response already carried the role, so no second /auth/validate
     // round-trip is needed here. An absent or unrecognized role falls back to viewer, the
     // least-privileged default.
-    setRole(isUserRole(validatedRole) ? validatedRole : 'viewer');
-    setEngineType(engineType ?? null);
-    setScoped(scoped);
-    setAccountId(validatedAccountId ?? null);
+    // platform_admin IS the developer surface: full admin + the /platform pages. Tenant admins map
+    // to 'admin' scoped by their account; members map to 'operator'.
+    const mapped = user.role === 'platform_admin' ? 'admin' : user.role === 'account_admin' ? 'admin' : 'operator';
+    setRole(isUserRole(mapped) ? mapped : 'viewer');
+    setAccountId(user.accountId ?? null);
+    setScoped(true);
 
     setIsAuthenticated(true);
   };
 
   const handleLogout = useCallback(() => {
-    setApiKey('');
     setIsAuthenticated(false);
     setRole(null);
     setEngineType(null);
     setScoped(false);
     setAccountId(null);
     sessionStorage.removeItem('openwa_api_key');
+    sessionStorage.removeItem('openwa_saas_token');
+    sessionStorage.removeItem('openwa_saas_user');
     // Wipe the React Query cache too: it is keyed by resource, not actor, so without a full
     // clear a logout → login in the same tab with a different key/scope shows the previous
     // actor's sessions/messages/apiKeys/audit rows.
     clearActorState(queryClient);
   }, [setRole, setEngineType, setScoped, setAccountId]);
 
-  // Re-validate and refresh the role on mount if already authenticated
+  // Re-validate the SaaS session on mount: /auth/me re-derives role/account from the LIVE user row
+  // (a disabled user or suspended tenant is logged out here), so a stale cached role never outlives
+  // the server's answer.
   useEffect(() => {
-    if (!savedKey) return;
+    if (!savedToken) return;
+    const stored = sessionStorage.getItem('openwa_saas_user');
+    if (!stored) return;
+    // Best-effort: the cached user seeds the UI immediately; /auth/me replaces it with the truth.
+    let sessionUser: { id: string; email: string; name: string; role: string; accountId: string | null } | null = null;
+    try {
+      sessionUser = JSON.parse(stored);
+    } catch {
+      sessionUser = null;
+    }
+    const mapped = sessionUser
+      ? sessionUser.role === 'platform_admin' || sessionUser.role === 'account_admin'
+        ? 'admin'
+        : 'operator'
+      : 'viewer';
+    setRole(isUserRole(mapped) ? mapped : 'viewer');
+    setScoped(true);
+    setAccountId(sessionUser?.accountId ?? null);
 
-    fetch(`${API_BASE_URL}/auth/validate`, {
-      method: 'POST',
-      headers: { 'X-API-Key': savedKey },
-    })
-      .then(async res => {
-        const decision = resolveStartupValidation(res.status, await res.json().catch(() => null));
-        // Nothing cancels this request on logout. If the user has since signed out, or back in with
-        // another key, the answer is about a key no longer in use: applying it would hand the new
-        // session the old key's role, or log it out over the old key's 401.
-        if (sessionStorage.getItem('openwa_api_key') !== savedKey) return;
-        if (decision.action === 'logout') {
-          handleLogout();
-        } else if (decision.action === 'role') {
-          setRole(decision.role);
-          setScoped(decision.scoped);
-          setAccountId(decision.accountId ?? null);
-          if (decision.engineType) setEngineType(decision.engineType);
-        }
+    saasAuthApi
+      .me(savedToken)
+      .then(profile => {
+        if (sessionStorage.getItem('openwa_saas_token') !== savedToken) return;
+        const u = profile.user;
+        const next = u.role === 'platform_admin' || u.role === 'account_admin' ? 'admin' : 'operator';
+        setRole(isUserRole(next) ? next : 'viewer');
+        setAccountId(u.accountId ?? null);
+        sessionStorage.setItem('openwa_saas_user', JSON.stringify(u));
       })
       .catch(() => {
-        // Network failure (API unreachable): keep the cached role so a transient outage at
-        // page load doesn't eject the user — an explicit 401/403 above still logs out.
+        // Invalid/expired token or a suspended tenant: the truth says sign in again.
+        if (sessionStorage.getItem('openwa_saas_token') === savedToken) handleLogout();
       });
-  }, [savedKey, setRole, setEngineType, setScoped, setAccountId, handleLogout]);
+  }, [savedToken, setRole, setScoped, setAccountId, handleLogout]);
 
   const loadingFallback = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -135,6 +154,8 @@ function AppContent() {
               <Route path="sessions" element={<Sessions />} />
               <Route path="chats" element={<Chats />} />
               <Route path="number-checker" element={<NumberChecker />} />
+              <Route path="settings" element={<Settings />} />
+              {isPlatformAdmin && <Route path="platform" element={<Platform />} />}
               <Route path="webhooks" element={<Webhooks />} />
               <Route path="templates" element={<Templates />} />
               {role === 'admin' && !scoped && <Route path="accounts" element={<Accounts />} />}

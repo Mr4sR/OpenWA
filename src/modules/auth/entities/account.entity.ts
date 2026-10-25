@@ -28,6 +28,26 @@ export class Account {
   @Column({ type: 'varchar', length: 500, nullable: true })
   note!: string | null;
 
+  /** The tariff this account subscribes to (`plans.slug`). */
+  @Column({ type: 'varchar', length: 30, default: 'free' })
+  planSlug!: string;
+
+  /**
+   * A suspended account refuses LOGIN for every user in it and its API keys answer 401 — the
+   * enforcement sites are auth.service (login + key validate) and plan-limits.service on create
+   * paths. A suspension never deletes data.
+   */
+  @Column({ type: 'varchar', length: 20, default: 'active' })
+  status!: 'active' | 'suspended';
+
+  /** Trial / subscription lapse marker: a past expiry behaves like suspended until extended. */
+  @Column({ type: 'datetime', nullable: true })
+  planExpiresAt!: Date | null;
+
+  /** When the current plan started (display-only). */
+  @Column({ type: 'datetime', nullable: true })
+  planStartedAt!: Date | null;
+
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
 

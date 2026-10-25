@@ -6,6 +6,7 @@ import {
   Smartphone,
   MessageSquare,
   ShieldCheck,
+  Settings as SettingsIcon,
   Webhook,
   Key,
   FileText,
@@ -38,7 +39,15 @@ interface LayoutProps {
 }
 
 // unscopedOnly: every route behind the page refuses a key restricted to selected sessions, whatever its role.
-const allNavItems = [
+// platformOnly: the developer surface, gated on the SaaS role read from the session storage.
+const allNavItems: Array<{
+  to: string;
+  icon: typeof LayoutDashboard;
+  key: string;
+  adminOnly: boolean;
+  unscopedOnly?: boolean;
+  platformOnly?: boolean;
+}> = [
   { to: '/', icon: LayoutDashboard, key: 'dashboard' as const, adminOnly: false },
   { to: '/sessions', icon: Smartphone, key: 'sessions' as const, adminOnly: false },
   { to: '/chats', icon: MessageSquare, key: 'chats' as const, adminOnly: false },
@@ -46,6 +55,8 @@ const allNavItems = [
   { to: '/webhooks', icon: Webhook, key: 'webhooks' as const, adminOnly: false },
   { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
   { to: '/accounts', icon: ShieldCheck, key: 'accounts' as const, adminOnly: true, unscopedOnly: true },
+  { to: '/settings', icon: SettingsIcon, key: 'settings' as const, adminOnly: false },
+  { to: '/platform', icon: ShieldCheck, key: 'platform' as const, adminOnly: false, platformOnly: true },
   { to: '/api-keys', icon: Key, key: 'apiKeys' as const, adminOnly: true, unscopedOnly: true },
   { to: '/message-tester', icon: Send, key: 'messageTester' as const, adminOnly: false },
   // Backend /infra/* is ADMIN-only; hide the nav item from non-admins (UX + defense-in-depth).
@@ -69,8 +80,19 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
   });
 
   const { scoped, accountId } = useRole();
+  const isPlatformAdmin = (() => {
+    try {
+      const raw = sessionStorage.getItem('openwa_saas_user');
+      return raw ? (JSON.parse(raw) as { role?: string }).role === 'platform_admin' : false;
+    } catch {
+      return false;
+    }
+  })();
   const navItems = allNavItems.filter(
-    item => (!item.adminOnly || userRole === 'admin') && (!item.unscopedOnly || !scoped),
+    item =>
+      (!item.adminOnly || userRole === 'admin') &&
+      (!item.unscopedOnly || !scoped) &&
+      (!item.platformOnly || isPlatformAdmin),
   );
 
   const [isCollapsed, setIsCollapsed] = useState(false);
