@@ -37,54 +37,59 @@ export class ChatbotMultiSession1795000000000 implements MigrationInterface {
     await this.rebuildToSessionIds(queryRunner);
   }
 
+  /**
+   * The old `sessionId` column carries a FOREIGN KEY (`FK_ai_chatbots_sessionId` → sessions.id).
+   * On Postgres, dropping the PARENT table while the `ai_chat_overrides` child table still
+   * references it is refused (`cannot drop table ai_chatbots because other objects depend on it` —
+   * the exact production failure that motivated this branch). The right Postgres move is an
+   * IN-PLACE conversion: ADD COLUMN + backfill + DROP COLUMN. The table identity never changes, so
+   * both the sessions FK and the overrides child FK stay valid throughout. A stale
+   * `ai_chatbots_new` staging table from the previously-shipped, failed attempt is dropped first
+   * so a rerun begins clean.
+   */
   private async rebuildToSessionIds(queryRunner: QueryRunner): Promise<void> {
     const isPostgres = queryRunner.dataSource.options.type === 'postgres';
-    const hadOverrides = await queryRunner.hasTable('ai_chat_overrides');
 
     if (isPostgres) {
-      const hadOverridesOldShape = hadOverrides && (await queryRunner.hasColumn('ai_chat_overrides', 'chatbotId'));
+      // Cleanup of the previously-shipped attempt: a run that failed at its DROP TABLE left
+      // ai_chatbots_new (and possibly a staged overrides copy) behind. The live ai_chat_overrides
+      // was never dropped on Postgres, so there is nothing to restore.
+      await queryRunner.query(`DROP TABLE IF EXISTS "ai_chatbots_new"`);
+      await queryRunner.query(`DROP TABLE IF EXISTS "ai_chat_overrides_stage"`);
 
-      // The overrides table keeps its shape and its FK survives the parent swap untouched on
-      // Postgres: the FK references `ai_chatbots.id` BY NAME, so a drop + create (not rename),
-      // done in one transaction by the MigrationExecutor, is safe — the constraint revalidates
-      // against the new table that carries the same ids.
+      // Idempotent against a PARTIAL earlier failure (the boot retry loop reruns the whole
+      // migration after any statement rolls back, but a previous RELEASE's interrupted run can
+      // leave column or index behind): each step probes before acting.
+      const hasSessionIds = await queryRunner.hasColumn('ai_chatbots', 'sessionIds');
+      if (!hasSessionIds) {
+        // 1. The new column, nullable for the backfill (NOT NULL arrives after the fill below).
+        await queryRunner.query(`ALTER TABLE "ai_chatbots" ADD COLUMN "sessionIds" text`);
+      }
+      // 2. `jsonb_build_array(sessionId)::text` → `["<id>"]`, the exact simple-json shape the
+      //    entity writes (JSON.stringify of a one-element string array). WHERE guards the rerun
+      //    where sessionId is already gone: rows keep their filled sessionIds, nothing is nulled.
       await queryRunner.query(
-        `CREATE TABLE "ai_chatbots_new" (` +
-          `"id" varchar PRIMARY KEY NOT NULL, ` +
-          `"sessionIds" text NOT NULL DEFAULT '[]', ` +
-          `"name" varchar(100) NOT NULL, ` +
-          `"llmModelId" varchar(36) NOT NULL, ` +
-          `"ragModelId" varchar(36), ` +
-          `"persona" text, ` +
-          `"mcpToolIds" text, ` +
-          `"replyGroups" boolean NOT NULL DEFAULT false, ` +
-          `"enabled" boolean NOT NULL DEFAULT true, ` +
-          `"lastRepliedAt" timestamp, ` +
-          `"lastError" text, ` +
-          `"createdAt" timestamp NOT NULL DEFAULT NOW(), ` +
-          `"updatedAt" timestamp NOT NULL DEFAULT NOW()` +
-          `)`,
+        `UPDATE "ai_chatbots" SET "sessionIds" = jsonb_build_array("sessionId")::text WHERE "sessionId" IS NOT NULL`,
       );
-      // jsonb_build_array(sessionId)::text → `["<id>"]`, exactly the simple-json shape the entity
-      // writes (JSON.stringify of a one-element string array).
+      // 3. Tighten the column and add the index the new shape needs (IF NOT EXISTS: a rerun after
+      //    a failed DROP COLUMN would otherwise double-create the index).
+      await queryRunner.query(`ALTER TABLE "ai_chatbots" ALTER COLUMN "sessionIds" SET NOT NULL`);
+      await queryRunner.query(`ALTER TABLE "ai_chatbots" ALTER COLUMN "sessionIds" SET DEFAULT '[]'`);
       await queryRunner.query(
-        `INSERT INTO "ai_chatbots_new" ` +
-          `("id", "sessionIds", "name", "llmModelId", "ragModelId", "persona", "mcpToolIds", "replyGroups", "enabled", "lastRepliedAt", "lastError", "createdAt", "updatedAt") ` +
-          `SELECT "id", jsonb_build_array("sessionId")::text, "name", "llmModelId", "ragModelId", "persona", "mcpToolIds", "replyGroups", "enabled", "lastRepliedAt", "lastError", "createdAt", "updatedAt" FROM "ai_chatbots"`,
+        `CREATE INDEX IF NOT EXISTS "IDX_ai_chatbots_sessionIds" ON "ai_chatbots" ("sessionIds")`,
       );
-      await queryRunner.query(`DROP TABLE "ai_chatbots"`);
-      await queryRunner.query(`ALTER TABLE "ai_chatbots_new" RENAME TO "ai_chatbots"`);
-      await queryRunner.query(`CREATE INDEX "IDX_ai_chatbots_sessionIds" ON "ai_chatbots" ("sessionIds")`);
-
-      if (hadOverrides && !hadOverridesOldShape) {
-        // The overrides table was staged away in an earlier FAILED attempt of this migration and
-        // never restored (the old SQLite-first script ran its PRAGMA and aborted). Recreate it.
-        await this.createOverridesPostgres(queryRunner);
+      // 4. The old column is dropped LAST; its sessions FK (`FK_ai_chatbots_sessionId`) disappears
+      //    with it. Dropping a child-side column never touches the referenced sessions rows: bots
+      //    keep their rows and overrides rows keep their chatbotId. No child parking needed.
+      if (await queryRunner.hasColumn('ai_chatbots', 'sessionId')) {
+        await queryRunner.query(`ALTER TABLE "ai_chatbots" DROP COLUMN "sessionId"`);
       }
       return;
     }
 
-    // ── SQLite ──
+    // ── SQLite: the table-swap dance must stay — SQLite refuses DROP COLUMN while a FK constraint
+    // still names the column, and dropping the parent under a live child trips its checker.
+    const hadOverrides = await queryRunner.hasTable('ai_chat_overrides');
     await queryRunner.query('PRAGMA foreign_keys = OFF');
     try {
       if (hadOverrides) {
@@ -133,22 +138,6 @@ export class ChatbotMultiSession1795000000000 implements MigrationInterface {
     }
   }
 
-  private async createOverridesPostgres(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `CREATE TABLE "ai_chat_overrides" (` +
-        `"id" varchar PRIMARY KEY NOT NULL, ` +
-        `"chatbotId" varchar(36) NOT NULL, ` +
-        `"chatId" varchar(255) NOT NULL, ` +
-        `"chatbotDisabled" boolean NOT NULL DEFAULT false, ` +
-        `"createdAt" timestamp NOT NULL DEFAULT NOW(), ` +
-        `"updatedAt" timestamp NOT NULL DEFAULT NOW(), ` +
-        `CONSTRAINT "UQ_ai_chat_overrides_chatbot_chat" UNIQUE ("chatbotId", "chatId"), ` +
-        `CONSTRAINT "FK_ai_chat_overrides_chatbot" FOREIGN KEY ("chatbotId") REFERENCES "ai_chatbots" ("id") ON DELETE CASCADE ON UPDATE NO ACTION` +
-        `)`,
-    );
-    await queryRunner.query(`CREATE INDEX "IDX_ai_chat_overrides_chatbotId" ON "ai_chat_overrides" ("chatbotId")`);
-  }
-
   private async createOverridesSqlite(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
       `CREATE TABLE "ai_chat_overrides" (` +
@@ -168,41 +157,27 @@ export class ChatbotMultiSession1795000000000 implements MigrationInterface {
     if (await queryRunner.hasColumn('ai_chatbots', 'sessionId')) return;
 
     const isPostgres = queryRunner.dataSource.options.type === 'postgres';
-    const hadOverrides = await queryRunner.hasTable('ai_chat_overrides');
 
     if (isPostgres) {
-      // First-session-wins collapse: an array-shaped bot that served N sessions becomes ONE bot on
-      // its first (oldest by array position, which pushes append order) session id.
-      await queryRunner.query(
-        `CREATE TABLE "ai_chatbots_old" (` +
-          `"id" varchar PRIMARY KEY NOT NULL, ` +
-          `"sessionId" varchar NOT NULL, ` +
-          `"name" varchar(100) NOT NULL, ` +
-          `"llmModelId" varchar(36) NOT NULL, ` +
-          `"ragModelId" varchar(36), ` +
-          `"persona" text, ` +
-          `"mcpToolIds" text, ` +
-          `"replyGroups" boolean NOT NULL DEFAULT false, ` +
-          `"enabled" boolean NOT NULL DEFAULT true, ` +
-          `"lastRepliedAt" timestamp, ` +
-          `"lastError" text, ` +
-          `"createdAt" timestamp NOT NULL DEFAULT NOW(), ` +
-          `"updatedAt" timestamp NOT NULL DEFAULT NOW()` +
-          `)`,
-      );
-      await queryRunner.query(
-        `INSERT INTO "ai_chatbots_old" ` +
-          `("id", "sessionId", "name", "llmModelId", "ragModelId", "persona", "mcpToolIds", "replyGroups", "enabled", "lastRepliedAt", "lastError", "createdAt", "updatedAt") ` +
-          `SELECT "id", "sessionIds"::jsonb ->> 0, "name", "llmModelId", "ragModelId", "persona", "mcpToolIds", "replyGroups", "enabled", "lastRepliedAt", "lastError", "createdAt", "updatedAt" FROM "ai_chatbots"`,
-      );
-      await queryRunner.query(`DROP TABLE "ai_chatbots"`);
-      await queryRunner.query(`ALTER TABLE "ai_chatbots_old" RENAME TO "ai_chatbots"`);
+      // In-place, mirroring up(): ADD the single-value column, fill it with the FIRST array
+      // element (`->> 0`), drop the array. Bots that served more than one session collapse to the
+      // first (the array appends in bind order). The sessions FK is re-declared explicitly — the
+      // column drop in up() removed it together with the column.
+      await queryRunner.query(`ALTER TABLE "ai_chatbots" ADD COLUMN "sessionId" varchar`);
+      await queryRunner.query(`UPDATE "ai_chatbots" SET "sessionId" = "sessionIds"::jsonb ->> 0`);
+      await queryRunner.query(`DELETE FROM "ai_chatbots" WHERE "sessionId" IS NULL`);
+      await queryRunner.query(`ALTER TABLE "ai_chatbots" ALTER COLUMN "sessionId" SET NOT NULL`);
       await queryRunner.query(`CREATE INDEX "IDX_ai_chatbots_sessionId" ON "ai_chatbots" ("sessionId")`);
+      await queryRunner.query(`ALTER TABLE "ai_chatbots" DROP COLUMN "sessionIds"`);
+      await queryRunner.query(
+        `ALTER TABLE "ai_chatbots" ADD CONSTRAINT "FK_ai_chatbots_sessionId" ` +
+          `FOREIGN KEY ("sessionId") REFERENCES "sessions" ("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+      );
       return;
     }
-
     await queryRunner.query('PRAGMA foreign_keys = OFF');
     try {
+      const hadOverrides = await queryRunner.hasTable('ai_chat_overrides');
       if (hadOverrides) {
         await queryRunner.query(`CREATE TABLE "ai_chat_overrides_stage" AS SELECT * FROM "ai_chat_overrides"`);
         await queryRunner.query(`DROP TABLE "ai_chat_overrides"`);

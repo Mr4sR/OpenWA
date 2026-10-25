@@ -84,16 +84,18 @@ describe('ChatbotMultiSession migration (both dialects)', () => {
 
   describe('Postgres (statement-recording runner)', () => {
     /**
-     * A QueryRunner stand-in answering the hasColumn/hasTable probes like a pre-migration Postgres
-     * deployment (no sessionIds yet; the overrides table exists with its chatbotId column).
+     * Answers probes like a PRE-UP Postgres deployment (no sessionIds, sessionId present) or, with
+     * `preDown`, like a PRE-DOWN one (sessionIds present, no sessionId). Both shapes matter: the
+     * migration skips ADD/DROP COLUMN when the column is already in the expected state.
      */
     const makeRunner = (preDown = false) => {
       const executed: string[] = [];
       const runner = {
         dataSource: { options: { type: 'postgres' } },
         async hasColumn(_table: string, column: string): Promise<boolean> {
-          if (preDown) return false; // neither sessionIds nor sessionId exists yet in down()
-          return column === 'sessionIds' ? false : column === 'chatbotId';
+          if (column === 'sessionIds') return preDown;
+          if (column === 'sessionId') return !preDown;
+          return column === 'chatbotId';
         },
         async hasTable(table: string): Promise<boolean> {
           return table === 'ai_chat_overrides';
@@ -106,25 +108,38 @@ describe('ChatbotMultiSession migration (both dialects)', () => {
       return { runner, executed };
     };
 
-    it('up() never issues PRAGMA, builds sessionIds with jsonb_build_array, keeps the overrides table', async () => {
+    it('up() converts in place: no PRAGMA, no parent DROP, ADD COLUMN + jsonb backfill + DROP COLUMN', async () => {
       const { runner, executed } = makeRunner();
       await new ChatbotMultiSession1795000000000().up(runner as never);
 
       expect(executed.some(sql => /PRAGMA/i.test(sql))).toBe(false);
+      // The production failure: dropping the parent while ai_chat_overrides still references it.
+      expect(executed.some(sql => /DROP TABLE "ai_chatbots"/i.test(sql))).toBe(false);
+      expect(executed.some(sql => /CREATE TABLE "ai_chatbots_new"/i.test(sql))).toBe(false);
+      expect(executed.some(sql => /DROP TABLE IF EXISTS "ai_chatbots_new"/i.test(sql))).toBe(true);
+      expect(executed.some(sql => /ADD COLUMN "sessionIds" text/.test(sql))).toBe(true);
       expect(executed.some(sql => /jsonb_build_array\("sessionId"\)/.test(sql))).toBe(true);
-      expect(executed.some(sql => /DROP TABLE "ai_chat_overrides"/.test(sql))).toBe(false);
-      expect(executed.some(sql => /CREATE TABLE "ai_chatbots_new"/.test(sql))).toBe(true);
-      expect(executed.some(sql => /CREATE INDEX "IDX_ai_chatbots_sessionIds" ON "ai_chatbots"/.test(sql))).toBe(true);
-      // No SQLite-only expressions may reach a Postgres deployment.
+      expect(executed.some(sql => /ALTER COLUMN "sessionIds" SET NOT NULL/.test(sql))).toBe(true);
+      expect(executed.some(sql => /CREATE INDEX (IF NOT EXISTS )?"IDX_ai_chatbots_sessionIds"/.test(sql))).toBe(true);
+      expect(executed.some(sql => /DROP COLUMN "sessionId"/.test(sql))).toBe(true);
+      // The old column goes LAST, so the backfill ran before it disappeared.
+      const backfillAt = executed.findIndex(sql => /jsonb_build_array\("sessionId"\)/.test(sql));
+      const dropAt = executed.findIndex(sql => /DROP COLUMN "sessionId"/.test(sql));
+      expect(backfillAt).toBeGreaterThan(-1);
+      expect(dropAt).toBeGreaterThan(backfillAt);
       expect(executed.some(sql => /datetime\('now'\)/i.test(sql))).toBe(false);
     });
 
-    it('down() collapses the array with the ->> 0 operator and never issues PRAGMA', async () => {
+    it('down() restores the single-value column in place with the ->> 0 backfill and re-adds the sessions FK', async () => {
       const { runner, executed } = makeRunner(true);
       await new ChatbotMultiSession1795000000000().down(runner as never);
 
       expect(executed.some(sql => /PRAGMA/i.test(sql))).toBe(false);
-      expect(executed.some(sql => /->> 0/.test(sql))).toBe(true);
+      expect(executed.some(sql => /DROP TABLE "ai_chatbots"/i.test(sql))).toBe(false);
+      expect(executed.some(sql => /ADD COLUMN "sessionId" varchar/.test(sql))).toBe(true);
+      expect(executed.some(sql => /"sessionIds"::jsonb ->> 0/.test(sql))).toBe(true);
+      expect(executed.some(sql => /ADD CONSTRAINT "FK_ai_chatbots_sessionId"/.test(sql))).toBe(true);
+      expect(executed.some(sql => /DROP COLUMN "sessionIds"/.test(sql))).toBe(true);
       expect(executed.some(sql => /datetime\('now'\)/i.test(sql))).toBe(false);
     });
   });
