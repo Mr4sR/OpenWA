@@ -415,11 +415,14 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     }
 
     try {
-      // validateApiKey THROWS on any failure (it never resolves to a falsy value), so the rejection
-      // path is the catch below — a separate `if (!validKey)` branch here was dead code. The clientIp
-      // is passed so an IP-restricted key (allowedIps set) is ENFORCED rather than blanket-rejected
-      // for "Client IP could not be determined".
-      const validKey = await this.authService.validateApiKey(apiKey, clientIp);
+      // A dashboard login connects with `auth: { apiKey: <saas-jwt> }` (the same Bearer value its
+      // REST calls use): resolve it to the user's LIVE principal exactly like REST, so a tenant
+      // socket is fenced to its account and a platform socket gets the global surface. Either path
+      // THROWS on failure, so the rejection is the catch below; clientIp is passed so an
+      // IP-restricted key is ENFORCED rather than blanket-rejected.
+      const validKey = this.saasPrincipal?.isSessionToken(apiKey)
+        ? (await this.saasPrincipal.resolve(apiKey)).apiKey
+        : await this.authService.validateApiKey(apiKey, clientIp);
 
       // Cap simultaneous sockets per key: each socket holds rooms, engine fan-out, and memory,
       // so one key must not open connections without bound. Enough for multi-tab dashboards;

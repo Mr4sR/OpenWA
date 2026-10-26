@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { createHmac } from 'crypto';
 import { ApiKey, ApiKeyRole } from './entities/api-key.entity';
 import { User, UserRole } from './entities/user.entity';
@@ -39,17 +39,21 @@ export class SaasPrincipalService {
   }
 
   /**
-   * Resolve a bearer JWT to the guard-shaped principal. Rejections mirror the API-key path's
-   * exception shape (401) so a client cannot probe which credential kind failed.
+   * Resolve a bearer JWT to the guard-shaped principal. A tenant login gets its account stamped in
+   * (so every tenant fence applies); the PLATFORM operator gets `accountId: null` — the same global
+   * surface a global API key has, which is exactly what the developer login must reach (`/stats`,
+   * `/sessions`, `/webhooks`, `/infra`) without hand-copying a key out of `data/.api-key`.
+   *
+   * Rejections mirror the API-key path's exception shape (401) so a client cannot probe which
+   * credential kind failed.
    */
   async resolve(credential: string): Promise<{ apiKey: ApiKey; user: User }> {
     const { user } = await this.users.resolveSession(credential);
-    if (!user.accountId) {
-      // The platform operator has no tenant to stamp; the technical surface stays API-key based.
-      throw new UnauthorizedException('Use an API key: the platform login does not authorize the technical surface');
-    }
+    // Exactly one mapping, keyed on the LIVE role: the developer surface is ADMIN on the global
+    // surface, a tenant admin is ADMIN inside its account, a member is OPERATOR (create its own
+    // sessions/chatbots, never manage the account).
     const role =
-      user.role === UserRole.ACCOUNT_ADMIN
+      user.role === UserRole.PLATFORM_ADMIN || user.role === UserRole.ACCOUNT_ADMIN
         ? ApiKeyRole.ADMIN
         : user.role === UserRole.ACCOUNT_MEMBER
           ? ApiKeyRole.OPERATOR

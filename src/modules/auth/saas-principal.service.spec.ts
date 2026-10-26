@@ -80,8 +80,16 @@ describe('SaasPrincipalService (token → tenant principal)', () => {
     expect(apiKey.accountId).toBe('acc-a');
   });
 
-  it('refuses the platform operator: the technical surface stays API-key based', async () => {
-    await expect(svc.resolve(tokenFor(emailLess))).rejects.toBeInstanceOf(UnauthorizedException);
+  it('gives the platform operator a GLOBAL admin principal (accountId null)', async () => {
+    // The developer login is the operator surface: it must reach /stats, /sessions, /webhooks and
+    // /infra without hand-copying a key out of data/.api-key, so it maps to the same global ADMIN
+    // surface a global API key has — never to a tenant.
+    const { apiKey, user } = await svc.resolve(tokenFor(emailLess));
+    expect(user.id).toBe(emailLess.id);
+    expect(apiKey.role).toBe(ApiKeyRole.ADMIN);
+    expect(apiKey.accountId).toBeNull();
+    expect(apiKey.allowedSessions).toBeNull();
+    expect(apiKey.isActive).toBe(true);
   });
 
   it('derives a stable per-user principal and a different one per user', async () => {
