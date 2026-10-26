@@ -27,6 +27,15 @@ export class AiRagModel {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  /**
+   * The tenant owning this knowledge base — the account of the key that created it (stamped on
+   * create). NULL for pre-SaaS rows: global, reachable by a NULL-account (platform) key only.
+   * Its knowledge entries inherit the owner at create time (the migration backfills the copy).
+   */
+  @Index('IDX_ai_rag_models_accountId')
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  accountId!: string | null;
+
   @Column({ type: 'varchar', length: AI_RAG_NAME_MAX_LENGTH })
   name!: string;
 
@@ -85,6 +94,14 @@ export class AiRagModel {
 export class AiRagDocument {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  /**
+   * The tenant owning this entry, copied from its RAG model at create (backfilled by migration
+   * 1801000000000). NULL when the parent model is NULL: global, platform-key reachable.
+   */
+  @Index('IDX_ai_rag_documents_accountId')
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  accountId!: string | null;
 
   /** FK to `ai_rag_models.id`. */
   @Column({ type: 'varchar', length: 36 })

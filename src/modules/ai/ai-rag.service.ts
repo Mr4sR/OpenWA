@@ -93,16 +93,25 @@ export class AiRagService {
 
   // ── Model CRUD ────────────────────────────────────────────────────────────────────────────────
 
-  async createModel(input: {
-    name: string;
-    sessionScope: string;
-    sessionIds: string[] | null;
-    llmModelId: string | null;
-    topK: number;
-    maxContextChars: number;
-    enabled: boolean;
-  }): Promise<AiRagModel> {
+  /**
+   * Create a knowledge base owned by `accountId` (NULL = the platform/global surface). A named LLM
+   * must be visible to the SAME account, so a tenant cannot bind another tenant's brain.
+   */
+  async createModel(
+    input: {
+      name: string;
+      sessionScope: string;
+      sessionIds: string[] | null;
+      llmModelId: string | null;
+      topK: number;
+      maxContextChars: number;
+      enabled: boolean;
+    },
+    accountId: string | null = null,
+  ): Promise<AiRagModel> {
+    await this.assertLlmRef(input.llmModelId, accountId);
     const model = this.repository.create({
+      accountId,
       name: input.name,
       sessionScope: input.sessionScope as AiRagModel['sessionScope'],
       sessionIds: input.sessionScope === 'selected' ? (input.sessionIds ?? []) : null,
@@ -113,61 +122,77 @@ export class AiRagService {
     });
     const saved = await this.repository.save(model);
     void this.audit.logInfo(AuditAction.AI_RAG_MODEL_CREATED, {
-      metadata: { ragModelId: saved.id, ragModelName: saved.name },
+      metadata: { ragModelId: saved.id, ragModelName: saved.name, accountId },
     });
     return saved;
   }
 
-  async findModels(): Promise<Array<{ model: AiRagModel; documentCount: number }>> {
-    const models = await this.repository.find({ order: { createdAt: 'ASC', id: 'ASC' } });
+  async findModels(accountId: string | null = null): Promise<Array<{ model: AiRagModel; documentCount: number }>> {
+    const models = await this.repository.find({
+      where: accountId === null ? { accountId: IsNull() } : { accountId },
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
     const counts = await this.documentsRepository
       .createQueryBuilder('doc')
       .select('doc.ragModelId', 'ragModelId')
       .addSelect('COUNT(doc.id)', 'count')
+      .where(accountId === null ? 'doc.accountId IS NULL' : 'doc.accountId = :accountId', accountId === null ? {} : { accountId })
       .groupBy('doc.ragModelId')
       .getRawMany<{ ragModelId: string; count: string }>();
     const byModel = new Map(counts.map(row => [row.ragModelId, Number(row.count)]));
     return models.map(model => ({ model, documentCount: byModel.get(model.id) ?? 0 }));
   }
 
-  /** RAG models usable by the given session (`sessionScope: all`, or `selected` naming it). */
-  async findModelsForSession(sessionId: string): Promise<AiRagModel[]> {
-    const models = await this.repository.find({ where: { enabled: true } });
+  /** RAG models usable by the given session, inside ONE account surface (`accountId`). */
+  async findModelsForSession(sessionId: string, accountId: string | null = null): Promise<AiRagModel[]> {
+    const models = await this.repository.find({
+      where: { enabled: true, ...(accountId === null ? { accountId: IsNull() } : { accountId }) },
+    });
     return models.filter(
       model => model.sessionScope === 'all' || (model.sessionIds ?? []).includes(sessionId),
     );
   }
 
-  async findModel(id: string): Promise<AiRagModel> {
-    const model = await this.repository.findOne({ where: { id } });
+  /**
+   * One model, visible only to its owner: another account's row is a NotFound, so a tenant cannot
+   * even confirm a foreign knowledge base exists. NULL (global) key sees NULL rows only.
+   */
+  async findModel(id: string, accountId: string | null = null): Promise<AiRagModel> {
+    const model = await this.repository.findOne({
+      where: accountId === null ? { id, accountId: IsNull() } : { id, accountId },
+    });
     if (!model) throw new NotFoundException(`RAG model ${id} not found`);
     return model;
   }
 
   async updateModel(
     id: string,
+    accountId: string | null,
     patch: Partial<Pick<AiRagModel, 'name' | 'sessionScope' | 'sessionIds' | 'llmModelId' | 'topK' | 'maxContextChars' | 'enabled'>>,
   ): Promise<AiRagModel> {
-    const model = await this.findModel(id);
+    const model = await this.findModel(id, accountId);
     if (patch.name !== undefined) model.name = patch.name;
     if (patch.sessionScope !== undefined) {
       model.sessionScope = patch.sessionScope;
       if (patch.sessionScope !== 'selected') model.sessionIds = null;
     }
     if (patch.sessionIds !== undefined) model.sessionIds = patch.sessionIds;
-    if (patch.llmModelId !== undefined) model.llmModelId = patch.llmModelId;
+    if (patch.llmModelId !== undefined) {
+      await this.assertLlmRef(patch.llmModelId, accountId);
+      model.llmModelId = patch.llmModelId;
+    }
     if (patch.topK !== undefined) model.topK = patch.topK;
     if (patch.maxContextChars !== undefined) model.maxContextChars = patch.maxContextChars;
     if (patch.enabled !== undefined) model.enabled = patch.enabled;
     const saved = await this.repository.save(model);
     void this.audit.logInfo(AuditAction.AI_RAG_MODEL_UPDATED, {
-      metadata: { ragModelId: saved.id, ragModelName: saved.name },
+      metadata: { ragModelId: saved.id, ragModelName: saved.name, accountId },
     });
     return saved;
   }
 
-  async removeModel(id: string): Promise<void> {
-    const model = await this.findModel(id);
+  async removeModel(id: string, accountId: string | null = null): Promise<void> {
+    const model = await this.findModel(id, accountId);
     await this.repository.remove(model);
     void this.audit.logInfo(AuditAction.AI_RAG_MODEL_DELETED, {
       metadata: { ragModelId: id, ragModelName: model.name },
@@ -176,16 +201,18 @@ export class AiRagService {
 
   // ── Knowledge entries ─────────────────────────────────────────────────────────────────────────
 
-  async findDocuments(ragModelId: string): Promise<AiRagDocument[]> {
-    await this.assertModel(ragModelId);
+  async findDocuments(ragModelId: string, accountId: string | null = null): Promise<AiRagDocument[]> {
+    await this.assertModel(ragModelId, accountId);
     return this.documentsRepository.find({ where: { ragModelId }, order: { createdAt: 'ASC', id: 'ASC' } });
   }
 
   async createDocument(
     ragModelId: string,
+    accountId: string | null,
     input: { sourceType: string; title: string | null; sourceUrl: string | null; content: string | null; storageKey: string | null },
   ): Promise<AiRagDocument> {
-    await this.assertModel(ragModelId);
+    // The parent model is resolved inside the caller's surface first: a foreign model id is a 404.
+    const model = await this.findModel(ragModelId, accountId);
     const sourceType = input.sourceType as AiRagDocument['sourceType'];
     // A text entry is its own content and becomes ready immediately. A url/site/file entry is
     // ingested in the BACKGROUND — the row lands right away as `pending` (the dashboard shows the
@@ -202,6 +229,8 @@ export class AiRagService {
     }
     const document = await this.documentsRepository.save(
       this.documentsRepository.create({
+        // The entry belongs to whoever owns the model it was added to (NULL stays global).
+        accountId: model.accountId,
         ragModelId,
         sourceType,
         title: input.title?.trim() || null,
@@ -218,7 +247,7 @@ export class AiRagService {
       void this.ingestDocument(document.id).catch(() => undefined);
     }
     void this.audit.logInfo(AuditAction.AI_RAG_DOCUMENT_CREATED, {
-      metadata: { ragModelId, ragDocumentId: document.id, sourceType },
+      metadata: { ragModelId, ragDocumentId: document.id, sourceType, accountId },
     });
     return document;
   }
@@ -259,8 +288,11 @@ export class AiRagService {
   async updateDocument(
     ragModelId: string,
     documentId: string,
+    accountId: string | null,
     patch: { title?: string | null; content?: string; sourceUrl?: string },
   ): Promise<AiRagDocument> {
+    // The parent model check IS the tenant fence: a 404 before the document is even looked up.
+    await this.assertModel(ragModelId, accountId);
     const document = await this.documentsRepository.findOne({ where: { id: documentId, ragModelId } });
     if (!document) throw new NotFoundException(`RAG document ${documentId} not found`);
     if (patch.title !== undefined) document.title = patch.title?.trim() || null;
@@ -271,17 +303,19 @@ export class AiRagService {
     }
     const saved = await this.documentsRepository.save(document);
     void this.audit.logInfo(AuditAction.AI_RAG_DOCUMENT_UPDATED, {
-      metadata: { ragModelId, ragDocumentId: documentId },
+      metadata: { ragModelId, ragDocumentId: documentId, accountId },
     });
     return saved;
   }
 
-  async removeDocument(ragModelId: string, documentId: string): Promise<void> {
+  async removeDocument(ragModelId: string, documentId: string, accountId: string | null): Promise<void> {
+    // The parent model check IS the tenant fence: a 404 before the document is even looked up.
+    await this.assertModel(ragModelId, accountId);
     const document = await this.documentsRepository.findOne({ where: { id: documentId, ragModelId } });
     if (!document) throw new NotFoundException(`RAG document ${documentId} not found`);
     await this.documentsRepository.remove(document);
     void this.audit.logInfo(AuditAction.AI_RAG_DOCUMENT_DELETED, {
-      metadata: { ragModelId, ragDocumentId: documentId },
+      metadata: { ragModelId, ragDocumentId: documentId, accountId },
     });
   }
 
@@ -291,8 +325,8 @@ export class AiRagService {
    * LLM (the model's own or the fallback). The previous index is kept until the new one commits,
    * so a failed rebuild never leaves the model worse than it was.
    */
-  async indexModel(ragModelId: string, fallbackLlm?: AiLlmModel): Promise<AiRagModel> {
-    const model = await this.findModel(ragModelId);
+  async indexModel(ragModelId: string, accountId: string | null = null, fallbackLlm?: AiLlmModel): Promise<AiRagModel> {
+    const model = await this.findModel(ragModelId, accountId);
     const documents = await this.documentsRepository.find({ where: { ragModelId }, order: { createdAt: 'ASC', id: 'ASC' } });
     if (documents.length === 0) {
       throw new BadRequestException('Add knowledge before indexing');
@@ -412,8 +446,13 @@ export class AiRagService {
    * Answer a question from the index: walk the tree with the LLM, collect the leaves it reaches,
    * return their raw text. Pure function of (model, question) — no session state.
    */
-  async retrieve(ragModelId: string, query: string, options: RetrieveOptions = {}): Promise<RetrievalResult> {
-    const model = await this.findModel(ragModelId);
+  async retrieve(
+    ragModelId: string,
+    query: string,
+    options: RetrieveOptions = {},
+    accountId: string | null = null,
+  ): Promise<RetrievalResult> {
+    const model = await this.findModel(ragModelId, accountId);
     const warnings: string[] = [];
     if (!model.enabled) {
       return { nodes: [], context: '', warnings: ['the RAG model is disabled'] };
@@ -530,10 +569,23 @@ export class AiRagService {
     return text.slice(0, 2_000_000);
   }
 
-  private async assertModel(ragModelId: string): Promise<void> {
-    if (!(await this.repository.exists({ where: { id: ragModelId } }))) {
+  /** Tenant-fenced existence check: the model must exist INSIDE the caller's account surface. */
+  private async assertModel(ragModelId: string, accountId: string | null = null): Promise<void> {
+    const where = accountId === null ? { id: ragModelId, accountId: IsNull() } : { id: ragModelId, accountId };
+    if (!(await this.repository.exists({ where }))) {
       throw new NotFoundException(`RAG model ${ragModelId} not found`);
     }
+  }
+
+  /**
+   * The referenced LLM must exist and be visible to the SAME account: a tenant RAG model cannot
+   * bind another tenant's provider credential. A global model binds global rows only.
+   */
+  private async assertLlmRef(llmModelId: string | null, accountId: string | null): Promise<void> {
+    if (!llmModelId) return;
+    const where = accountId === null ? { id: llmModelId, accountId: IsNull() } : { id: llmModelId, accountId };
+    const found = await this.repository.manager.getRepository(AiLlmModel).findOne({ where });
+    if (!found) throw new NotFoundException(`LLM model ${llmModelId} not found`);
   }
 }
 

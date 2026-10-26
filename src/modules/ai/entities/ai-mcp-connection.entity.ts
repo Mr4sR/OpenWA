@@ -28,6 +28,15 @@ export class AiMcpConnection {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  /**
+   * The tenant owning this server connection — the account of the key that created it (stamped on
+   * create). NULL for pre-SaaS rows: global, reachable by a NULL-account (platform) key only. A
+   * tenant row may hold a credential for that tenant's external tools.
+   */
+  @Index('IDX_ai_mcp_connections_accountId')
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  accountId!: string | null;
+
   @Column({ type: 'varchar', length: AI_MCP_NAME_MAX_LENGTH })
   name!: string;
 

@@ -6,10 +6,11 @@ import { PlansService } from './plans.service';
 import { AccountsService } from './accounts.service';
 import { createLogger } from '../../common/services/logger.service';
 
-export type LimitKind = 'sessions' | 'chatbots' | 'webhooks';
+export type LimitKind = 'sessions' | 'active_sessions' | 'chatbots' | 'webhooks';
 
 const KIND_LABEL: Record<LimitKind, string> = {
   sessions: 'WhatsApp sessions',
+  active_sessions: 'concurrently running WhatsApp sessions',
   chatbots: 'AI chatbots',
   webhooks: 'webhooks',
 };
@@ -45,6 +46,10 @@ export class PlanLimitsService {
    * Refuse when `accountId`'s plan is expired, suspended (checked by the caller through the login
    * fence) or already at its ceiling for `kind`. A NULL accountId is the global/platform surface —
    * never limited.
+   *
+   * `'active_sessions'` is the RUNNING-session ceiling (READY / INITIALIZING / QR_READY rows of the
+   * account), enforced at SessionService.start() so a tenant cannot hold more engines at once than
+   * its plan sells; the row-count kinds are enforced on the create paths.
    */
   async assertWithinLimit(accountId: string | null | undefined, kind: LimitKind): Promise<void> {
     if (!accountId) return; // global surface: unlimited by design
@@ -63,12 +68,14 @@ export class PlanLimitsService {
   /** The count used by /me and the dashboard usage widget. -1 = unlimited plan. */
   async usage(accountId: string | null | undefined): Promise<{
     sessions: { used: number; limit: number };
+    activeSessions: { used: number; limit: number };
     chatbots: { used: number; limit: number };
     webhooks: { used: number; limit: number };
   }> {
     if (!accountId) {
       return {
         sessions: { used: 0, limit: -1 },
+        activeSessions: { used: 0, limit: -1 },
         chatbots: { used: 0, limit: -1 },
         webhooks: { used: 0, limit: -1 },
       };
@@ -76,22 +83,48 @@ export class PlanLimitsService {
     const plan = await this.resolvePlan(accountId);
     return {
       sessions: { used: await this.countCurrent(accountId, 'sessions'), limit: this.maxFor(plan, 'sessions') },
+      activeSessions: {
+        used: await this.countCurrent(accountId, 'active_sessions'),
+        limit: this.maxFor(plan, 'active_sessions'),
+      },
       chatbots: { used: await this.countCurrent(accountId, 'chatbots'), limit: this.maxFor(plan, 'chatbots') },
       webhooks: { used: await this.countCurrent(accountId, 'webhooks'), limit: this.maxFor(plan, 'webhooks') },
     };
   }
 
-  private maxFor(plan: { slug: string; name: string; maxSessions: number; maxChatbots: number; maxWebhooks: number }, kind: LimitKind): number {
-    return kind === 'sessions' ? plan.maxSessions : kind === 'chatbots' ? plan.maxChatbots : plan.maxWebhooks;
+  private maxFor(
+    plan: {
+      slug: string;
+      name: string;
+      maxSessions: number;
+      maxConcurrentSessions: number;
+      maxChatbots: number;
+      maxWebhooks: number;
+    },
+    kind: LimitKind,
+  ): number {
+    switch (kind) {
+      case 'sessions':
+        return plan.maxSessions;
+      case 'active_sessions':
+        return plan.maxConcurrentSessions;
+      case 'chatbots':
+        return plan.maxChatbots;
+      case 'webhooks':
+        return plan.maxWebhooks;
+    }
   }
 
   private async countCurrent(accountId: string, kind: LimitKind): Promise<number> {
     const ds = await this.resolveDataSource();
-    const table = kind === 'sessions' ? 'sessions' : kind === 'chatbots' ? 'ai_chatbots' : 'webhooks';
+    // 'active_sessions' counts RUNNING sessions (an engine started or starting somewhere), not
+    // rows: CREATED/DISCONNECTED/FAILED cost no engine and must not spend the ceiling.
+    const table = kind === 'chatbots' ? 'ai_chatbots' : kind === 'webhooks' ? 'webhooks' : 'sessions';
+    const activeFilter = kind === 'active_sessions' ? ` AND "status" IN ('ready','initializing','qr_ready')` : '';
     const sql =
       ds.options.type === 'postgres'
-        ? `SELECT COUNT(*)::int AS c FROM "${table}" WHERE "accountId" = $1`
-        : `SELECT COUNT(*) AS c FROM "${table}" WHERE "accountId" = ?`;
+        ? `SELECT COUNT(*)::int AS c FROM "${table}" WHERE "accountId" = $1${activeFilter}`
+        : `SELECT COUNT(*) AS c FROM "${table}" WHERE "accountId" = ?${activeFilter}`;
     try {
       const rows = (await ds.query(sql, [accountId])) as Array<{ c: number | string }>;
       return Number(rows[0]?.c ?? 0);

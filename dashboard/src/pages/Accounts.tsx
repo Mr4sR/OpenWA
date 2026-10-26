@@ -8,7 +8,7 @@ import { useAccountsQuery } from '../hooks/queries';
 import { PageHeader } from '../components/PageHeader';
 import { Modal } from '../components/Modal';
 import { useToast } from '../hooks/useToast';
-import './ApiKeys.css';
+import './Platform.css';
 
 /**
  * Accounts (tenants) management — the multi-account surface. Loading this page requires an
@@ -49,7 +49,7 @@ export function Accounts() {
   const accounts = accountsQuery.data ?? [];
 
   return (
-    <div className="page">
+    <div className="platform-page">
       <PageHeader
         title={t('accounts.title')}
         subtitle={t('accounts.subtitle')}
@@ -74,8 +74,8 @@ export function Accounts() {
           <p>{t('accounts.emptyDescription')}</p>
         </div>
       ) : (
-        <div className="table-container">
-          <table className="data-table">
+        <div className="platform-table-container">
+          <table className="platform-table">
             <thead>
               <tr>
                 <th>{t('accounts.name')}</th>

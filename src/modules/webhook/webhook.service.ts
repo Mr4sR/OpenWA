@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindManyOptions, In, IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
+import { FindManyOptions, FindOptionsWhere, In, IsNull, LessThan, MoreThan, Not, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Webhook } from './entities/webhook.entity';
 import { WebhookDeliveryFailure } from './entities/webhook-delivery-failure.entity';
@@ -224,7 +224,11 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async findAll(allowedSessions?: string[] | null, opts: ListOptions = {}): Promise<Webhook[]> {
+  async findAll(
+    allowedSessions?: string[] | null,
+    opts: ListOptions = {},
+    accountId?: string | null,
+  ): Promise<Webhook[]> {
     // A session-restricted key only sees its own sessions' webhooks; an unrestricted key
     // (null/empty allowlist, e.g. ADMIN) sees all — mirroring the ApiKeyGuard allowedSessions model.
     const { limit, offset } = resolveListWindow(opts.limit, opts.offset);
@@ -234,9 +238,17 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
       take: limit,
       skip: offset,
     };
+    const where: FindOptionsWhere<Webhook> = {};
     if (allowedSessions && allowedSessions.length > 0) {
-      options.where = { sessionId: In(allowedSessions) };
+      where.sessionId = In(allowedSessions);
     }
+    // A tenant key lists only its own account's webhooks; a global key (NULL) lists all. Applying
+    // both as separate keys of one object keeps AND semantics, so a scoped tenant key stays inside
+    // both fences at once.
+    if (accountId) {
+      where.accountId = accountId;
+    }
+    if (Object.keys(where).length > 0) options.where = where;
     return this.webhookRepository.find(options);
   }
 
@@ -251,12 +263,26 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
   async listDeliveryFailures(
     opts: ListOptions & { sessionId?: string } = {},
     allowedSessions?: string[] | null,
+    accountId?: string | null,
   ): Promise<Array<WebhookDeliveryFailure & { replayable: boolean }>> {
     const { limit, offset } = resolveListWindow(opts.limit, opts.offset);
     const sessionScope = resolveSessionScope(allowedSessions, opts.sessionId);
     if (sessionScope !== null && sessionScope.length === 0) return []; // requested session outside the key's scope
+    // The tenant fence, resolved SERVER-side from the calling key: a failure row carries only the
+    // session id, and a delivery-failure listing must never expose another tenant's URLs/errors
+    // through the `sessionId` query param. A tenant key is restricted to the sessions of its own
+    // account; a global key (NULL) keeps the whole table.
+    let tenantSessions: string[] | null = null;
+    if (accountId) {
+      const own = await this.sessionRepository.find({ select: { id: true }, where: { accountId } });
+      tenantSessions = own.map(row => row.id);
+      if (tenantSessions.length === 0) return [];
+    }
+    const where: FindOptionsWhere<WebhookDeliveryFailure> = {};
+    if (sessionScope) where.sessionId = In(sessionScope);
+    else if (tenantSessions) where.sessionId = In(tenantSessions);
     const rows = await this.failureRepository.find({
-      where: sessionScope ? { sessionId: In(sessionScope) } : {},
+      where,
       // A receiver outage writes a burst of failures inside one second; `id` keeps the page order total.
       order: { createdAt: 'DESC', id: 'DESC' },
       take: limit,
@@ -282,18 +308,18 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
     return rows.map(r => Object.assign(r, { replayable: replayable.has(r.id) }));
   }
 
-  async findOne(sessionId: string, id: string): Promise<Webhook> {
+  async findOne(sessionId: string, id: string, accountId?: string | null): Promise<Webhook> {
     // Scope by the URL's sessionId so one session cannot read/act on another's webhook by id.
     // A wrong-session id resolves to not-found (no cross-session existence oracle).
-    const webhook = await this.webhookRepository.findOne({ where: { id, sessionId } });
+    const webhook = await this.webhookRepository.findOne({ where: { id, sessionId, ...(accountId ? { accountId } : {}) } });
     if (!webhook) {
       throw new NotFoundException(`Webhook with id '${id}' not found`);
     }
     return webhook;
   }
 
-  async update(sessionId: string, id: string, dto: UpdateWebhookDto): Promise<Webhook> {
-    const webhook = await this.findOne(sessionId, id);
+  async update(sessionId: string, id: string, dto: UpdateWebhookDto, accountId?: string | null): Promise<Webhook> {
+    const webhook = await this.findOne(sessionId, id, accountId);
     const patch: Partial<Pick<Webhook, 'url' | 'events' | 'secret' | 'headers' | 'filters' | 'active' | 'retryCount'>> =
       {};
 
@@ -317,20 +343,24 @@ export class WebhookService implements OnModuleInit, OnModuleDestroy {
     // A conditional UPDATE of the carried fields, not save() of the entity read above: save() would
     // re-insert a row a concurrent DELETE removed during the URL check, and write back stale values
     // of every column this request did not touch.
-    const result = await this.webhookRepository.update({ id, sessionId }, patch);
+    const result = await this.webhookRepository.update({ id, sessionId, ...(accountId ? { accountId } : {}) }, patch);
     this.delivery.invalidateOptInSubscriptions(sessionId);
     if (!result.affected) throw new NotFoundException(`Webhook with id '${id}' not found`);
-    return this.findOne(sessionId, id);
+    return this.findOne(sessionId, id, accountId);
   }
 
-  async delete(sessionId: string, id: string): Promise<void> {
-    const webhook = await this.findOne(sessionId, id);
+  async delete(sessionId: string, id: string, accountId?: string | null): Promise<void> {
+    const webhook = await this.findOne(sessionId, id, accountId);
     await this.webhookRepository.remove(webhook);
     this.delivery.invalidateOptInSubscriptions(sessionId);
   }
 
-  async test(sessionId: string, webhookId: string): Promise<{ success: boolean; statusCode?: number; error?: string }> {
-    const webhook = await this.findOne(sessionId, webhookId);
+  async test(
+    sessionId: string,
+    webhookId: string,
+    accountId?: string | null,
+  ): Promise<{ success: boolean; statusCode?: number; error?: string }> {
+    const webhook = await this.findOne(sessionId, webhookId, accountId);
 
     // Every test is a new event: a key derived from the webhook alone repeats on every call, so a
     // receiver that dedups on it acknowledges the second test without running its handler.

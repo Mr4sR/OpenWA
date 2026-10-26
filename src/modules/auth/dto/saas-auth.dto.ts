@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { MaxCodePoints } from '../../../common/validation/max-code-points';
 import { NoNulCharacter } from '../../../common/validation/no-nul-character';
 import { USER_EMAIL_MAX_LENGTH, USER_NAME_MAX_LENGTH } from '../entities/user.entity';
@@ -54,4 +54,42 @@ export class ChangePasswordDto {
   @MaxLength(PASSWORD_MAX_LENGTH)
   @NoNulCharacter()
   newPassword!: string;
+}
+
+export class CreateMemberDto {
+  @ApiProperty({ example: 'staff@shop.id', maxLength: USER_EMAIL_MAX_LENGTH })
+  @IsEmail({}, { message: 'A valid email address is required' })
+  @MaxLength(USER_EMAIL_MAX_LENGTH)
+  @NoNulCharacter()
+  email!: string;
+
+  @ApiProperty({ minLength: PASSWORD_MIN_LENGTH, maxLength: PASSWORD_MAX_LENGTH })
+  @IsString()
+  @MinLength(PASSWORD_MIN_LENGTH, { message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters` })
+  @MaxLength(PASSWORD_MAX_LENGTH)
+  @NoNulCharacter()
+  password!: string;
+
+  @ApiPropertyOptional({ maxLength: USER_NAME_MAX_LENGTH })
+  @IsOptional()
+  @IsString()
+  @MaxLength(USER_NAME_MAX_LENGTH)
+  @NoNulCharacter()
+  name?: string;
+}
+
+export class UpdateMemberDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class SessionTokenBodyDto {
+  @ApiProperty({ description: 'The dashboard session token (the @Public() routes take it in the body)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  @NoNulCharacter()
+  token?: string;
 }

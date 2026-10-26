@@ -81,7 +81,14 @@ describe('AiChatbotService.previewReply', () => {
 
     expect(result).toEqual({ reply: 'The answer is 42.', sources: [{ title: 'Return policy' }], warnings: [] });
     expect(ragRetrieve).toHaveBeenCalledTimes(1);
-    expect(ragRetrieve).toHaveBeenCalledWith('rag-1', 'what is your return policy?', { fallbackLlm: undefined });
+    // The tenant is part of the retrieval contract: the RAG service resolves the model inside the
+    // bot's account, so the accountId must ride along.
+    expect(ragRetrieve).toHaveBeenCalledWith(
+      'rag-1',
+      'what is your return policy?',
+      { fallbackLlm: undefined },
+      chatbot.accountId,
+    );
 
     const [, turns] = complete.mock.calls[0] as [AiLlmModel, Array<{ role: string; content: string }>];
     expect(turns).toHaveLength(3);

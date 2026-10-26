@@ -54,6 +54,7 @@ export class WebhooksListController {
         offset: offset ? parseInt(offset, 10) : undefined,
       },
       apiKey?.allowedSessions,
+      apiKey?.accountId ?? null,
     );
   }
 
@@ -114,10 +115,14 @@ export class WebhooksListController {
     // Scope to the key's allowedSessions so a session-restricted key cannot enumerate every
     // session's webhook URLs. A null/empty allowlist (e.g. ADMIN) still sees all.
     return WebhookResponseDto.fromEntities(
-      await this.webhookService.findAll(apiKey?.allowedSessions, {
-        limit: limit ? parseInt(limit, 10) : undefined,
-        offset: offset ? parseInt(offset, 10) : undefined,
-      }),
+      await this.webhookService.findAll(
+        apiKey?.allowedSessions,
+        {
+          limit: limit ? parseInt(limit, 10) : undefined,
+          offset: offset ? parseInt(offset, 10) : undefined,
+        },
+        apiKey?.accountId ?? null,
+      ),
     );
   }
 }

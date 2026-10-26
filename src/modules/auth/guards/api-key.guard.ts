@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { AuthService, UnresolvedApiKeyException } from '../auth.service';
 import { ChatScopeService } from '../chat-scope.service';
+import { SaasPrincipalService } from '../saas-principal.service';
 import { BULK_MESSAGES_MAX } from '../../message/dto/bulk-message.dto';
 import { ApiKey, ApiKeyRole } from '../entities/api-key.entity';
 import {
@@ -37,6 +38,7 @@ export class ApiKeyGuard implements CanActivate {
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
     private readonly chatScope: ChatScopeService,
+    private readonly saasPrincipal: SaasPrincipalService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -100,10 +102,17 @@ export class ApiKeyGuard implements CanActivate {
       string | undefined;
     const clientIp = this.getClientIp(request);
 
-    // Validate API key (the method lets a tenant key's global-session write be refused at the door)
-    const apiKey = await this.authService.validateApiKey(apiKeyHeader, clientIp, sessionId, {
-      method: request.method,
-    });
+    // A dashboard login sends `Authorization: Bearer <saas-jwt>`; resolve it to the user's live
+    // tenant principal (same shape as a stored key) so every fence below applies unchanged. An
+    // owa_k1_ key, or a bearer value that is not a dashboard token, takes the original path.
+    let apiKey: ApiKey;
+    if (this.saasPrincipal.isSessionToken(apiKeyHeader)) {
+      apiKey = (await this.saasPrincipal.resolve(apiKeyHeader)).apiKey;
+    } else {
+      apiKey = await this.authService.validateApiKey(apiKeyHeader, clientIp, sessionId, {
+        method: request.method,
+      });
+    }
 
     // Stamp the resolved actor into the per-request async context so downstream audit log writes —
     // which fire from services deep in the call stack without DI access to the key — can attribute

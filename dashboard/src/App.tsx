@@ -48,7 +48,7 @@ function AppContent() {
   // rides separately; the token identifies the USER, the key authorizes the WIRE.
   const [savedToken] = useState(() => sessionStorage.getItem('openwa_saas_token'));
   const [isAuthenticated, setIsAuthenticated] = useState(!!savedToken);
-  const { setRole, role, setEngineType, setScoped, scoped, setAccountId } = useRole();
+  const { setRole, role, setEngineType, setScoped, setAccountId } = useRole();
   // Read once: the platform route is developer-only, and the server refuses it regardless.
   const [isPlatformAdmin] = useState(() => {
     try {
@@ -71,7 +71,8 @@ function AppContent() {
     const mapped = user.role === 'platform_admin' ? 'admin' : user.role === 'account_admin' ? 'admin' : 'operator';
     setRole(isUserRole(mapped) ? mapped : 'viewer');
     setAccountId(user.accountId ?? null);
-    setScoped(true);
+    // A SaaS session token is never session-allowlisted: the tenant keeps every create affordance.
+    setScoped(false);
 
     setIsAuthenticated(true);
   };
@@ -111,7 +112,8 @@ function AppContent() {
         : 'operator'
       : 'viewer';
     setRole(isUserRole(mapped) ? mapped : 'viewer');
-    setScoped(true);
+    // Same reasoning as handleLogin: the SaaS token principal is never session-scoped.
+    setScoped(false);
     setAccountId(sessionUser?.accountId ?? null);
 
     saasAuthApi
@@ -158,13 +160,15 @@ function AppContent() {
               {isPlatformAdmin && <Route path="platform" element={<Platform />} />}
               <Route path="webhooks" element={<Webhooks />} />
               <Route path="templates" element={<Templates />} />
-              {role === 'admin' && !scoped && <Route path="accounts" element={<Accounts />} />}
-              {role === 'admin' && !scoped && <Route path="api-keys" element={<ApiKeys />} />}
+              {isPlatformAdmin && <Route path="accounts" element={<Accounts />} />}
+              {isPlatformAdmin && <Route path="api-keys" element={<ApiKeys />} />}
               {role === 'admin' && <Route path="logs" element={<Logs />} />}
               <Route path="message-tester" element={<MessageTester />} />
-              {role === 'admin' && !scoped && <Route path="infrastructure" element={<Infrastructure />} />}
-              {role === 'admin' && !scoped && <Route path="plugins" element={<Plugins />} />}
-              {role === 'admin' && !scoped && <Route path="ai-integration" element={<AiIntegration />} />}
+              {isPlatformAdmin && <Route path="infrastructure" element={<Infrastructure />} />}
+              {isPlatformAdmin && <Route path="plugins" element={<Plugins />} />}
+              {/* Tenant admins configure their own AI surfaces; the API scopes every row by account.
+                  Members reach no AI route, so the page stays admin-only for them. */}
+              {role === 'admin' && <Route path="ai-integration" element={<AiIntegration />} />}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>

@@ -8,6 +8,7 @@ export interface UpsertPlanInput {
   slug: string;
   name: string;
   maxSessions: number;
+  maxConcurrentSessions: number;
   maxChatbots: number;
   maxWebhooks: number;
   priceCents: number;
@@ -20,6 +21,7 @@ export interface EffectivePlan {
   slug: string;
   name: string;
   maxSessions: number;
+  maxConcurrentSessions: number;
   maxChatbots: number;
   maxWebhooks: number;
 }
@@ -58,6 +60,7 @@ export class PlansService {
     const plan = await this.findBySlug(slug);
     if (input.name !== undefined) plan.name = String(input.name).trim().slice(0, PLAN_NAME_MAX) || plan.name;
     if (input.maxSessions !== undefined) plan.maxSessions = this.limit(input.maxSessions);
+    if (input.maxConcurrentSessions !== undefined) plan.maxConcurrentSessions = this.limit(input.maxConcurrentSessions);
     if (input.maxChatbots !== undefined) plan.maxChatbots = this.limit(input.maxChatbots);
     if (input.maxWebhooks !== undefined) plan.maxWebhooks = this.limit(input.maxWebhooks);
     if (input.priceCents !== undefined) plan.priceCents = Math.max(0, Math.trunc(input.priceCents));
@@ -94,12 +97,20 @@ export class PlansService {
       (await this.repository.findOne({ where: { slug: 'free' } }));
     if (!plan) {
       // The seed could not have run; degrade to Free's numbers so enforcement still works.
-      return { slug: 'free', name: 'Free', maxSessions: 1, maxChatbots: 1, maxWebhooks: 1 };
+      return {
+        slug: 'free',
+        name: 'Free',
+        maxSessions: 1,
+        maxConcurrentSessions: 1,
+        maxChatbots: 1,
+        maxWebhooks: 1,
+      };
     }
     return {
       slug: plan.slug,
       name: plan.name,
       maxSessions: plan.maxSessions,
+      maxConcurrentSessions: plan.maxConcurrentSessions,
       maxChatbots: plan.maxChatbots,
       maxWebhooks: plan.maxWebhooks,
     };
@@ -120,6 +131,7 @@ export class PlansService {
       slug,
       name: String(input.name ?? '').trim().slice(0, PLAN_NAME_MAX) || slug,
       maxSessions: this.limit(input.maxSessions),
+      maxConcurrentSessions: this.limit(input.maxConcurrentSessions),
       maxChatbots: this.limit(input.maxChatbots),
       maxWebhooks: this.limit(input.maxWebhooks),
       priceCents: Math.max(0, Math.trunc(input.priceCents ?? 0)),

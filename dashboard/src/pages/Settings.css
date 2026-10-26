@@ -1,0 +1,116 @@
+/* Account (profile + password) page — same card language as AiIntegration.css. */
+
+.settings-page {
+  padding: 2rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.settings-page .page-header {
+  margin-bottom: 2rem;
+}
+
+.settings-page .settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 40rem;
+}
+
+/* A card: same shell as .ai-card (bg-white, radius 12, shadow-sm, border). */
+.settings-page .settings-card {
+  background: var(--bg-white);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+}
+
+.settings-page .settings-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 1.25rem;
+}
+
+.settings-page .settings-card h3 svg {
+  color: var(--primary-text);
+}
+
+.settings-page .profile-row {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  margin: 0 0 0.75rem;
+}
+
+.settings-page .profile-row .profile-label {
+  color: var(--text-secondary);
+  min-width: 7rem;
+}
+
+.settings-page .profile-row .profile-value {
+  color: var(--text-primary);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.settings-page .profile-row .profile-value.role {
+  font-size: 0.6875rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--info);
+}
+
+/* Form: follows the repo's label/input stack (same as Modal forms). */
+.settings-page .settings-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-page .settings-form label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.settings-page .settings-form input {
+  padding: 0.75rem 1rem;
+  font-size: 0.9375rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-white);
+  margin-bottom: 1.25rem;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.settings-page .settings-form input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+}
+
+.settings-page .settings-form .btn-primary {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .settings-page {
+    padding: 1rem;
+  }
+
+  .settings-page .settings-card {
+    padding: 1.25rem;
+  }
+}

@@ -27,6 +27,14 @@ export class Plan {
   /** -1 = unlimited. */
   @Column({ type: 'integer', default: 1 })
   maxSessions!: number;
+  /**
+   * How many of this account's sessions may hold a live engine AT ONCE (READY / INITIALIZING /
+   * QR_READY). maxSessions bounds how many rows it may own; this bounds how many may run.
+   * Enforced at start() by PlanLimitsService kind 'active_sessions'; the node-wide
+   * MAX_CONCURRENT_SESSIONS cap stays a second, deployment-level ceiling. -1 = unlimited.
+   */
+  @Column({ type: 'integer', default: 1 })
+  maxConcurrentSessions!: number;
   @Column({ type: 'integer', default: 0 })
   maxChatbots!: number;
   @Column({ type: 'integer', default: 0 })

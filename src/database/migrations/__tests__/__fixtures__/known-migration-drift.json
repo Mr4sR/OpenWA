@@ -104,6 +104,12 @@
     "CREATE INDEX \"IDX_cee5459245f652b75eb2759b4c\" ON \"audit_logs\" (\"action\") ",
     "CREATE INDEX \"IDX_741fa976d1e04e695f3aa23cb8\" ON \"audit_logs\" (\"apiKeyId\") ",
     "CREATE INDEX \"IDX_dd2b6e43c767b6b5b2bb227ace\" ON \"audit_logs\" (\"sessionId\") ",
-    "CREATE INDEX \"IDX_c69efb19bf127c97e6740ad530\" ON \"audit_logs\" (\"createdAt\") "
+    "CREATE INDEX \"IDX_c69efb19bf127c97e6740ad530\" ON \"audit_logs\" (\"createdAt\") ",
+    "DROP INDEX \"UQ_plans_slug\"",
+    "CREATE TABLE \"temporary_plans\" (\"id\" varchar PRIMARY KEY NOT NULL, \"slug\" varchar(30) NOT NULL, \"name\" varchar(60) NOT NULL, \"maxSessions\" integer NOT NULL DEFAULT (1), \"maxConcurrentSessions\" integer NOT NULL DEFAULT (1), \"maxChatbots\" integer NOT NULL DEFAULT (0), \"maxWebhooks\" integer NOT NULL DEFAULT (0), \"priceCents\" integer NOT NULL DEFAULT (0), \"sort\" integer NOT NULL DEFAULT (0), \"isActive\" boolean NOT NULL DEFAULT (1), \"createdAt\" datetime NOT NULL DEFAULT (datetime('now')), \"updatedAt\" datetime NOT NULL DEFAULT (datetime('now')))",
+    "INSERT INTO \"temporary_plans\"(\"id\", \"slug\", \"name\", \"maxSessions\", \"maxConcurrentSessions\", \"maxChatbots\", \"maxWebhooks\", \"priceCents\", \"sort\", \"isActive\", \"createdAt\", \"updatedAt\") SELECT \"id\", \"slug\", \"name\", \"maxSessions\", \"maxConcurrentSessions\", \"maxChatbots\", \"maxWebhooks\", \"priceCents\", \"sort\", \"isActive\", \"createdAt\", \"updatedAt\" FROM \"plans\"",
+    "DROP TABLE \"plans\"",
+    "ALTER TABLE \"temporary_plans\" RENAME TO \"plans\"",
+    "CREATE UNIQUE INDEX \"UQ_plans_slug\" ON \"plans\" (\"slug\") "
   ]
 }

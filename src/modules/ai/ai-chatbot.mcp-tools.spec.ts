@@ -128,7 +128,13 @@ describe('AiChatbotService MCP tool loop', () => {
     const service = await build();
     await service.evaluateInbound('s1', { chatId: '628111@c.us', body: 'Cek tagihan GSR01000015', fromMe: false });
 
-    expect(mcpCallTool).toHaveBeenCalledWith(CONNECTION_ID, 'cek_tagihan', { customer_id: 'GSR01000015' });
+    // Tool calls resolve the MCP connection inside the bot's account (the tenant fence).
+    expect(mcpCallTool).toHaveBeenCalledWith(
+      CONNECTION_ID,
+      'cek_tagihan',
+      { customer_id: 'GSR01000015' },
+      chatbot.accountId,
+    );
     // The second model call carries the assistant tool_call turn + the paired tool result.
     expect(lastTurns?.some(turn => (turn as { role: string }).role === 'assistant')).toBe(true);
     const toolTurn = lastTurns?.find(turn => (turn as { role: string }).role === 'tool') as { tool_call_id: string; content: string } | undefined;

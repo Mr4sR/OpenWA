@@ -154,6 +154,7 @@ export class PlatformController {
       slug: body?.slug ?? '',
       name: body?.name ?? '',
       maxSessions: Number(body?.maxSessions ?? 1),
+      maxConcurrentSessions: Number(body?.maxConcurrentSessions ?? 1),
       maxChatbots: Number(body?.maxChatbots ?? 0),
       maxWebhooks: Number(body?.maxWebhooks ?? 0),
       priceCents: Number(body?.priceCents ?? 0),

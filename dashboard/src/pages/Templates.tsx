@@ -469,7 +469,6 @@ export function Templates() {
             </div>
           </section>
 
-
           <div {...previewProps} />
           <aside className="template-preview">
             <div className="template-preview-header">

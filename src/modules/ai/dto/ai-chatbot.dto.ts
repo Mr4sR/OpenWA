@@ -37,7 +37,11 @@ export class CreateAiChatbotDto {
   @IsNotEmpty()
   llmModelId!: string;
 
-  @ApiPropertyOptional({ description: 'Optional RAG model whose knowledge rides along (`ai_rag_models.id`)' })
+  @ApiPropertyOptional({
+    description: 'Optional RAG model whose knowledge rides along (`ai_rag_models.id`); null means none',
+    nullable: true,
+  })
+  @ValidateIf((o: CreateAiChatbotDto) => o.ragModelId !== undefined && o.ragModelId !== null)
   @IsString()
   ragModelId?: string | null;
 

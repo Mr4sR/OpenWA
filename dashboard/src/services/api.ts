@@ -772,9 +772,11 @@ async function handleErrorResponse<T>(response: Response, sentKey: string | null
   // rather than statusText: the toast folds an exact `HTTP 502`/`HTTP 503` into its connection-lost
   // toast (a 504 keeps its own), and statusText is empty over HTTP/2 anyway.
   const error = await response.json().catch(() => ({}));
-  const storedKey = sessionStorage.getItem('openwa_api_key');
+  const storedKey = wireCredential();
   if (isKeyUnusable(response.status, error.message) && (storedKey === sentKey || storedKey === null)) {
     sessionStorage.removeItem('openwa_api_key');
+    sessionStorage.removeItem('openwa_saas_token');
+    sessionStorage.removeItem('openwa_saas_user');
     if (typeof window !== 'undefined') {
       if (sentKey !== null && storedKey === sentKey) window.location.assign('/');
       return new Promise<T>(() => {});
@@ -795,11 +797,24 @@ async function handleErrorResponse<T>(response: Response, sentKey: string | null
   throw err;
 }
 
+/**
+ * The wire credential of the signed-in actor: the SaaS session token when one exists (the backend
+ * resolves it to the user's tenant principal), else the account API key (platform logins and the
+ * pre-SaaS path). One selector so REST, Blob/download and the WebSocket handshake can never
+ * disagree about which credential rides along.
+ */
+export function wireCredential(): string | null {
+  // The technical surface authenticates with the API KEY. The SaaS session token never rides this
+  // header — the backend validates a bearer JWT only on /auth/*, and sending it as an API key would
+  // 401 every dashboard read the moment a user signs in without picking a key.
+  return sessionStorage.getItem('openwa_api_key');
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
   // Get API key from sessionStorage for authentication
-  const apiKey = sessionStorage.getItem('openwa_api_key');
+  const apiKey = wireCredential();
 
   // For FormData (file uploads) let the browser set multipart/form-data + boundary itself.
   const isFormData = options.body instanceof FormData;
@@ -824,7 +839,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 /** Like {@link request} but returns the raw response text — e.g. a plugin's HTML config-UI bundle. */
 async function requestText(endpoint: string): Promise<string> {
-  const apiKey = sessionStorage.getItem('openwa_api_key');
+  const apiKey = wireCredential();
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: { ...(apiKey ? { 'X-API-Key': apiKey } : {}) },
   });
@@ -841,7 +856,7 @@ async function requestBlob(endpoint: string, signal?: AbortSignal): Promise<Blob
   const url = `${API_BASE_URL}${endpoint}`;
 
   // Get API key from sessionStorage for authentication
-  const apiKey = sessionStorage.getItem('openwa_api_key');
+  const apiKey = wireCredential();
 
   const headers: HeadersInit = {
     ...(apiKey ? { 'X-API-Key': apiKey } : {}),
@@ -1194,10 +1209,13 @@ async function saasRequest<T>(path: string, token: string, init?: RequestInit): 
 
 export const saasAuthApi = {
   register: (data: { email: string; password: string; name?: string }) =>
-    request<SaasSession & { account: { id: string; name: string; planSlug: string }; apiKey?: string }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    request<SaasSession & { account: { id: string; name: string; planSlug: string }; apiKey?: string }>(
+      '/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    ),
   login: (data: { email: string; password: string }) =>
     request<SaasSession>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   me: (token: string) =>

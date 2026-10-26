@@ -1438,7 +1438,11 @@
     "role": "Peran",
     "currentPassword": "Kata sandi saat ini",
     "newPassword": "Kata sandi baru",
-    "confirmPassword": "Konfirmasi kata sandi baru"
+    "confirmPassword": "Konfirmasi kata sandi baru",
+    "account": "Akun",
+    "plan": "Paket",
+    "planLimits": "Sesi: {{sessions}} · Chatbot: {{chatbots}} · Webhook: {{webhooks}}",
+    "changePasswordTitle": "Ubah kata sandi"
   },
   "platform": {
     "title": "Platform",
@@ -1470,6 +1474,12 @@
     "statusChanged": "Status diubah",
     "userChanged": "Login diperbarui",
     "disable": "Nonaktifkan",
-    "enable": "Aktifkan"
+    "enable": "Aktifkan",
+    "emptyTitle": "Belum ada tenant",
+    "emptyDescription": "Tenant muncul di sini setelah ada yang mendaftar atau Anda membuatnya lewat API. Tangguhkan, ubah paket, atau hapus dari tabel ini.",
+    "emptyUsersTitle": "Belum ada login",
+    "emptyPlansTitle": "Belum ada paket",
+    "lastLogin": "Masuk terakhir",
+    "free": "Gratis"
   }
 }

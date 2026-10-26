@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException, Optional } from '@n
 import { ModuleRef } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { createLogger } from '../../common/services/logger.service';
 import { PlanLimitsService } from '../auth/plan-limits.service';
 import {
@@ -247,10 +247,12 @@ export class AiChatbotService {
   /**
    * Every session id the bot would own, validated against the sessions table. A session already
    * owned by ANOTHER bot is refused — one session, one chatbot — so an inbound message never has
-   * two candidate bots.
+   * two candidate bots. For an ACCOUNT surface the sessions must also belong to that account: a
+   * tenant cannot bind (and thereby answer through) another tenant's session.
    */
   private async resolveSessionIds(
     requested: string[] | null | undefined,
+    accountId: string | null = null,
     excludeChatbotId?: string,
   ): Promise<string[]> {
     const requestedIds = [...new Set((requested ?? []).map(id => id.trim()).filter(id => id.length > 0))];
@@ -258,11 +260,17 @@ export class AiChatbotService {
       throw new BadRequestException('at least one session must be selected for the chatbot');
     }
     const unknown: string[] = [];
+    const foreign: string[] = [];
     for (const sessionId of requestedIds) {
-      if (!(await this.sessionRepository.exists({ where: { id: sessionId } }))) unknown.push(sessionId);
+      const session = await this.sessionRepository.findOne({ where: { id: sessionId } });
+      if (!session) unknown.push(sessionId);
+      else if (accountId !== null && session.accountId !== accountId) foreign.push(sessionId);
     }
     if (unknown.length > 0) {
       throw new BadRequestException(`Unknown session(s): ${unknown.join(', ')}`);
+    }
+    if (foreign.length > 0) {
+      throw new BadRequestException(`Session(s) outside this account: ${foreign.slice(0, 3).join(', ')}`);
     }
     const bots = await this.repository.find();
     const clash = bots
@@ -277,18 +285,23 @@ export class AiChatbotService {
     return requestedIds;
   }
 
-  async create(dto: CreateAiChatbotDto): Promise<AiChatbot> {
-    const sessionIds = await this.resolveSessionIds(dto.sessionIds);
+  /**
+   * `accountId` is the calling key's account; the bot is STAMPED with its first session's account
+   * (the migration's backfill rule). An account surface can only bind sessions of its own tenant,
+   * so the two agree for a tenant key; a global key inherits whichever session it binds.
+   */
+  async create(dto: CreateAiChatbotDto, accountId: string | null = null): Promise<AiChatbot> {
+    const sessionIds = await this.resolveSessionIds(dto.sessionIds, accountId);
     // SaaS quota fence: the bot is billed to the FIRST bound session's account (a bot always lives
     // inside one tenant because a session belongs to exactly one account).
     const owner = sessionIds.length > 0 ? await this.sessionRepository.findOne({ where: { id: sessionIds[0] } }) : null;
     await this.planLimits?.assertWithinLimit(owner?.accountId ?? null, 'chatbots');
     const ownerAccountId = owner?.accountId ?? null;
-    await this.assertModelRefs(dto.llmModelId, dto.ragModelId ?? null);
+    await this.assertModelRefs(dto.llmModelId, dto.ragModelId ?? null, ownerAccountId);
     const chatbot = this.repository.create({
+      name: dto.name,
       sessionIds,
       accountId: ownerAccountId,
-      name: dto.name,
       llmModelId: dto.llmModelId,
       ragModelId: dto.ragModelId ?? null,
       persona: dto.persona ?? null,
@@ -303,29 +316,41 @@ export class AiChatbotService {
     return saved;
   }
 
-  async findAll(): Promise<AiChatbot[]> {
-    return this.repository.find({ order: { createdAt: 'ASC', id: 'ASC' } });
+  async findAll(accountId: string | null = null): Promise<AiChatbot[]> {
+    return this.repository.find({
+      where: accountId === null ? { accountId: IsNull() } : { accountId },
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
   }
 
-  /** The chatbots of the sessions a scoped key may see, unfiltered for an unrestricted key. */
-  async findAllForSessions(sessionIds: string[] | null | undefined): Promise<AiChatbot[]> {
-    const all = await this.findAll();
+  /**
+   * The chatbots a key may see: its ACCOUNT's bots (NULL account = the global surface), then the
+   * `allowedSessions` fence applied as the ADDITIONAL restriction it always was.
+   */
+  async findAllForSessions(
+    sessionIds: string[] | null | undefined,
+    accountId: string | null = null,
+  ): Promise<AiChatbot[]> {
+    const all = await this.findAll(accountId);
     if (sessionIds == null) return all;
     const visible = new Set(sessionIds);
     // A bot is visible when ANY of its sessions is inside the key's fence.
     return all.filter(bot => bot.sessionIds.some(sessionId => visible.has(sessionId)));
   }
 
-  async findOne(id: string): Promise<AiChatbot> {
-    const chatbot = await this.repository.findOne({ where: { id } });
+  /** One bot, visible only to its owner: another account's bot is a NotFound. */
+  async findOne(id: string, accountId: string | null = null): Promise<AiChatbot> {
+    const chatbot = await this.repository.findOne({
+      where: accountId === null ? { id, accountId: IsNull() } : { id, accountId },
+    });
     if (!chatbot) {
       throw new NotFoundException(`Chatbot ${id} not found`);
     }
     return chatbot;
   }
 
-  async update(id: string, dto: UpdateAiChatbotDto): Promise<AiChatbot> {
-    const chatbot = await this.findOne(id);
+  async update(id: string, dto: UpdateAiChatbotDto, accountId: string | null = null): Promise<AiChatbot> {
+    const chatbot = await this.findOne(id, accountId);
     // The LLM binding is required: a null there can never answer, so it is refused rather than
     // cleared. The RAG binding and the persona are optional — null detaches/clears them.
     if (dto.llmModelId === null) {
@@ -334,10 +359,10 @@ export class AiChatbotService {
     if (dto.llmModelId !== undefined || dto.ragModelId !== undefined) {
       const llmModelId = dto.llmModelId ?? chatbot.llmModelId;
       const ragModelId = dto.ragModelId === undefined ? chatbot.ragModelId : dto.ragModelId;
-      await this.assertModelRefs(llmModelId, ragModelId);
+      await this.assertModelRefs(llmModelId, ragModelId, chatbot.accountId);
     }
     if (dto.sessionIds !== undefined) {
-      chatbot.sessionIds = await this.resolveSessionIds(dto.sessionIds, chatbot.id);
+      chatbot.sessionIds = await this.resolveSessionIds(dto.sessionIds, chatbot.accountId, chatbot.id);
     }
     if (dto.name !== undefined) chatbot.name = dto.name;
     if (dto.llmModelId !== undefined) chatbot.llmModelId = dto.llmModelId;
@@ -354,8 +379,8 @@ export class AiChatbotService {
     return saved;
   }
 
-  async remove(id: string): Promise<void> {
-    const chatbot = await this.findOne(id);
+  async remove(id: string, accountId: string | null = null): Promise<void> {
+    const chatbot = await this.findOne(id, accountId);
     await this.repository.remove(chatbot);
     void this.audit.logInfo(AuditAction.AI_CHATBOT_DELETED, {
       metadata: { chatbotId: id, chatbotName: chatbot.name, sessionIds: chatbot.sessionIds },
@@ -394,7 +419,9 @@ export class AiChatbotService {
    * message gets. Returns the reply text plus RAG citations/warnings for the dashboard.
    */
   async previewReply(chatbot: AiChatbot, body: string, sessionId?: string): Promise<ChatbotPreview> {
-    const llm = await this.llmRepository.findOne({ where: { id: chatbot.llmModelId } });
+    const llm = await this.llmRepository.findOne({
+      where: { id: chatbot.llmModelId, accountId: chatbot.accountId === null ? IsNull() : chatbot.accountId },
+    });
     if (!llm || !llm.enabled) {
       throw new BadRequestException('the linked LLM model is missing or disabled');
     }
@@ -403,7 +430,7 @@ export class AiChatbotService {
     }
     let retrieval: RetrievalResult | null = null;
     if (chatbot.ragModelId) {
-      retrieval = await this.rag.retrieve(chatbot.ragModelId, body, { fallbackLlm: undefined });
+      retrieval = await this.rag.retrieve(chatbot.ragModelId, body, { fallbackLlm: undefined }, chatbot.accountId);
     }
     const systemPrompt = await this.buildSystemPrompt(chatbot, body, retrieval);
     // The playground probe reads history from ONE chosen session (the dashboard picks the bot's
@@ -441,8 +468,8 @@ export class AiChatbotService {
    * conversations are stored. Resolved through the chat's id aliases: a mute written under one
    * dialect is reported on the other too, or the chip flips back ON at the next page load.
    */
-  async getChatOverrides(sessionId: string, chatIds: string[]): Promise<Map<string, string[]>> {
-    const bots = (await this.findAll()).filter(bot => bot.sessionIds.includes(sessionId));
+  async getChatOverrides(sessionId: string, chatIds: string[], accountId: string | null = null): Promise<Map<string, string[]>> {
+    const bots = (await this.findAll(accountId)).filter(bot => bot.sessionIds.includes(sessionId));
     const byChat = new Map<string, string[]>();
     if (bots.length === 0 || chatIds.length === 0) return byChat;
     const botIds = bots.map(b => b.id);
@@ -469,8 +496,9 @@ export class AiChatbotService {
     chatbotId: string,
     chatId: string,
     chatbotDisabled: boolean,
+    accountId: string | null = null,
   ): Promise<void> {
-    await this.findOne(chatbotId);
+    const chatbot = await this.findOne(chatbotId, accountId);
     const aliases = await this.chatIdAliases(chatId);
     if (chatbotDisabled) {
       const existing = await this.overrideRepository.findOne({ where: { chatbotId, chatId: In(aliases) } });
@@ -478,7 +506,10 @@ export class AiChatbotService {
         existing.chatbotDisabled = true;
         await this.overrideRepository.save(existing);
       } else {
-        await this.overrideRepository.save(this.overrideRepository.create({ chatbotId, chatId, chatbotDisabled }));
+        await this.overrideRepository.save(
+          // The switch belongs to the bot's owner (NULL stays global, matching the migration).
+          this.overrideRepository.create({ accountId: chatbot.accountId, chatbotId, chatId, chatbotDisabled }),
+        );
       }
     } else {
       // Remove every stored form of this conversation, so a mute recorded under another dialect
@@ -619,7 +650,9 @@ export class AiChatbotService {
     // (a presence call on one is swallowed as best-effort).
     const stopTyping = this.startTypingIndicator(sessionId, message.chatId);
     try {
-      const llm = await this.llmRepository.findOne({ where: { id: chatbot.llmModelId } });
+      const llm = await this.llmRepository.findOne({
+        where: { id: chatbot.llmModelId, accountId: chatbot.accountId === null ? IsNull() : chatbot.accountId },
+      });
       if (!llm || !llm.enabled) {
         await this.recordError(chatbot, 'the linked LLM model is missing or disabled');
         return false;
@@ -738,7 +771,8 @@ export class AiChatbotService {
   > {
     let connections: Awaited<ReturnType<AiMcpConnectionsService['findAll']>>;
     try {
-      connections = await this.mcpConnections.findAll();
+      // Only the bot's own account's servers are offered to its model.
+      connections = await this.mcpConnections.findAll(chatbot.accountId);
     } catch {
       return []; // A dead MCP table must not break the plain reply path.
     }
@@ -752,7 +786,7 @@ export class AiChatbotService {
     for (const connection of enabled) {
       let advertised: Awaited<ReturnType<AiMcpConnectionsService['listTools']>>;
       try {
-        advertised = await this.mcpConnections.listTools(connection.id);
+        advertised = await this.mcpConnections.listTools(connection.id, chatbot.accountId);
       } catch (error) {
         // One down server shrinks the surface; the rest still answer.
         this.logger.warn('MCP tools/list failed for the chatbot', {
@@ -786,7 +820,7 @@ export class AiChatbotService {
       return { role: 'tool', tool_call_id: call.id, content: `Error: unknown tool ${call.name}.` };
     }
     try {
-      const result = await this.mcpConnections.callTool(parsed.connectionId, parsed.toolName, call.args);
+      const result = await this.mcpConnections.callTool(parsed.connectionId, parsed.toolName, call.args, chatbot.accountId);
       const text = summarizeToolResult(result);
       return { role: 'tool', tool_call_id: call.id, content: call.parseError ? `Error: ${call.parseError}.` : text };
     } catch (error) {
@@ -864,7 +898,7 @@ export class AiChatbotService {
     if (persona) sections.push(persona);
     if (chatbot.ragModelId) {
       const retrieval =
-        prefetched ?? (await this.rag.retrieve(chatbot.ragModelId, question, { fallbackLlm: undefined }));
+        prefetched ?? (await this.rag.retrieve(chatbot.ragModelId, question, { fallbackLlm: undefined }, chatbot.accountId));
       if (retrieval.context) {
         sections.push(
           `Knowledge from the business documents (cite the source names when you use them):\n${retrieval.context}`,
@@ -965,13 +999,21 @@ export class AiChatbotService {
     return this.conversationMappings;
   }
 
-  /** The referenced LLM/RAG models must exist: a chatbot pointing at a missing model can never answer. */
-  private async assertModelRefs(llmModelId: string, ragModelId: string | null): Promise<void> {
-    if (!(await this.llmRepository.exists({ where: { id: llmModelId } }))) {
+  /**
+   * The referenced LLM/RAG models must exist INSIDE the bot's account surface: a chatbot pointing
+   * at a missing (or another tenant's) model can never answer, so both are refused. A NULL surface
+   * binds only NULL (global) rows — the pre-accounts behaviour.
+   */
+  private async assertModelRefs(llmModelId: string, ragModelId: string | null, accountId: string | null): Promise<void> {
+    const llmWhere = accountId === null ? { id: llmModelId, accountId: IsNull() } : { id: llmModelId, accountId };
+    if (!(await this.llmRepository.exists({ where: llmWhere }))) {
       throw new BadRequestException(`LLM model ${llmModelId} not found`);
     }
-    if (ragModelId && !(await this.ragRepository.exists({ where: { id: ragModelId } }))) {
-      throw new BadRequestException(`RAG model ${ragModelId} not found`);
+    if (ragModelId) {
+      const ragWhere = accountId === null ? { id: ragModelId, accountId: IsNull() } : { id: ragModelId, accountId };
+      if (!(await this.ragRepository.exists({ where: ragWhere }))) {
+        throw new BadRequestException(`RAG model ${ragModelId} not found`);
+      }
     }
   }
 }

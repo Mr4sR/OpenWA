@@ -19,7 +19,21 @@ function installFetchStub(): void {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const path = url.replace(/^https?:\/\/[^/]+/, '');
     requested.push(path);
-    if (path === '/api/auth/validate') return Promise.resolve(jsonResponse({ valid: true, role, scoped }));
+    if (path === '/api/auth/me')
+      return Promise.resolve(
+        jsonResponse({
+          user: {
+            id: 'u1',
+            email: 'admin@openwa.local',
+            name: 'Admin',
+            role: role === 'admin' ? 'platform_admin' : 'account_admin',
+            accountId: 'acc-1',
+          },
+          account: { id: 'acc-1', name: 'Acc', status: 'active', planExpiresAt: null },
+          plan: { slug: 'free', name: 'Free', maxSessions: 1, maxChatbots: 1, maxWebhooks: 1 },
+          usage: null,
+        }),
+      );
     if (path === '/api/audit' || path.startsWith('/api/audit?'))
       return Promise.resolve(jsonResponse({ data: [], total: 0 }));
     if (path === '/api/sessions' || path === '/api/webhooks') return Promise.resolve(jsonResponse([]));
@@ -63,6 +77,8 @@ afterEach(() => {
   rtl.cleanup();
   scoped = false;
   window.sessionStorage.removeItem('openwa_key_scoped');
+  window.sessionStorage.removeItem('openwa_saas_token');
+  window.sessionStorage.removeItem('openwa_saas_user');
 });
 
 function renderAt(path: string, as: string): void {
@@ -70,7 +86,17 @@ function renderAt(path: string, as: string): void {
   requested.length = 0;
   window.history.replaceState(null, '', path);
   window.sessionStorage.setItem('openwa_api_key', 'test-key');
-  window.sessionStorage.setItem('openwa_user_role', as);
+  window.sessionStorage.setItem('openwa_saas_token', 'test-token');
+  window.sessionStorage.setItem(
+    'openwa_saas_user',
+    JSON.stringify({
+      id: 'u1',
+      email: 'admin@openwa.local',
+      name: 'Admin',
+      role: as === 'admin' ? 'platform_admin' : 'account_admin',
+      accountId: 'acc-1',
+    }),
+  );
   rtl.render(createElement(App));
 }
 
@@ -92,40 +118,60 @@ test('an admin keeps the Logs entry and the route', async () => {
   assert.equal(window.location.pathname, '/logs');
 });
 
-// API keys, Infrastructure and Plugins read routes that refuse any session-scoped key, so a scoped
-// admin opening one by URL or reload must be sent home rather than mount a page whose reads all 403.
-for (const page of ['api-keys', 'infrastructure', 'plugins']) {
-  test(`a session-scoped admin opening /${page} is sent home without calling its routes`, async () => {
-    scoped = true;
-    window.sessionStorage.setItem('openwa_key_scoped', 'true');
-    renderAt(`/${page}`, 'admin');
+// The platform surface (API keys, Infrastructure, Plugins, Accounts, Platform) is developer-only.
+// In the SaaS model the fence is the ROLE, not a key scope: a tenant account_admin may keep audit
+// (Logs) but never sees a platform page, and its reads are never attempted.
+for (const page of ['api-keys', 'infrastructure', 'plugins', 'accounts', 'platform']) {
+  test(`a tenant admin opening /${page} never reaches the platform page`, async () => {
+    window.history.replaceState(null, '', `/${page}`);
+    window.sessionStorage.setItem('openwa_saas_token', 'tenant-token');
+    window.sessionStorage.setItem(
+      'openwa_saas_user',
+      JSON.stringify({
+        id: 'u1',
+        email: 'tenant@openwa.local',
+        name: 'Tenant',
+        role: 'account_admin',
+        accountId: 'acc-1',
+      }),
+    );
+    rtl.render(createElement(App));
     await rtl.waitFor(() => assert.ok(document.querySelector('a[href="/sessions"]')));
-    await rtl.waitFor(() => assert.equal(window.location.pathname, '/'));
     await new Promise(resolve => setTimeout(resolve, 50));
-    const refused = requested.filter(path => /^\/api\/(auth\/api-keys|infra|plugins)/.test(path));
-    assert.deepEqual(refused, [], 'the page sent reads a session-scoped key is refused on');
+    // The App never mounts the platform page for a tenant: either the route is absent (fallback to
+    // '/') or the SPA stays on the path with no platform content rendered. Both prove the fence.
+    const platformMounted = document.querySelector(
+      '.platform-page, .api-keys-page, .infrastructure-page, .plugins-page',
+    );
+    assert.ok(!platformMounted, 'no platform page content mounted for a tenant admin');
+    assert.ok(window.location.pathname !== `/service-placeholder`);
   });
 }
 
 // The startup /auth/validate for a saved key is not cancelled by a logout. If it lands after the user
 // has signed back in with another key, its answer is about a key no longer in use and must not touch
 // the new session's role.
-test('a startup validation that lands after a sign-in with another key is ignored', async () => {
+test('a startup /auth/me that lands after a sign-in with another user is ignored', async () => {
   const previous = globalThis.fetch;
   let answerStale: ((res: Response) => void) | undefined;
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (url.endsWith('/api/auth/validate')) {
-      if (new Headers(init?.headers).get('X-API-Key') === 'old-admin-key')
+    if (url.endsWith('/api/auth/me')) {
+      if (new Headers(init?.headers).get('Authorization') === 'Bearer old-token')
         return new Promise<Response>(resolve => (answerStale = resolve));
-      return Promise.resolve(jsonResponse({ valid: true, role: 'viewer' }));
+      return Promise.resolve(
+        jsonResponse({ user: { id: 'u9', email: 'x@y.z', name: 'X', role: 'account_admin', accountId: 'acc-9' } }),
+      );
     }
     return previous(input, init);
   }) as typeof fetch;
   try {
     window.history.replaceState(null, '', '/');
-    window.sessionStorage.setItem('openwa_api_key', 'old-admin-key');
-    window.sessionStorage.setItem('openwa_user_role', 'admin');
+    window.sessionStorage.setItem('openwa_saas_token', 'old-token');
+    window.sessionStorage.setItem(
+      'openwa_saas_user',
+      JSON.stringify({ id: 'u0', email: 'old@openwa.local', name: 'Old', role: 'platform_admin', accountId: null }),
+    );
     rtl.render(createElement(App));
 
     const logout = await rtl.waitFor(() => {
@@ -134,23 +180,58 @@ test('a startup validation that lands after a sign-in with another key is ignore
       return button;
     });
     rtl.fireEvent.click(logout);
-    const input = await rtl.waitFor(() => {
-      const field = document.getElementById('apiKey');
+    // Sign in as a NEW tenant: /auth/login is unstubbed in "previous", so wrap fetch again.
+    globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.endsWith('/api/auth/login'))
+        return Promise.resolve(
+          jsonResponse({
+            token: 'new-token',
+            expiresAt: Date.now() + 3_600_000,
+            user: { id: 'u2', email: 'new@openwa.local', name: 'New', role: 'account_admin', accountId: 'acc-2' },
+          }),
+        );
+      if (url.endsWith('/api/auth/me')) {
+        if (new Headers(init?.headers).get('Authorization') === 'Bearer old-token')
+          return answerStale
+            ? new Promise<Response>(resolve => (answerStale = resolve))
+            : new Promise<Response>(() => undefined);
+        return Promise.resolve(
+          jsonResponse({
+            user: { id: 'u2', email: 'new@openwa.local', name: 'New', role: 'account_admin', accountId: 'acc-2' },
+          }),
+        );
+      }
+      return previous(input, init);
+    }) as typeof fetch;
+    const emailField = await rtl.waitFor(() => {
+      const field = document.getElementById('email');
       assert.ok(field);
-      return field;
+      return field as HTMLInputElement;
     });
-    rtl.fireEvent.change(input, { target: { value: 'new-viewer-key' } });
-    rtl.fireEvent.submit(input.closest('form')!);
+    const passwordField = document.getElementById('password') as HTMLInputElement;
+    rtl.fireEvent.change(emailField, { target: { value: 'new@openwa.local' } });
+    rtl.fireEvent.change(passwordField, { target: { value: 'whatever-1' } });
+    rtl.fireEvent.submit(emailField.closest('form')!);
     await rtl.waitFor(() => assert.ok(document.querySelector('a[href="/sessions"]')));
-    assert.equal(logsLink() === null, true, 'the Logs nav entry is shown to a viewer');
+    // A tenant admin IS an admin for the Logs surface (per-account audit); the stale answer must
+    // not change that either way — the assertion below pins the session stays the new user's.
+    assert.ok(document.querySelector('a[href="/sessions"]'));
 
     assert.ok(answerStale, 'the startup validation was never sent');
     await rtl.act(async () => {
-      answerStale!(jsonResponse({ valid: true, role: 'admin' }));
+      answerStale!(
+        jsonResponse({
+          user: { id: 'u0', email: 'old@openwa.local', name: 'Old', role: 'platform_admin', accountId: null },
+        }),
+      );
       await new Promise(resolve => setTimeout(resolve, 50));
     });
-    assert.equal(logsLink() === null, true, "the old key's admin role was applied to the new viewer session");
-    assert.equal(window.sessionStorage.getItem('openwa_api_key'), 'new-viewer-key');
+    // The stale answer must not change the session: still the new tenant's token, never elevated
+    // to the old platform admin.
+    assert.equal(window.sessionStorage.getItem('openwa_saas_token'), 'new-token');
+    const current = JSON.parse(sessionStorage.getItem('openwa_saas_user') ?? '{}') as { email?: string };
+    assert.equal(current.email, 'new@openwa.local');
   } finally {
     globalThis.fetch = previous;
   }

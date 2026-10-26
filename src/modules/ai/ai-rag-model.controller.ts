@@ -11,7 +11,7 @@ import {
   Put,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { RequireRole, RequireUnscopedKey, CurrentApiKey } from '../auth/decorators/auth.decorators';
+import { CurrentApiKey, RequireRole } from '../auth/decorators/auth.decorators';
 import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 import { AiRagService } from './ai-rag.service';
 import {
@@ -28,21 +28,21 @@ import {
 
 /**
  * Vectorless RAG models (PageIndex-style): CRUD, knowledge entries, the index build and the
- * retrieval probe.
+ * retrieval probe. Every row is tenant-owned: an account key reaches ONLY the models (and their
+ * knowledge) of its own account; a NULL-account (platform/global) key reaches the unclaimed
+ * deployment-global rows. `apiKey?.accountId ?? null` is the owning account, as on the session
+ * surface.
  */
 @ApiTags('ai')
-// Deployment-global (no session dimension): the guard's route-param session fence can never bite,
-// so session-scoped keys are rejected outright at class level (the infra controllers' posture).
-@RequireUnscopedKey()
 @Controller('ai/rag-models')
 export class AiRagModelController {
   constructor(private readonly rag: AiRagService) {}
 
   @Post()
   @RequireRole(ApiKeyRole.ADMIN)
-  @ApiOperation({ summary: 'Create a RAG model (a named vectorless knowledge base)' })
+  @ApiOperation({ summary: 'Create a RAG model (a named vectorless knowledge base) owned by the calling key’s account' })
   @ApiResponse({ status: 201, description: 'RAG model created.', type: AiRagModelResponseDto })
-  @ApiResponse({ status: 400, description: 'Invalid body, or a sessionId outside the calling key scope.' })
+  @ApiResponse({ status: 400, description: 'Invalid body, a sessionId outside the calling key scope, or a foreign LLM binding.' })
   async create(
     @Body() dto: CreateAiRagModelDto,
     @CurrentApiKey() apiKey?: ApiKey,
@@ -51,24 +51,27 @@ export class AiRagModelController {
       assertSessionsInScope(apiKey?.allowedSessions, dto.sessionIds ?? []);
     }
     return AiRagModelResponseDto.fromEntity(
-      await this.rag.createModel({
-        name: dto.name,
-        sessionScope: dto.sessionScope ?? 'all',
-        sessionIds: dto.sessionIds ?? null,
-        llmModelId: dto.llmModelId ?? null,
-        topK: dto.topK ?? 4,
-        maxContextChars: dto.maxContextChars ?? 4000,
-        enabled: dto.enabled ?? true,
-      }),
+      await this.rag.createModel(
+        {
+          name: dto.name,
+          sessionScope: dto.sessionScope ?? 'all',
+          sessionIds: dto.sessionIds ?? null,
+          llmModelId: dto.llmModelId ?? null,
+          topK: dto.topK ?? 4,
+          maxContextChars: dto.maxContextChars ?? 4000,
+          enabled: dto.enabled ?? true,
+        },
+        apiKey?.accountId ?? null,
+      ),
     );
   }
 
   @Get()
   @RequireRole(ApiKeyRole.OPERATOR)
-  @ApiOperation({ summary: 'List the RAG models (with knowledge counts and index state)' })
+  @ApiOperation({ summary: 'List the RAG models visible to the calling key (with knowledge counts)' })
   @ApiResponse({ status: 200, description: 'The RAG models.', type: [AiRagModelResponseDto] })
-  async findAll(): Promise<AiRagModelResponseDto[]> {
-    return AiRagModelResponseDto.fromEntities(await this.rag.findModels());
+  async findAll(@CurrentApiKey() apiKey?: ApiKey): Promise<AiRagModelResponseDto[]> {
+    return AiRagModelResponseDto.fromEntities(await this.rag.findModels(apiKey?.accountId ?? null));
   }
 
   @Get(':id')
@@ -76,12 +79,15 @@ export class AiRagModelController {
   @ApiOperation({ summary: 'Get one RAG model' })
   @ApiParam({ name: 'id', description: 'RAG model ID' })
   @ApiResponse({ status: 200, description: 'The RAG model.', type: AiRagModelResponseDto })
-  @ApiResponse({ status: 404, description: 'No such RAG model.' })
-  async findOne(@Param('id') id: string): Promise<AiRagModelResponseDto> {
-    const models = await this.rag.findModels();
+  @ApiResponse({ status: 404, description: 'No such RAG model (including one of another account).' })
+  async findOne(@Param('id') id: string, @CurrentApiKey() apiKey?: ApiKey): Promise<AiRagModelResponseDto> {
+    const accountId = apiKey?.accountId ?? null;
+    const models = await this.rag.findModels(accountId);
     const found = models.find(entry => entry.model.id === id);
     if (!found) {
-      const model = await this.rag.findModel(id);
+      // Distinguishes "exists but never indexed" from "not yours/not there" — both surface as 404
+      // through the scoped read when the id is foreign or unknown.
+      const model = await this.rag.findModel(id, accountId);
       return AiRagModelResponseDto.fromEntity(model);
     }
     return AiRagModelResponseDto.fromEntity(found.model, found.documentCount);
@@ -92,7 +98,7 @@ export class AiRagModelController {
   @ApiOperation({ summary: 'Update a RAG model (activation scope, retrieval tuning, LLM override)' })
   @ApiParam({ name: 'id', description: 'RAG model ID' })
   @ApiResponse({ status: 200, description: 'Updated RAG model.', type: AiRagModelResponseDto })
-  @ApiResponse({ status: 404, description: 'No such RAG model.' })
+  @ApiResponse({ status: 404, description: 'No such RAG model (including one of another account).' })
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateAiRagModelDto,
@@ -101,7 +107,7 @@ export class AiRagModelController {
     if (dto.sessionIds != null) {
       assertSessionsInScope(apiKey?.allowedSessions, dto.sessionIds);
     }
-    const model = await this.rag.updateModel(id, {
+    const model = await this.rag.updateModel(id, apiKey?.accountId ?? null, {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.sessionScope !== undefined ? { sessionScope: dto.sessionScope } : {}),
       ...(dto.sessionIds !== undefined ? { sessionIds: dto.sessionIds } : {}),
@@ -119,9 +125,9 @@ export class AiRagModelController {
   @ApiOperation({ summary: 'Delete a RAG model (its knowledge entries go with it)' })
   @ApiParam({ name: 'id', description: 'RAG model ID' })
   @ApiResponse({ status: 204, description: 'RAG model deleted.' })
-  @ApiResponse({ status: 404, description: 'No such RAG model.' })
-  async remove(@Param('id') id: string): Promise<void> {
-    await this.rag.removeModel(id);
+  @ApiResponse({ status: 404, description: 'No such RAG model (including one of another account).' })
+  async remove(@Param('id') id: string, @CurrentApiKey() apiKey?: ApiKey): Promise<void> {
+    await this.rag.removeModel(id, apiKey?.accountId ?? null);
   }
 
   /** The index build: segments the knowledge, builds the tree, summarizes every node with the LLM. */
@@ -135,9 +141,13 @@ export class AiRagModelController {
   @ApiParam({ name: 'id', description: 'RAG model ID' })
   @ApiResponse({ status: 200, description: 'Index built.', type: AiRagModelResponseDto })
   @ApiResponse({ status: 400, description: 'No knowledge added, or the LLM call failed.' })
-  @ApiResponse({ status: 404, description: 'No such RAG model.' })
-  async index(@Param('id') id: string, @Body() _dto: IndexAiRagModelDto): Promise<AiRagModelResponseDto> {
-    return AiRagModelResponseDto.fromEntity(await this.rag.indexModel(id));
+  @ApiResponse({ status: 404, description: 'No such RAG model (including one of another account).' })
+  async index(
+    @Param('id') id: string,
+    @Body() _dto: IndexAiRagModelDto,
+    @CurrentApiKey() apiKey?: ApiKey,
+  ): Promise<AiRagModelResponseDto> {
+    return AiRagModelResponseDto.fromEntity(await this.rag.indexModel(id, apiKey?.accountId ?? null));
   }
 
   /** The retrieval probe: walks the tree with the LLM and returns the cited nodes. */
@@ -148,9 +158,13 @@ export class AiRagModelController {
   @ApiParam({ name: 'id', description: 'RAG model ID' })
   @ApiResponse({ status: 200, description: 'The cited nodes and the composed context.', type: AiRagQueryResultDto })
   @ApiResponse({ status: 400, description: 'Empty query.' })
-  @ApiResponse({ status: 404, description: 'No such RAG model.' })
-  async query(@Param('id') id: string, @Body() dto: QueryAiRagModelDto): Promise<AiRagQueryResultDto> {
-    const result = await this.rag.retrieve(id, dto.query);
+  @ApiResponse({ status: 404, description: 'No such RAG model (including one of another account).' })
+  async query(
+    @Param('id') id: string,
+    @Body() dto: QueryAiRagModelDto,
+    @CurrentApiKey() apiKey?: ApiKey,
+  ): Promise<AiRagQueryResultDto> {
+    const result = await this.rag.retrieve(id, dto.query, {}, apiKey?.accountId ?? null);
     return {
       query: dto.query,
       nodes: result.nodes.map(node => ({
@@ -172,16 +186,24 @@ export class AiRagModelController {
   @ApiParam({ name: 'id', description: 'RAG model ID' })
   @ApiResponse({ status: 201, description: 'Entry added.', type: AiRagDocumentResponseDto })
   @ApiResponse({ status: 400, description: 'Source fetch failed, or the entry has no content.' })
-  @ApiResponse({ status: 404, description: 'No such RAG model.' })
-  async addDocument(@Param('id') id: string, @Body() dto: CreateAiRagDocumentDto): Promise<AiRagDocumentResponseDto> {
+  @ApiResponse({ status: 404, description: 'No such RAG model (including one of another account).' })
+  async addDocument(
+    @Param('id') id: string,
+    @Body() dto: CreateAiRagDocumentDto,
+    @CurrentApiKey() apiKey?: ApiKey,
+  ): Promise<AiRagDocumentResponseDto> {
     return AiRagDocumentResponseDto.fromEntity(
-      await this.rag.createDocument(id, {
-        sourceType: dto.sourceType,
-        title: dto.title ?? null,
-        sourceUrl: dto.sourceUrl ?? null,
-        content: dto.content ?? null,
-        storageKey: dto.storageKey ?? null,
-      }),
+      await this.rag.createDocument(
+        id,
+        apiKey?.accountId ?? null,
+        {
+          sourceType: dto.sourceType,
+          title: dto.title ?? null,
+          sourceUrl: dto.sourceUrl ?? null,
+          content: dto.content ?? null,
+          storageKey: dto.storageKey ?? null,
+        },
+      ),
     );
   }
 
@@ -190,9 +212,9 @@ export class AiRagModelController {
   @ApiOperation({ summary: 'List the knowledge entries of a RAG model' })
   @ApiParam({ name: 'id', description: 'RAG model ID' })
   @ApiResponse({ status: 200, description: 'The entries.', type: [AiRagDocumentResponseDto] })
-  @ApiResponse({ status: 404, description: 'No such RAG model.' })
-  async documents(@Param('id') id: string): Promise<AiRagDocumentResponseDto[]> {
-    return AiRagDocumentResponseDto.fromEntities(await this.rag.findDocuments(id));
+  @ApiResponse({ status: 404, description: 'No such RAG model (including one of another account).' })
+  async documents(@Param('id') id: string, @CurrentApiKey() apiKey?: ApiKey): Promise<AiRagDocumentResponseDto[]> {
+    return AiRagDocumentResponseDto.fromEntities(await this.rag.findDocuments(id, apiKey?.accountId ?? null));
   }
 
   @Put(':id/documents/:documentId')
@@ -206,9 +228,10 @@ export class AiRagModelController {
     @Param('id') id: string,
     @Param('documentId') documentId: string,
     @Body() dto: UpdateAiRagDocumentDto,
+    @CurrentApiKey() apiKey?: ApiKey,
   ): Promise<AiRagDocumentResponseDto> {
     return AiRagDocumentResponseDto.fromEntity(
-      await this.rag.updateDocument(id, documentId, {
+      await this.rag.updateDocument(id, documentId, apiKey?.accountId ?? null, {
         ...(dto.title !== undefined ? { title: dto.title } : {}),
         ...(dto.content !== undefined ? { content: dto.content } : {}),
         ...(dto.sourceUrl !== undefined ? { sourceUrl: dto.sourceUrl } : {}),
@@ -224,8 +247,12 @@ export class AiRagModelController {
   @ApiParam({ name: 'documentId', description: 'Document ID' })
   @ApiResponse({ status: 204, description: 'Entry deleted.' })
   @ApiResponse({ status: 404, description: 'No such entry.' })
-  async removeDocument(@Param('id') id: string, @Param('documentId') documentId: string): Promise<void> {
-    await this.rag.removeDocument(id, documentId);
+  async removeDocument(
+    @Param('id') id: string,
+    @Param('documentId') documentId: string,
+    @CurrentApiKey() apiKey?: ApiKey,
+  ): Promise<void> {
+    await this.rag.removeDocument(id, documentId, apiKey?.accountId ?? null);
   }
 }
 

@@ -889,7 +889,8 @@ src/database/migrations-main/      # main connection (auth + audit, SQLite)
 ├── 1786600000000-AddApiKeyAllowedChats.ts   # adds api_keys.allowedChats
 ├── 1786610000000-DropSynchronizeIndexDuplicates.ts  # drops synchronize-named duplicate indexes
 ├── 1787500000000-AddAccounts.ts   # accounts table + api_keys.accountId (multi-account tenant binding)
-└── 1799000000000-AddSaasCore.ts   # users (email+scrypt), plans, accounts.planSlug/status, api_keys.userId
+├── 1799000000000-AddSaasCore.ts   # users (email+scrypt), plans, accounts.planSlug/status, api_keys.userId
+└── 1800000000000-AddPlanMaxConcurrentSessions.ts   # plans.maxConcurrentSessions (per-tenant running-session cap)
 
 src/database/migrations/           # data connection (pluggable)
 ├── 1770108659848-AddMessageStatus.ts

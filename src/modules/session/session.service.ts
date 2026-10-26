@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
   OnModuleDestroy,
   OnModuleInit,
   OnApplicationBootstrap,
@@ -153,6 +154,11 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
   private readonly startReservations = new Map<string, number>();
   /** Ids whose claim a failed start left to another start in flight; the last start out hands it back. */
   private readonly releaseOwed = new Set<string>();
+  /**
+   * Accounts whose `'active_sessions'` plan ceiling was last refused, with the message — so the
+   * warn line is emitted once per account per distinct refusal, not once per start attempt.
+   */
+  private readonly accountQuotaFailures = new Map<string, string>();
 
   constructor(
     @InjectRepository(Session, 'data')
@@ -337,7 +343,15 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
           action: 'auto_start_success',
         });
       } catch (error: unknown) {
-        if (error instanceof SessionStoppedException) {
+        // A tenant whose plan caps concurrently running sessions is a quota answer, not a start
+        // failure to retry or escalate: log it at log level and move on to the next row, like the
+        // MAX_CONCURRENT_SESSIONS refusal above stops the loop.
+        if (error instanceof ForbiddenException) {
+          this.logger.log(`Auto-start skipped for session ${session.name}: ${error.message}`, {
+            sessionId: session.id,
+            action: 'auto_start_quota_refused',
+          });
+        } else if (error instanceof SessionStoppedException) {
           // Stopped after the scan read it; the start refused it, as it should.
           this.logger.log(`Auto-start skipped for session ${session.name}: stopped by an operator`, {
             sessionId: session.id,
@@ -722,10 +736,23 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
         throw new BadRequestException(`Maximum concurrent sessions reached (${max})`);
       }
     }
-    // Counted per start, so a duplicate start of the same id keeps the reservation after the first returns.
+    // Snapshot the stop counter SYNCHRONOUSLY, before any await below: stop() marks before its own
+    // awaits, so a snapshot taken later would already count this start's own stop and misread it
+    // as one that landed during the claim.
+    const stopRequestsBefore = this.stopRequests.get(id);
+    // Counted per start, so a duplicate start of the same id keeps the reservation after the first
+    // returns. Reserved BEFORE the tenant-ceiling read below: getActiveSessionIds (and the import
+    // pre-flight it serves) must see an in-flight start from the moment the call begins, not from
+    // when its reads complete.
     this.startReservations.set(id, (this.startReservations.get(id) ?? 0) + 1);
     try {
-      return await this.claimAndStart(id, explicit);
+      // The TENANT ceiling, a second ceiling under the node-wide one above: an account's plan
+      // bounds how many of its sessions may run AT ONCE ('active_sessions' counts
+      // READY/INITIALIZING/QR_READY rows of the account), so one tenant cannot spend every
+      // MAX_CONCURRENT_SESSIONS slot. Refused before the claim, and inside the try so the
+      // reservation is released; nothing is claimed yet, so nothing needs unclaiming.
+      await this.assertAccountStartCapacity(id);
+      return await this.claimAndStart(id, explicit, stopRequestsBefore);
     } finally {
       const left = (this.startReservations.get(id) ?? 1) - 1;
       if (left > 0) {
@@ -737,13 +764,47 @@ export class SessionService implements OnModuleDestroy, OnModuleInit, OnApplicat
     }
   }
 
+  /**
+   * Refuse a start that would push the session's account past its plan's ceiling on CONCURRENTLY
+   * RUNNING sessions ('active_sessions': READY / INITIALIZING / QR_READY rows of the account).
+   * The global surface (accountId NULL) is never limited. Shape of the refusal, for the two
+   * callers: explicit start() surfaces it 403; boot auto-start catches the ForbiddenException and
+   * skips the row. The quota message is re-declared AT WARN, deduped per account, so a saturated
+   * tenant is visible in the log without one line per attempt; the exception still propagates.
+   */
+  private async assertAccountStartCapacity(id: string): Promise<void> {
+    // A row-less id (a 404 case) has no account to charge: the caller's own findOne raises the 404.
+    const session = await this.sessionRepository.findOne({ where: { id } });
+    if (!session?.accountId) return;
+    try {
+      await this.planLimits?.assertWithinLimit(session.accountId, 'active_sessions');
+    } catch (error: unknown) {
+      if (!(error instanceof ForbiddenException)) throw error;
+      if (this.accountQuotaFailures.get(session.accountId) !== error.message) {
+        this.accountQuotaFailures.set(session.accountId, error.message);
+        this.logger.warn(`Session start refused by the account's plan: ${error.message}`, {
+          sessionId: id,
+          accountId: session.accountId,
+          action: 'session_start_quota_refused',
+        });
+      }
+      throw error;
+    }
+    this.accountQuotaFailures.delete(session.accountId);
+  }
+
   private refuseIfShuttingDown(): void {
     if (this.stopping) throw new ServerShuttingDownException();
   }
 
-  private async claimAndStart(id: string, explicit: boolean): Promise<Session> {
-    // Read before the claim, so a stop that lands while the claim is pending counts against this start.
-    const stopRequestsBefore = this.stopRequests.get(id);
+  private async claimAndStart(
+    id: string,
+    explicit: boolean,
+    stopRequestsBefore: number | undefined,
+  ): Promise<Session> {
+    // `stopRequestsBefore` is snapshotted by start() BEFORE its awaited fences (the tenant-ceiling
+    // read): a stop() marks synchronously, so a mark taken after those awaits would already count
+    // THIS start's own stop and misread it as a stop that landed during the claim.
     // Claimed before the engine is launched, never after: launching first and discovering the
     // session belongs elsewhere would already have opened a second connection to the account.
     if (this.ownership && !(await this.ownership.claim(id))) {

@@ -1,8 +1,14 @@
 # 28 - Multitenancy
 
-> **Status:** Draft (design proposal — nothing here is implemented). This document defines the target
-> architecture for operating OpenWA as a multi-tenant platform: tenant identity, access control, 2FA,
-> per-tenant branding, isolation, quotas, and the migration path from today's single-operator model.
+> **Status:** Phase 0 + Phase 1 (core) IMPLEMENTED — accounts are live (`accounts` table, `accountId`
+> on sessions/api_keys/webhooks/ai_* rows), named users with email+password login exist
+> (`/auth/register|login|me|members`), plan quotas are enforced on the create/start paths, and the
+> dashboard session token doubles as a wire credential (resolved to the tenant principal in
+> `ApiKeyGuard`/`EventsGateway` via `saas-principal.service.ts`). The remaining sections below the
+> implemented line describe the UNBUILT target: branding, plugins-per-tenant, per-tenant storage
+> partitions, 2FA, and audit export. This document defines the architecture for operating OpenWA
+> as a multi-tenant platform: tenant identity, access control, 2FA, per-tenant branding, isolation,
+> quotas, and the migration path from today's single-operator model.
 
 ## 28.1 Goals & non-goals
 
@@ -202,8 +208,8 @@ as today.
 
 | Phase                                    | Contents                                                                                                                                                     | Sizing note                                             |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| **P0 — Foundations**                     | Tenant entity + `tenantId` everywhere, default-tenant migration, guard chokepoint, tenant-scoped keys, cross-tenant test matrix, `MULTITENANCY_ENABLED` flag | The platform everything hangs off; largest single block |
-| **P1 — Users & 2FA**                     | users/memberships, email+password login, TOTP enroll/challenge/backup codes, tenant roles matrix, dashboard login + tenant switcher                          | Independent of P0's data model but layered on it        |
+| **P0 — Foundations ✅ SHIPPED (as `accountId`)** | `accounts` table + `accountId` on `sessions`/`api_keys`/`webhooks`/`ai_chatbots`/`ai_llm_models`/`ai_rag_models`(+documents)/`ai_mcp_connections`/`ai_chat_overrides`, migrations `1797800000000`…`1801000000000`, guard chokepoint (`ApiKeyGuard` + `readSessionAccount`), plan ceilings on create (`PlanLimitsService`), per-account concurrent cap at start, cross-tenant specs (`ai-chatbot.tenancy`, `ai-account-scope`, `webhook-account-scope`, `saas-auth.members`). No `MULTITENANCY_ENABLED` flag — pre-SaaS rows stay NULL = global, reachable only by global keys, so the flag is unnecessary | The platform everything hangs off |
+| **P1 — Users (2FA pending) ✅ core SHIPPED** | `users` + email+scrypt login (`/auth/register\|login\|me\|change-password`), member management for account admins (`/auth/members` CRUD, cross-account-refusing, spec-covered), dashboard session JWT (`SessionTokenService`) that `ApiKeyGuard`/`EventsGateway` resolve to a live tenant principal (`saas-principal.service.ts`) — the SaaS login needs no hand-issued API key | TOTP/backup codes and the tenant switcher remain open |
 | **P2 — Branding, quotas, observability** | per-tenant branding (device name, dashboard, UA), tenant quotas + counters, audit `tenantId`, per-tenant backup/export                                       | Mostly small, parallelizable pieces                     |
 | **P3 — Enterprise extras**               | OIDC/SSO, SCIM provisioning, schema-per-tenant evaluation, audit export, impersonation support flow                                                          | Only after P0–P2 prove out                              |
 

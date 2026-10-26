@@ -33,6 +33,15 @@ export class AiLlmModel {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  /**
+   * The tenant owning this provider connection — the account of the key that created it (stamped
+   * on create). NULL for pre-SaaS rows: global, reachable by a NULL-account (platform) key only.
+   * A tenant LLM row holds that tenant's provider credential, so every read and write scopes it.
+   */
+  @Index('IDX_ai_llm_models_accountId')
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  accountId!: string | null;
+
   @Column({ type: 'varchar', length: LLM_NAME_MAX_LENGTH })
   name!: string;
 

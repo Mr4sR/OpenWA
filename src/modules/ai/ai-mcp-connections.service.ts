@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
@@ -55,8 +55,9 @@ export class AiMcpConnectionsService {
     private readonly configService?: ConfigService,
   ) {}
 
-  async create(dto: CreateAiMcpConnectionDto): Promise<AiMcpConnection> {
-    const existing = await this.repository.count();
+  /** Create a server connection owned by `accountId` (NULL = the platform/global surface). */
+  async create(dto: CreateAiMcpConnectionDto, accountId: string | null = null): Promise<AiMcpConnection> {
+    const existing = await this.repository.count({ where: accountId === null ? { accountId: IsNull() } : { accountId } });
     const max =
       this.configService?.get<number>('ai.mcpConnectionsMax', AI_MCP_CONNECTIONS_MAX) ?? AI_MCP_CONNECTIONS_MAX;
     if (max > 0 && existing >= max) {
@@ -71,6 +72,7 @@ export class AiMcpConnectionsService {
       throw new BadRequestException('authHeader must be a valid HTTP header name');
     }
     const connection = this.repository.create({
+      accountId,
       name: dto.name,
       endpointUrl: dto.endpointUrl.replace(/\/+$/, ''),
       transport: dto.transport ?? 'streamable-http',
@@ -84,23 +86,32 @@ export class AiMcpConnectionsService {
     });
     const saved = await this.repository.save(connection);
     void this.audit.logInfo(AuditAction.AI_MCP_CONNECTION_CREATED, {
-      metadata: { mcpConnectionId: saved.id, mcpConnectionName: saved.name },
+      metadata: { mcpConnectionId: saved.id, mcpConnectionName: saved.name, accountId },
     });
     return saved;
   }
 
-  async findAll(): Promise<AiMcpConnection[]> {
-    return this.repository.find({ order: { createdAt: 'ASC', id: 'ASC' } });
+  async findAll(accountId: string | null = null): Promise<AiMcpConnection[]> {
+    return this.repository.find({
+      where: accountId === null ? { accountId: IsNull() } : { accountId },
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
   }
 
-  async findOne(id: string): Promise<AiMcpConnection> {
-    const connection = await this.repository.findOne({ where: { id } });
+  /**
+   * One connection, visible only to its owner: another account's row is a NotFound (never a 403 —
+   * a tenant must not be able to confirm a foreign connection exists).
+   */
+  async findOne(id: string, accountId: string | null = null): Promise<AiMcpConnection> {
+    const connection = await this.repository.findOne({
+      where: accountId === null ? { id, accountId: IsNull() } : { id, accountId },
+    });
     if (!connection) throw new NotFoundException(`MCP connection ${id} not found`);
     return connection;
   }
 
-  async update(id: string, dto: UpdateAiMcpConnectionDto): Promise<AiMcpConnection> {
-    const connection = await this.findOne(id);
+  async update(id: string, dto: UpdateAiMcpConnectionDto, accountId: string | null = null): Promise<AiMcpConnection> {
+    const connection = await this.findOne(id, accountId);
     if (dto.name !== undefined) connection.name = dto.name;
     if (dto.endpointUrl !== undefined) {
       assertHttpUrl(dto.endpointUrl);
@@ -125,13 +136,13 @@ export class AiMcpConnectionsService {
     if (dto.enabled !== undefined) connection.enabled = dto.enabled;
     const saved = await this.repository.save(connection);
     void this.audit.logInfo(AuditAction.AI_MCP_CONNECTION_UPDATED, {
-      metadata: { mcpConnectionId: saved.id, mcpConnectionName: saved.name },
+      metadata: { mcpConnectionId: saved.id, mcpConnectionName: saved.name, accountId },
     });
     return saved;
   }
 
-  async remove(id: string): Promise<void> {
-    const connection = await this.findOne(id);
+  async remove(id: string, accountId: string | null = null): Promise<void> {
+    const connection = await this.findOne(id, accountId);
     await this.repository.remove(connection);
     void this.audit.logInfo(AuditAction.AI_MCP_CONNECTION_DELETED, {
       metadata: { mcpConnectionId: id, mcpConnectionName: connection.name },
@@ -142,33 +153,42 @@ export class AiMcpConnectionsService {
    * Connect, initialize, list tools, disconnect — and record the outcome on the row. The open
    * connection lives only for the duration of the call; MCP client state is not kept in memory.
    */
-  async test(id: string): Promise<{ serverName?: string; serverVersion?: string; tools: McpToolInfo[] }> {
-    const connection = await this.findOne(id);
+  async test(id: string, accountId: string | null = null): Promise<{ serverName?: string; serverVersion?: string; tools: McpToolInfo[] }> {
+    const connection = await this.findOne(id, accountId);
     try {
       const result = await this.listToolsInternal(connection);
-      await this.recordStatus(id, {
-        ok: true,
-        serverName: result.serverName,
-        serverVersion: result.serverVersion,
-        toolCount: result.tools.length,
-      });
+      await this.recordStatus(
+        id,
+        {
+          ok: true,
+          serverName: result.serverName,
+          serverVersion: result.serverVersion,
+          toolCount: result.tools.length,
+        },
+        accountId,
+      );
       return result;
     } catch (error) {
       const detail = redactSsrfError(error).slice(0, 500);
-      await this.recordStatus(id, { ok: false, error: detail });
+      await this.recordStatus(id, { ok: false, error: detail }, accountId);
       throw error instanceof Error && error.message.startsWith('MCP') ? error : new Error(`MCP test failed: ${detail}`);
     }
   }
 
   /** The advertised tools of a connection (a fresh connect per call). */
-  async listTools(id: string): Promise<McpToolInfo[]> {
-    const connection = await this.findOne(id);
+  async listTools(id: string, accountId: string | null = null): Promise<McpToolInfo[]> {
+    const connection = await this.findOne(id, accountId);
     return (await this.listToolsInternal(connection)).tools;
   }
 
   /** Call one tool on the server. `args` is validated against the tool's schema by the server. */
-  async callTool(id: string, toolName: string, args: Record<string, unknown>): Promise<unknown> {
-    const connection = await this.findOne(id);
+  async callTool(
+    id: string,
+    toolName: string,
+    args: Record<string, unknown>,
+    accountId: string | null = null,
+  ): Promise<unknown> {
+    const connection = await this.findOne(id, accountId);
     if (!connection.enabled) throw new BadRequestException('the MCP connection is disabled');
     const client = await this.connect(connection);
     try {
@@ -240,6 +260,7 @@ export class AiMcpConnectionsService {
   private async recordStatus(
     id: string,
     status: { ok: boolean; serverName?: string; serverVersion?: string; toolCount?: number; error?: string },
+    accountId: string | null = null,
   ): Promise<void> {
     try {
       const nextStatus = {
@@ -250,7 +271,10 @@ export class AiMcpConnectionsService {
         ...(status.toolCount !== undefined ? { toolCount: status.toolCount } : {}),
         ...(status.error ? { error: status.error } : {}),
       };
-      await this.repository.update({ id }, { lastStatus: nextStatus as AiMcpConnection['lastStatus'] });
+      await this.repository.update(
+        accountId === null ? { id, accountId: IsNull() } : { id, accountId },
+        { lastStatus: nextStatus as AiMcpConnection['lastStatus'] },
+      );
       void this.audit.logInfo(AuditAction.AI_MCP_CONNECTION_TESTED, {
         metadata: {
           mcpConnectionId: id,

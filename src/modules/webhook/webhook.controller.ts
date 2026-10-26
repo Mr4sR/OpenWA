@@ -2,8 +2,8 @@ import { Controller, Get, Post, Put, Delete, Param, Body, HttpCode, HttpStatus }
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { WebhookService } from './webhook.service';
 import { CreateWebhookDto, UpdateWebhookDto, WebhookResponseDto, WebhookTestResponseDto } from './dto';
-import { RequireRole } from '../auth/decorators/auth.decorators';
-import { ApiKeyRole } from '../auth/entities/api-key.entity';
+import { CurrentApiKey, RequireRole } from '../auth/decorators/auth.decorators';
+import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 
 @ApiTags('webhooks')
 @Controller('sessions/:sessionId/webhooks')
@@ -38,8 +38,17 @@ export class WebhookController {
     description: 'List of webhooks',
     type: [WebhookResponseDto],
   })
-  async findBySession(@Param('sessionId') sessionId: string): Promise<WebhookResponseDto[]> {
-    return WebhookResponseDto.fromEntities(await this.webhookService.findBySession(sessionId));
+  async findBySession(
+    @Param('sessionId') sessionId: string,
+    @CurrentApiKey() apiKey?: ApiKey,
+  ): Promise<WebhookResponseDto[]> {
+    // Session ownership already fences the read (the guard refuses a foreign account's session);
+    // it is repeated here so a webhook row left behind under an older account binding stays hidden.
+    return WebhookResponseDto.fromEntities(
+      (await this.webhookService.findBySession(sessionId)).filter(
+        webhook => !apiKey?.accountId || webhook.accountId === apiKey.accountId,
+      ),
+    );
   }
 
   @Get(':id')
@@ -53,8 +62,12 @@ export class WebhookController {
     type: WebhookResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Webhook not found' })
-  async findOne(@Param('sessionId') sessionId: string, @Param('id') id: string): Promise<WebhookResponseDto> {
-    return WebhookResponseDto.fromEntity(await this.webhookService.findOne(sessionId, id));
+  async findOne(
+    @Param('sessionId') sessionId: string,
+    @Param('id') id: string,
+    @CurrentApiKey() apiKey?: ApiKey,
+  ): Promise<WebhookResponseDto> {
+    return WebhookResponseDto.fromEntity(await this.webhookService.findOne(sessionId, id, apiKey?.accountId ?? null));
   }
 
   @Put(':id')
@@ -76,8 +89,11 @@ export class WebhookController {
     @Param('sessionId') sessionId: string,
     @Param('id') id: string,
     @Body() dto: UpdateWebhookDto,
+    @CurrentApiKey() apiKey?: ApiKey,
   ): Promise<WebhookResponseDto> {
-    return WebhookResponseDto.fromEntity(await this.webhookService.update(sessionId, id, dto));
+    return WebhookResponseDto.fromEntity(
+      await this.webhookService.update(sessionId, id, dto, apiKey?.accountId ?? null),
+    );
   }
 
   @Post(':id/test')
@@ -91,8 +107,9 @@ export class WebhookController {
   async test(
     @Param('sessionId') sessionId: string,
     @Param('id') id: string,
+    @CurrentApiKey() apiKey?: ApiKey,
   ): Promise<{ success: boolean; statusCode?: number; error?: string }> {
-    return this.webhookService.test(sessionId, id);
+    return this.webhookService.test(sessionId, id, apiKey?.accountId ?? null);
   }
 
   @Delete(':id')
@@ -103,7 +120,11 @@ export class WebhookController {
   @ApiParam({ name: 'id', description: 'Webhook ID' })
   @ApiResponse({ status: 204, description: 'Webhook deleted' })
   @ApiResponse({ status: 404, description: 'Webhook not found' })
-  async delete(@Param('sessionId') sessionId: string, @Param('id') id: string): Promise<void> {
-    return this.webhookService.delete(sessionId, id);
+  async delete(
+    @Param('sessionId') sessionId: string,
+    @Param('id') id: string,
+    @CurrentApiKey() apiKey?: ApiKey,
+  ): Promise<void> {
+    return this.webhookService.delete(sessionId, id, apiKey?.accountId ?? null);
   }
 }

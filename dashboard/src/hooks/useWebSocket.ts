@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { API_ORIGIN } from '../services/api';
+import { API_ORIGIN, wireCredential } from '../services/api';
 import { resolveSocketUrl, warnIfInsecureHttpUrl } from '../utils/urlSecurity';
 
 interface SessionStatusEvent {
@@ -163,13 +163,9 @@ export function useWebSocket(events: WebSocketEvents = {}) {
   const connect = useCallback(() => {
     if (socketRef.current?.connected) return;
 
-    // Get API key from sessionStorage (same as api.ts)
-    const apiKey = sessionStorage.getItem('openwa_api_key');
-
-    if (!apiKey) {
-      console.warn('[WebSocket] No API key found, skipping connection');
-      return;
-    }
+    // Same selector as api.ts: the SaaS token when signed in, else the account API key. The
+    // gateway accepts both (it resolves a dashboard token to the tenant principal).
+    const apiKey = wireCredential() ?? undefined;
 
     setSocketEpoch(epoch => epoch + 1);
     socketRef.current = io(`${SOCKET_URL}/events`, {
@@ -180,10 +176,10 @@ export function useWebSocket(events: WebSocketEvents = {}) {
       // Send the key via `auth` (and a header for proxies). NOT via `query` — a key in the
       // handshake URL leaks into access logs / Referer. The gateway reads auth first.
       auth: {
-        apiKey,
+        apiKey: apiKey ?? '',
       },
       extraHeaders: {
-        'X-API-Key': apiKey,
+        'X-API-Key': apiKey ?? '',
       },
     });
 

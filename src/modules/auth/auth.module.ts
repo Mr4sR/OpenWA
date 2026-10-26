@@ -11,6 +11,7 @@ import { UsersService } from './users.service';
 import { PlansService } from './plans.service';
 import { PlanLimitsService } from './plan-limits.service';
 import { SessionTokenService } from './session-token.service';
+import { SaasPrincipalService } from './saas-principal.service';
 import { ApiKeyUsageTracker } from './api-key-usage-tracker.service';
 import { ChatScopeService } from './chat-scope.service';
 import { ActiveKeyIndex } from './active-key-index';
@@ -34,6 +35,7 @@ import { ProxyAwareThrottlerGuard } from '../../common/security/proxy-aware-thro
     PlanLimitsService,
     SessionTokenService,
     ApiKeyUsageTracker,
+    SaasPrincipalService,
     ChatScopeService,
     ActiveKeyIndex,
     {
@@ -53,6 +55,7 @@ import { ProxyAwareThrottlerGuard } from '../../common/security/proxy-aware-thro
     PlanLimitsService,
     SessionTokenService,
     ChatScopeService,
+    SaasPrincipalService,
     ActiveKeyIndex,
   ],
 })

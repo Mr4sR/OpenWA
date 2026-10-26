@@ -15,6 +15,14 @@ export class AiChatOverride {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  /**
+   * The tenant owning this switch, copied from its chatbot at write time (backfilled by migration
+   * 1801000000000). NULL when the parent bot is NULL: global, platform-key reachable.
+   */
+  @Index('IDX_ai_chat_overrides_accountId')
+  @Column({ type: 'varchar', length: 36, nullable: true })
+  accountId!: string | null;
+
   /** FK to `ai_chatbots.id` — a plain varchar, like the other AI FKs. */
   @Column({ type: 'varchar' })
   chatbotId!: string;

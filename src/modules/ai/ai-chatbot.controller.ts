@@ -31,8 +31,9 @@ import { AiRagModelResponseDto } from './dto/ai-rag-model.dto';
 
 /**
  * AI chatbots: ONE bot may serve MANY sessions; each session is served by AT MOST ONE bot. The
- * routes live flat under /api/ai/chatbots (a bot is no longer owned by a session), and the
- * ApiKeyGuard's session fence still scopes the views to the key's allowed sessions.
+ * routes live flat under /api/ai/chatbots. Two fences stack, neither replacing the other: the key's
+ * ACCOUNT owns the bot (a tenant reads/writes only its own bots), and the ApiKeyGuard's
+ * `allowedSessions` session fence still scopes the views inside it.
  */
 @ApiTags('ai')
 @Controller('ai/chatbots')
@@ -45,23 +46,26 @@ export class AiChatbotController {
 
   @Post()
   @RequireRole(ApiKeyRole.OPERATOR)
-  @ApiOperation({ summary: 'Create a chatbot bound to one or many sessions' })
+  @ApiOperation({ summary: 'Create a chatbot bound to one or many sessions of the calling account' })
   @ApiResponse({ status: 201, description: 'Chatbot created.', type: AiChatbotResponseDto })
   @ApiResponse({
     status: 400,
-    description: 'Unknown LLM/RAG model or session, invalid body, or a requested session is already served by another chatbot.',
+    description: 'Unknown LLM/RAG model or session, invalid body, a requested session is already served by another chatbot, or a session outside this account.',
   })
-  async create(@Body() dto: CreateAiChatbotDto): Promise<AiChatbotResponseDto> {
-    return AiChatbotResponseDto.fromEntity(await this.chatbots.create(dto));
+  async create(@Body() dto: CreateAiChatbotDto, @CurrentApiKey() apiKey?: ApiKey): Promise<AiChatbotResponseDto> {
+    return AiChatbotResponseDto.fromEntity(await this.chatbots.create(dto, apiKey?.accountId ?? null));
   }
 
   @Get()
   @RequireRole(ApiKeyRole.OPERATOR)
-  @ApiOperation({ summary: 'List chatbots (scoped to the key’s allowed sessions)' })
+  @ApiOperation({ summary: 'List chatbots (the account’s, scoped to the key’s allowed sessions)' })
   @ApiQuery({ name: 'sessionId', required: false, description: 'Filter to bots serving this session' })
   @ApiResponse({ status: 200, description: 'Chatbots in creation order.', type: [AiChatbotResponseDto] })
-  async findAll(@CurrentApiKey() apiKey?: ApiKey, @Query('sessionId') sessionId?: string): Promise<AiChatbotResponseDto[]> {
-    const bots = await this.chatbots.findAllForSessions(apiKey?.allowedSessions ?? null);
+  async findAll(
+    @CurrentApiKey() apiKey?: ApiKey,
+    @Query('sessionId') sessionId?: string,
+  ): Promise<AiChatbotResponseDto[]> {
+    const bots = await this.chatbots.findAllForSessions(apiKey?.allowedSessions ?? null, apiKey?.accountId ?? null);
     const filtered = sessionId ? bots.filter(bot => bot.sessionIds.includes(sessionId)) : bots;
     return AiChatbotResponseDto.fromEntities(filtered);
   }
@@ -71,10 +75,13 @@ export class AiChatbotController {
   @ApiOperation({ summary: 'Get one chatbot' })
   @ApiParam({ name: 'chatbotId', description: 'Chatbot ID' })
   @ApiResponse({ status: 200, description: 'The chatbot.', type: AiChatbotResponseDto })
-  @ApiResponse({ status: 404, description: 'No such chatbot.' })
+  @ApiResponse({ status: 404, description: 'No such chatbot (including one of another account).' })
   @ApiResponse({ status: 403, description: 'The bot serves no session this key may see.' })
-  async findOne(@Param('chatbotId') chatbotId: string, @CurrentApiKey() apiKey?: ApiKey): Promise<AiChatbotResponseDto> {
-    const bot = await this.chatbots.findOne(chatbotId);
+  async findOne(
+    @Param('chatbotId') chatbotId: string,
+    @CurrentApiKey() apiKey?: ApiKey,
+  ): Promise<AiChatbotResponseDto> {
+    const bot = await this.chatbots.findOne(chatbotId, apiKey?.accountId ?? null);
     this.assertReadable(bot, apiKey);
     return AiChatbotResponseDto.fromEntity(bot);
   }
@@ -85,14 +92,14 @@ export class AiChatbotController {
   @ApiParam({ name: 'chatbotId', description: 'Chatbot ID' })
   @ApiResponse({ status: 200, description: 'Updated chatbot.', type: AiChatbotResponseDto })
   @ApiResponse({ status: 400, description: 'Unknown model/session, or a requested session is owned by another bot.' })
-  @ApiResponse({ status: 404, description: 'No such chatbot.' })
+  @ApiResponse({ status: 404, description: 'No such chatbot (including one of another account).' })
   async update(
     @Param('chatbotId') chatbotId: string,
     @Body() dto: UpdateAiChatbotDto,
     @CurrentApiKey() apiKey?: ApiKey,
   ): Promise<AiChatbotResponseDto> {
     await this.assertWritable(chatbotId, apiKey);
-    return AiChatbotResponseDto.fromEntity(await this.chatbots.update(chatbotId, dto));
+    return AiChatbotResponseDto.fromEntity(await this.chatbots.update(chatbotId, dto, apiKey?.accountId ?? null));
   }
 
   @Delete(':chatbotId')
@@ -101,10 +108,10 @@ export class AiChatbotController {
   @ApiOperation({ summary: 'Delete a chatbot' })
   @ApiParam({ name: 'chatbotId', description: 'Chatbot ID' })
   @ApiResponse({ status: 204, description: 'Chatbot deleted.' })
-  @ApiResponse({ status: 404, description: 'No such chatbot.' })
+  @ApiResponse({ status: 404, description: 'No such chatbot (including one of another account).' })
   async remove(@Param('chatbotId') chatbotId: string, @CurrentApiKey() apiKey?: ApiKey): Promise<void> {
     await this.assertWritable(chatbotId, apiKey);
-    await this.chatbots.remove(chatbotId);
+    await this.chatbots.remove(chatbotId, apiKey?.accountId ?? null);
   }
 
   /**
@@ -119,14 +126,14 @@ export class AiChatbotController {
   @ApiQuery({ name: 'sessionId', required: false, description: 'History source session; defaults to the bot’s first' })
   @ApiResponse({ status: 200, description: 'The answer the bot would send, with RAG citations.', type: AiChatbotTestResponseDto })
   @ApiResponse({ status: 400, description: 'Empty message, or the bot failed to answer (the reason is in the response).' })
-  @ApiResponse({ status: 404, description: 'No such chatbot.' })
+  @ApiResponse({ status: 404, description: 'No such chatbot (including one of another account).' })
   async test(
     @Param('chatbotId') chatbotId: string,
     @Body() dto: AiChatbotTestDto,
     @CurrentApiKey() apiKey?: ApiKey,
     @Query('sessionId') sessionId?: string,
   ): Promise<AiChatbotTestResponseDto> {
-    const bot = await this.chatbots.findOne(chatbotId);
+    const bot = await this.chatbots.findOne(chatbotId, apiKey?.accountId ?? null);
     this.assertReadable(bot, apiKey);
     const probeSession = sessionId && bot.sessionIds.includes(sessionId) ? sessionId : bot.sessionIds[0];
     try {
@@ -149,14 +156,15 @@ export class AiChatbotController {
 
   /** Writable has the same fence as readable, resolved through the stored bot. */
   private async assertWritable(chatbotId: string, apiKey?: ApiKey): Promise<void> {
-    const bot = await this.chatbots.findOne(chatbotId);
+    const bot = await this.chatbots.findOne(chatbotId, apiKey?.accountId ?? null);
     this.assertReadable(bot, apiKey);
   }
 }
 
 /**
  * Cross-session listing of chatbot instances (the AI Integration page shows every bot at once),
- * scoped to the calling key's `allowedSessions`, and the reference data the bot forms need.
+ * scoped to the calling key's account and its `allowedSessions`, and the reference data the bot
+ * forms need.
  */
 @ApiTags('ai')
 @Controller('ai')
@@ -169,15 +177,16 @@ export class AiIntegrationController {
 
   @Get('chatbots')
   @RequireRole(ApiKeyRole.OPERATOR)
-  @ApiOperation({ summary: 'List chatbots visible to the calling key (scoped to its allowed sessions)' })
+  @ApiOperation({ summary: 'List chatbots visible to the calling key (account + allowed sessions)' })
   @ApiQuery({ name: 'sessionId', required: false, description: 'Filter to a single session' })
   @ApiResponse({ status: 200, description: 'Chatbots.', type: [AiChatbotResponseDto] })
   async chatbotsIndex(
     @CurrentApiKey() apiKey?: ApiKey,
     @Query('sessionId') sessionId?: string,
   ): Promise<AiChatbotResponseDto[]> {
+    const accountId = apiKey?.accountId ?? null;
     const allowed = apiKey?.allowedSessions ?? null;
-    const bots = await this.chatbots.findAllForSessions(allowed);
+    const bots = await this.chatbots.findAllForSessions(allowed, accountId);
     if (!sessionId) return AiChatbotResponseDto.fromEntities(bots);
     if (allowed != null && allowed.length > 0 && !allowed.includes(sessionId)) return [];
     return AiChatbotResponseDto.fromEntities(bots.filter(bot => bot.sessionIds.includes(sessionId)));
@@ -206,28 +215,28 @@ export class AiIntegrationController {
       .map(c => c.trim())
       .filter(Boolean)
       .slice(0, 200);
-    const map = await this.chatbots.getChatOverrides(sessionId, ids);
+    const map = await this.chatbots.getChatOverrides(sessionId, ids, apiKey?.accountId ?? null);
     const overrides: Record<string, string[]> = {};
     for (const [chatId, botIds] of map) overrides[chatId] = botIds;
     return { overrides };
   }
 
-  /** Flip ONE (chatbot, chat) switch from the Chats page. The bot must be inside the caller's session fence. */
+  /** Flip ONE (chatbot, chat) switch from the Chats page. The bot must be inside the caller's account AND session fence. */
   @Post('chat-state')
   @RequireRole(ApiKeyRole.OPERATOR)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Flip the per-chat AI switch of one chatbot for one conversation' })
   @ApiResponse({ status: 200, description: 'The switch was stored, or removed when enabling.', type: AiChatStateDto })
-  @ApiResponse({ status: 404, description: 'No such chatbot.' })
+  @ApiResponse({ status: 404, description: 'No such chatbot (including one of another account).' })
   async setChatState(
     @Body() dto: SetAiChatOverrideDto,
     @CurrentApiKey() apiKey?: ApiKey,
   ): Promise<AiChatStateDto> {
-    const chatbot = (await this.chatbots.findAllForSessions(apiKey?.allowedSessions ?? null)).find(
-      candidate => candidate.id === dto.chatbotId,
-    );
+    const chatbot = (
+      await this.chatbots.findAllForSessions(apiKey?.allowedSessions ?? null, apiKey?.accountId ?? null)
+    ).find(candidate => candidate.id === dto.chatbotId);
     if (!chatbot) throw new NotFoundException(`Chatbot ${dto.chatbotId} not found`);
-    await this.chatbots.setChatOverride(undefined, dto.chatbotId, dto.chatId, dto.chatbotDisabled);
+    await this.chatbots.setChatOverride(undefined, dto.chatbotId, dto.chatId, dto.chatbotDisabled, apiKey?.accountId ?? null);
     return AiChatStateDto.fromRow({
       chatbotId: dto.chatbotId,
       chatId: dto.chatId,
@@ -237,9 +246,9 @@ export class AiIntegrationController {
 
   @Get('rag-models')
   @RequireRole(ApiKeyRole.OPERATOR)
-  @ApiOperation({ summary: 'List the RAG models (with knowledge counts and index state)' })
+  @ApiOperation({ summary: 'List the RAG models visible to the calling key (with knowledge counts)' })
   @ApiResponse({ status: 200, description: 'RAG models.', type: [AiRagModelResponseDto] })
-  async ragIndex(): Promise<AiRagModelResponseDto[]> {
-    return AiRagModelResponseDto.fromEntities(await this.rag.findModels());
+  async ragIndex(@CurrentApiKey() apiKey?: ApiKey): Promise<AiRagModelResponseDto[]> {
+    return AiRagModelResponseDto.fromEntities(await this.rag.findModels(apiKey?.accountId ?? null));
   }
 }

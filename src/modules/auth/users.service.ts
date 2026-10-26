@@ -326,6 +326,58 @@ export class UsersService implements OnModuleInit {
     );
   }
 
+  /**
+   * Member management inside the caller's OWN account. An id belonging to another account (or to
+   * the platform surface, where accountId is NULL) reads as not-found — no cross-tenant existence
+   * oracle.
+   */
+  async findMemberInAccount(id: string, accountId: string): Promise<User> {
+    const user = await this.findById(id);
+    if (user.accountId !== accountId) throw new NotFoundException('User not found in this account');
+    return user;
+  }
+
+  async setMemberActive(id: string, accountId: string, isActive: boolean): Promise<User> {
+    const user = await this.findMemberInAccount(id, accountId);
+    if (user.role === UserRole.PLATFORM_ADMIN) {
+      throw new ForbiddenException('A platform admin cannot be managed from an account');
+    }
+    // The last-active-admin bound from the platform surface applies inside a tenant too: an account
+    // with no active admin login could no longer manage its own members.
+    if (!isActive && user.role === UserRole.ACCOUNT_ADMIN) {
+      const admins = await this.repository.find({
+        where: { accountId, role: UserRole.ACCOUNT_ADMIN, isActive: true },
+      });
+      if (admins.filter(candidate => candidate.id !== user.id).length === 0) {
+        throw new ForbiddenException('At least one active account admin must remain');
+      }
+    }
+    user.isActive = isActive;
+    return this.repository.save(user);
+  }
+
+  async removeMember(id: string, accountId: string): Promise<void> {
+    const user = await this.findMemberInAccount(id, accountId);
+    if (user.role === UserRole.PLATFORM_ADMIN) {
+      throw new ForbiddenException('A platform admin cannot be managed from an account');
+    }
+    await this.repository.remove(user);
+  }
+
+  /**
+   * Record which login minted an account key (attribution only — enforcement stays on the key's
+   * accountId). Reads the row back so the caller returns stored state, not its own guess.
+   */
+  async attachKeyToUser(keyId: string, userId: string): Promise<Record<string, unknown>> {
+    await this.repository.manager.query(`UPDATE "api_keys" SET "userId" = ? WHERE "id" = ?`, [userId, keyId]);
+    const rows = (await this.repository.manager.query(
+      `SELECT "id","name","keyPrefix","role","accountId","isActive","createdAt" FROM "api_keys" WHERE "id" = ?`,
+      [keyId],
+    )) as Array<{ createdAt: string } & Record<string, unknown>>;
+    const row = rows[0] ?? { id: keyId };
+    return { ...row, createdAt: row.createdAt ? new Date(row.createdAt) : new Date() };
+  }
+
   /** 'active' | 'suspended' | 'missing'. A missing account fails CLOSED (suspended). */
   private async accountStatus(accountId: string): Promise<'active' | 'suspended' | 'missing'> {
     const set = (await this.repository.manager.query(

@@ -78,6 +78,9 @@ describe('ApiKeyGuard', () => {
       configService as ConfigService,
       auditService as AuditService,
       new ChatScopeService(),
+      // These specs exercise the API-key path only: the stub always answers "not a session
+      // token", so the guard takes the ordinary validateApiKey branch.
+      { isSessionToken: jest.fn().mockReturnValue(false), resolve: jest.fn() } as never,
     );
   }
 

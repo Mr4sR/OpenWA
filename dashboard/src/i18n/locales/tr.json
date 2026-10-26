@@ -1438,7 +1438,11 @@
     "role": "Role",
     "currentPassword": "Current password",
     "newPassword": "New password",
-    "confirmPassword": "Confirm new password"
+    "confirmPassword": "Confirm new password",
+    "account": "Account",
+    "plan": "Plan",
+    "planLimits": "Sessions: {{sessions}} · Chatbots: {{chatbots}} · Webhooks: {{webhooks}}",
+    "changePasswordTitle": "Change password"
   },
   "platform": {
     "title": "Platform",
@@ -1470,6 +1474,12 @@
     "statusChanged": "Status changed",
     "userChanged": "Login updated",
     "disable": "Disable",
-    "enable": "Enable"
+    "enable": "Enable",
+    "emptyTitle": "No tenants yet",
+    "emptyDescription": "Tenants appear here as soon as someone registers, or when you create one from the API. Suspend, re-plan or delete them from this table.",
+    "emptyUsersTitle": "No logins yet",
+    "emptyPlansTitle": "No plans configured",
+    "lastLogin": "Last sign-in",
+    "free": "Free"
   }
 }

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { createLogger } from '../../common/services/logger.service';
 import { withSafeFetch, redactSsrfError } from '../../common/security/ssrf-guard';
 import type { Response as undiciResponse } from 'undici';
@@ -52,8 +52,12 @@ export class AiLlmModelsService {
     private readonly configService?: ConfigService,
   ) {}
 
-  async create(dto: CreateAiLlmModelDto): Promise<AiLlmModel> {
-    const existing = await this.repository.count();
+  /**
+   * Create a provider connection owned by `accountId` (NULL = the platform/global surface). The
+   * row is the tenant's own credential, so only that account ever reads it back.
+   */
+  async create(dto: CreateAiLlmModelDto, accountId: string | null = null): Promise<AiLlmModel> {
+    const existing = await this.repository.count({ where: accountId === null ? { accountId: IsNull() } : { accountId } });
     const max = this.configService?.get<number>('ai.llmModelsMax', AI_LLM_MODELS_MAX) ?? AI_LLM_MODELS_MAX;
     if (max > 0 && existing >= max) {
       throw new BadRequestException(`LLM model limit reached (${existing}/${max}); delete one before adding another`);
@@ -67,6 +71,7 @@ export class AiLlmModelsService {
     // time, so a localhost endpoint stays configurable and only a non-http(s) value is refused now.
     assertHttpUrl(dto.endpointUrl);
     const model = this.repository.create({
+      accountId,
       name: dto.name,
       endpointUrl: dto.endpointUrl.replace(/\/+$/, ''),
       apiKey: dto.apiKey ?? '',
@@ -77,7 +82,7 @@ export class AiLlmModelsService {
     });
     const saved = await this.repository.save(model);
     void this.audit.logInfo(AuditAction.AI_LLM_MODEL_CREATED, {
-      metadata: { llmModelId: saved.id, llmModelName: saved.name },
+      metadata: { llmModelId: saved.id, llmModelName: saved.name, accountId },
     });
     this.probeInBackground(saved);
     return saved;
@@ -110,11 +115,15 @@ export class AiLlmModelsService {
     void (async () => {
       try {
         const result = await this.test(model);
-        await this.recordStatus(model.id, {
-          ok: result.ok,
-          capabilities: result.capabilities ?? undefined,
-          ...(result.ok ? {} : { error: result.answer }),
-        });
+        await this.recordStatus(
+          model.id,
+          {
+            ok: result.ok,
+            capabilities: result.capabilities ?? undefined,
+            ...(result.ok ? {} : { error: result.answer }),
+          },
+          model.accountId,
+        );
       } catch (error) {
         this.logger.warn('Background capability probe failed', {
           llmModelId: model.id,
@@ -124,20 +133,30 @@ export class AiLlmModelsService {
     })();
   }
 
-  async findAll(): Promise<AiLlmModel[]> {
-    return this.repository.find({ order: { createdAt: 'ASC', id: 'ASC' } });
+  async findAll(accountId: string | null = null): Promise<AiLlmModel[]> {
+    return this.repository.find({
+      where: accountId === null ? { accountId: IsNull() } : { accountId },
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
   }
 
-  async findOne(id: string): Promise<AiLlmModel> {
-    const model = await this.repository.findOne({ where: { id } });
+  /**
+   * One model, visible only to its owner: another account's row (and an unknown id) is a NotFound,
+   * so a tenant cannot even confirm a foreign model exists. A NULL account sees NULL rows only —
+   * the bare `{ accountId: null }` form would be read by TypeORM as "no condition".
+   */
+  async findOne(id: string, accountId: string | null = null): Promise<AiLlmModel> {
+    const model = await this.repository.findOne({
+      where: accountId === null ? { id, accountId: IsNull() } : { id, accountId },
+    });
     if (!model) {
       throw new NotFoundException(`LLM model ${id} not found`);
     }
     return model;
   }
 
-  async update(id: string, dto: UpdateAiLlmModelDto): Promise<AiLlmModel> {
-    const model = await this.findOne(id);
+  async update(id: string, dto: UpdateAiLlmModelDto, accountId: string | null = null): Promise<AiLlmModel> {
+    const model = await this.findOne(id, accountId);
     if (dto.name !== undefined) model.name = dto.name;
     if (dto.endpointUrl !== undefined) {
       assertHttpUrl(dto.endpointUrl);
@@ -150,7 +169,7 @@ export class AiLlmModelsService {
     if (dto.enabled !== undefined) model.enabled = dto.enabled;
     const saved = await this.repository.save(model);
     void this.audit.logInfo(AuditAction.AI_LLM_MODEL_UPDATED, {
-      metadata: { llmModelId: saved.id, llmModelName: saved.name },
+      metadata: { llmModelId: saved.id, llmModelName: saved.name, accountId },
     });
     // Endpoint, key or model id may all have changed: the stored capabilities describe a test
     // against the OLD combination until this re-probe lands.
@@ -158,22 +177,27 @@ export class AiLlmModelsService {
     return saved;
   }
 
-  async remove(id: string): Promise<void> {
-    const model = await this.findOne(id);
+  async remove(id: string, accountId: string | null = null): Promise<void> {
+    const model = await this.findOne(id, accountId);
     await this.repository.remove(model);
     void this.audit.logInfo(AuditAction.AI_LLM_MODEL_DELETED, {
       metadata: { llmModelId: id, llmModelName: model.name },
     });
   }
 
-  /** Record connection-test diagnostics plus the capabilities the probe proved. Best-effort. */
+  /**
+   * Record connection-test diagnostics plus the capabilities the probe proved. Best-effort, and
+   * scoped to the owning account: the probe is detached from the request, so the owner travels
+   * with the call and a foreign row is never written.
+   */
   async recordStatus(
     id: string,
     status: { ok: boolean; error?: string; capabilities?: { vision: boolean; at: string } },
+    accountId: string | null = null,
   ): Promise<void> {
     try {
       await this.repository.update(
-        { id },
+        accountId === null ? { id, accountId: IsNull() } : { id, accountId },
         {
           lastStatus: { ok: status.ok, at: new Date().toISOString(), ...(status.error ? { error: status.error } : {}) },
           lastTestedAt: new Date(),

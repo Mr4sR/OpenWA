@@ -9,7 +9,8 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { OnModuleDestroy } from '@nestjs/common';
+import { OnModuleDestroy, Optional } from '@nestjs/common';
+import { SaasPrincipalService } from '../auth/saas-principal.service';
 import { createLogger } from '../../common/services/logger.service';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth/auth.service';
@@ -203,6 +204,11 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     private readonly auditService: AuditService,
     private readonly configService: ConfigService,
     private readonly chatScope: ChatScopeService = new ChatScopeService(),
+    // After the defaulted chatScope so the direct 3/4-arg constructions in the specs still
+    // compile; @Optional keeps Nest from failing a provider that constructs the gateway outside
+    // the EventsModule graph. A missing principal simply never resolves the SaaS path.
+    @Optional()
+    private readonly saasPrincipal?: SaasPrincipalService,
   ) {
     this.rateLimits = readWsRateLimitConfig();
     this.frameLimiter = new TokenBucketLimiter(this.rateLimits.framePerSecond, this.rateLimits.frameBurst);
@@ -581,7 +587,13 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     const clientIp = this.resolveClientIp(client);
     let subscriberKey: ApiKey | null;
     try {
-      subscriberKey = rawApiKey ? await this.authService.validateApiKey(rawApiKey, clientIp) : null;
+      // A dashboard token re-resolves through the live user (a disabled user loses events
+      // mid-connection); an API key re-validates through the ordinary path.
+      subscriberKey = this.saasPrincipal?.isSessionToken(rawApiKey)
+        ? (await this.saasPrincipal?.resolve(rawApiKey ?? '')).apiKey ?? null
+        : rawApiKey
+          ? await this.authService.validateApiKey(rawApiKey, clientIp)
+          : null;
     } catch (error) {
       subscriberKey = null;
       // A key refused here was valid at connect (revoked, expired, deleted or IP-refused since), so it
