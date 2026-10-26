@@ -464,3 +464,85 @@ describe('StatsService aggregate memo (in-process TTL)', () => {
     }
   });
 });
+
+// The tenant fence on the cross-session aggregates: a tenant admin now reaches /stats/*, so every
+// count must be restricted to that account's own sessions — a message carries no owner column, so
+// the scope is the sessionId set derived from the caller's account.
+describe('StatsService tenant scoping', () => {
+  let ds: DataSource;
+  let service: StatsService;
+
+  beforeEach(async () => {
+    ds = new DataSource({ type: 'better-sqlite3', database: ':memory:', entities: [Session, Message], synchronize: true });
+    await ds.initialize();
+    // TTL 0: no memo, so each assertion reads the database the way a fresh request would.
+    service = new StatsService(
+      ds.getRepository(Session),
+      ds.getRepository(Message),
+      { get: () => 0 } as never,
+    );
+    const sessions = ds.getRepository(Session);
+    await sessions.save([
+      sessions.create({ id: 'sess-a', name: 'a', status: SessionStatus.READY, accountId: 'acc-a', config: {} }),
+      sessions.create({ id: 'sess-b', name: 'b', status: SessionStatus.READY, accountId: 'acc-b', config: {} }),
+    ]);
+    const messages = ds.getRepository(Message);
+    await messages.save([
+      messages.create({
+        sessionId: 'sess-a', chatId: 'c1', from: 'a', to: 'b', type: 'text',
+        direction: MessageDirection.OUTGOING, status: MessageStatus.SENT,
+      }),
+      messages.create({
+        sessionId: 'sess-b', chatId: 'c2', from: 'a', to: 'b', type: 'text',
+        direction: MessageDirection.OUTGOING, status: MessageStatus.SENT,
+      }),
+      messages.create({
+        sessionId: 'sess-b', chatId: 'c2', from: 'a', to: 'b', type: 'text',
+        direction: MessageDirection.INCOMING, status: MessageStatus.SENT,
+      }),
+    ]);
+  });
+
+  afterEach(async () => {
+    await ds.destroy();
+  });
+
+  it('counts only the calling account’s sessions and messages', async () => {
+    const a = await service.getOverview('acc-a');
+    expect(a.sessions.total).toBe(1);
+    expect(a.messages.sent).toBe(1);
+    expect(a.messages.received).toBe(0);
+
+    const b = await service.getOverview('acc-b');
+    expect(b.sessions.total).toBe(1);
+    expect(b.messages.sent).toBe(1);
+    expect(b.messages.received).toBe(1);
+
+    // A global key (the platform surface) still sees the whole deployment.
+    const global = await service.getOverview(null);
+    expect(global.sessions.total).toBe(2);
+    expect(global.messages.sent).toBe(2);
+    expect(global.messages.received).toBe(1);
+  });
+
+  it('reports nothing for a tenant with no sessions instead of the deployment’s totals', async () => {
+    const empty = await service.getOverview('acc-none');
+    expect(empty.sessions.total).toBe(0);
+    expect(empty.messages.sent).toBe(0);
+
+    const emptyMessages = await service.getMessageStats('24h', 'acc-none');
+    expect(emptyMessages.timeSeries).toEqual([]);
+    expect(emptyMessages.bySession).toEqual([]);
+    expect(emptyMessages.topChats).toEqual([]);
+  });
+
+  it('scopes the message time series and per-session breakdown to the account', async () => {
+    const a = await service.getMessageStats('24h', 'acc-a');
+    expect(a.bySession.map(row => row.sessionId)).toEqual(['sess-a']);
+    expect(a.topChats.map(row => row.chatId)).toEqual(['c1']);
+
+    const b = await service.getMessageStats('24h', 'acc-b');
+    expect(b.bySession.map(row => row.sessionId)).toEqual(['sess-b']);
+    expect(b.topChats.map(row => row.chatId)).toEqual(['c2']);
+  });
+});

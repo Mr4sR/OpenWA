@@ -3,45 +3,47 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { MessageStatsResponseDto, OverviewStatsResponseDto, SessionStatsResponseDto } from './dto/stats-response.dto';
 import { StatsService } from './stats.service';
 import { StatsQueryDto } from './dto/stats-query.dto';
-import { RequireRole, RequireUnscopedKey } from '../auth/decorators/auth.decorators';
-import { ApiKeyRole } from '../auth/entities/api-key.entity';
+import { AllowAccountKeys, CurrentApiKey, RequireRole, RequireUnscopedKey } from '../auth/decorators/auth.decorators';
+import { ApiKey, ApiKeyRole } from '../auth/entities/api-key.entity';
 
 @ApiTags('statistics')
 @Controller('stats')
 export class StatsController {
   constructor(private readonly statsService: StatsService) {}
 
-  // Global, cross-session aggregates with no scope param. The ADMIN role gate alone does not keep a
-  // session-restricted key out — role and session scope are independent — so these also require an
-  // unrestricted key. (Per-session stats below stays scope-gated by its :sessionId route param.)
+  // Cross-session aggregates carry no :sessionId, so the route-param fence cannot scope them;
+  // @AllowAccountKeys admits a tenant principal and the SERVICE scopes every count to the caller's
+  // account (a session-restricted key stays refused — it is not account-wide).
   @Get('overview')
   @RequireRole(ApiKeyRole.ADMIN)
   @RequireUnscopedKey()
-  @ApiOperation({ summary: 'Get overall statistics' })
+  @AllowAccountKeys()
+  @ApiOperation({ summary: 'Get overall statistics for the calling account' })
   @ApiResponse({
     status: 200,
-    description: 'Cross-session aggregate statistics (sessions, messages, etc.).',
+    description: 'Cross-session aggregate statistics (sessions, messages, etc.) of the caller’s account.',
     type: OverviewStatsResponseDto,
   })
-  async getOverview() {
-    return this.statsService.getOverview();
+  async getOverview(@CurrentApiKey() apiKey?: ApiKey) {
+    return this.statsService.getOverview(apiKey?.accountId ?? null);
   }
 
   @Get('messages')
   @RequireRole(ApiKeyRole.ADMIN)
   @RequireUnscopedKey()
-  @ApiOperation({ summary: 'Get message statistics with time series' })
+  @AllowAccountKeys()
+  @ApiOperation({ summary: 'Get message statistics with time series for the calling account' })
   @ApiResponse({
     status: 200,
-    description: 'Message statistics with a time series for the requested period.',
+    description: 'Message statistics with a time series for the requested period, scoped to the caller’s account.',
     type: MessageStatsResponseDto,
   })
   @ApiResponse({
     status: 400,
     description: 'A query value is invalid, or the query carries a field the DTO does not declare.',
   })
-  async getMessageStats(@Query() query: StatsQueryDto) {
-    return this.statsService.getMessageStats(query.period || '24h');
+  async getMessageStats(@Query() query: StatsQueryDto, @CurrentApiKey() apiKey?: ApiKey) {
+    return this.statsService.getMessageStats(query.period || '24h', apiKey?.accountId ?? null);
   }
 
   @Get('sessions/:sessionId')

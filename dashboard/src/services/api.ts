@@ -804,10 +804,11 @@ async function handleErrorResponse<T>(response: Response, sentKey: string | null
  * disagree about which credential rides along.
  */
 export function wireCredential(): string | null {
-  // The technical surface authenticates with the API KEY. The SaaS session token never rides this
-  // header — the backend validates a bearer JWT only on /auth/*, and sending it as an API key would
-  // 401 every dashboard read the moment a user signs in without picking a key.
-  return sessionStorage.getItem('openwa_api_key');
+  // The SaaS token IS a wire credential: ApiKeyGuard resolves `Bearer <jwt>` to the user's live
+  // principal (tenant-scoped for an account login, global for the platform operator), so a signed-in
+  // dashboard needs no separately stored key. The account API key stays as the fallback for a tab
+  // that signed in before the token was stored, or for a platform admin using a hand-issued key.
+  return sessionStorage.getItem('openwa_saas_token') ?? sessionStorage.getItem('openwa_api_key');
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

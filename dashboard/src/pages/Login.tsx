@@ -59,8 +59,6 @@ export function Login({ onLogin }: { onLogin: (token: string, user: SaasUser) =>
         const session = body as unknown as { token: string; user: SaasUser };
         sessionStorage.setItem('openwa_saas_token', session.token);
         onLogin(session.token, session.user);
-        sessionStorage.setItem('openwa_saas_token', session.token);
-        onLogin(session.token, session.user);
       } else {
         // Registration provisions the tenant AND its first API key, so the newly-signed-up admin
         // lands on a fully working dashboard: the raw key is shown once here and stored for the tab.
