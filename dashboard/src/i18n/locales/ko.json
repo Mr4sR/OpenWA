@@ -69,6 +69,7 @@
     "numberChecker": "번호 확인",
     "webhooks": "웹훅",
     "templates": "템플릿",
+    "accounts": "계정",
     "apiKeys": "API 키",
     "messageTester": "메시지 테스터",
     "infrastructure": "인프라",

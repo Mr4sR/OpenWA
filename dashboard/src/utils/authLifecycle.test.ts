@@ -95,8 +95,6 @@ test('isUserRole accepts exactly the three known roles', () => {
 
 const LOGIN_KEY = 'openwa_saas_token';
 const USER_KEY = 'openwa_saas_user';
-const ENGINE_KEY = 'openwa_engine_type';
-const SCOPED_KEY = 'openwa_key_scoped';
 
 interface FetchCall {
   method: string;

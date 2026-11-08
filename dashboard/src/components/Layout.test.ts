@@ -12,8 +12,17 @@ let RoleContext: (typeof import('../hooks/useRole.tsx'))['RoleContext'];
 // Every URL the layout asked for.
 const requested: string[] = [];
 
-/** The layout for an admin key, restricted to selected sessions when `scoped` is set. */
-function renderLayout(scoped = false): ReturnType<typeof import('@testing-library/react').render> {
+/**
+ * The layout for an ADMIN actor: `scoped` marks a key restricted to selected sessions, `accountId` a
+ * tenant admin (ADMIN inside one account, which the deployment-global pages refuse).
+ */
+function renderLayout({
+  scoped = false,
+  accountId = null,
+  canViewPlatform = false,
+}: { scoped?: boolean; accountId?: string | null; canViewPlatform?: boolean } = {}): ReturnType<
+  typeof import('@testing-library/react').render
+> {
   const role = {
     role: 'admin' as const,
     setRole: () => undefined,
@@ -25,14 +34,18 @@ function renderLayout(scoped = false): ReturnType<typeof import('@testing-librar
     setEngineType: () => undefined,
     scoped,
     setScoped: () => undefined,
-    accountId: null,
+    accountId,
     setAccountId: () => undefined,
   };
   return rtl.render(
     createElement(
       RoleContext.Provider,
       { value: role },
-      createElement(MemoryRouter, null, createElement(Layout, { onLogout: () => undefined, userRole: 'admin' })),
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(Layout, { onLogout: () => undefined, canViewPlatform }),
+      ),
     ),
   );
 }
@@ -86,7 +99,7 @@ test('the theme button can return to following the system', () => {
 // The key management, infrastructure and plugin routes refuse a key restricted to selected sessions, whatever
 // its role, and every refusal lands in the audit log as a failed attempt.
 test('an admin key scoped to sessions is not offered the pages that refuse it', async () => {
-  renderLayout(true);
+  renderLayout({ scoped: true });
   const { screen } = rtl;
   assert.equal(screen.queryByRole('link', { name: 'API Keys' }) === null, true);
   assert.equal(screen.queryByRole('link', { name: 'Infrastructure' }) === null, true);
@@ -104,4 +117,23 @@ test('an unscoped admin key still checks for a newer release', async () => {
   renderLayout();
   assert.ok(rtl.screen.getByRole('link', { name: 'Plugins' }));
   await rtl.waitFor(() => assert.ok(requested.some(url => url.includes('/infra/update-check'))));
+});
+
+// A tenant admin is ADMIN inside its own account: /accounts, /api-keys, /infra and /plugins answer 403
+// to it (@RequireUnscopedKey refuses a non-null accountId), so offering the entries only misleads.
+test('a tenant admin is offered only the pages its account can open', async () => {
+  renderLayout({ accountId: 'acc-1' });
+  const { screen } = rtl;
+  for (const name of ['Accounts', 'API Keys', 'Infrastructure', 'Plugins', 'Platform']) {
+    assert.equal(screen.queryByRole('link', { name }) === null, true, `${name} is offered to a tenant admin`);
+  }
+  // Its own account's surfaces remain.
+  assert.ok(screen.getByRole('link', { name: 'Logs' }));
+  assert.ok(screen.getByRole('link', { name: 'AI Integration' }));
+});
+
+// The developer surface is a platform_admin login, which the key role cannot express.
+test('a platform admin is offered the platform page', () => {
+  renderLayout({ canViewPlatform: true });
+  assert.ok(rtl.screen.getByRole('link', { name: 'Platform' }));
 });

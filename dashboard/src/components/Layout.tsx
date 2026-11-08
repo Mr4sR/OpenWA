@@ -28,41 +28,46 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../hooks/useTheme';
 import { usePaneResizer } from '../hooks/usePaneResizer';
-import { useRole, type UserRole } from '../hooks/useRole';
+import { useRole } from '../hooks/useRole';
+import { canManageDeployment } from '../utils/authLifecycle';
 import { languageOptions, resolveSupportedLanguage, rtlLanguages, type SupportedLanguage } from '../i18n';
 import { healthApi, infraApi } from '../services/api';
 import './Layout.css';
 
 interface LayoutProps {
   onLogout: () => void;
-  userRole: UserRole | null;
+  /** The developer surface is admitted only to a platform_admin login; App derives it from the session. */
+  canViewPlatform: boolean;
 }
 
-// unscopedOnly: every route behind the page refuses a key restricted to selected sessions, whatever its role.
-// platformOnly: the developer surface, gated on the SaaS role read from the session storage.
+// Each flag is one server fence, so a hidden entry and its absent route can never disagree:
+// adminOnly — the route requires the ADMIN role.
+// deploymentOnly — @RequireRole(ADMIN) + @RequireUnscopedKey: ADMIN with no session allowlist and no
+//   account, i.e. the deployment-global surface. A tenant admin is ADMIN inside its account only.
+// platformOnly — the developer surface, admitted only to a platform_admin login.
 const allNavItems: Array<{
   to: string;
   icon: typeof LayoutDashboard;
   key: string;
-  adminOnly: boolean;
-  unscopedOnly?: boolean;
+  adminOnly?: boolean;
+  deploymentOnly?: boolean;
   platformOnly?: boolean;
 }> = [
-  { to: '/', icon: LayoutDashboard, key: 'dashboard' as const, adminOnly: false },
-  { to: '/sessions', icon: Smartphone, key: 'sessions' as const, adminOnly: false },
-  { to: '/chats', icon: MessageSquare, key: 'chats' as const, adminOnly: false },
-  { to: '/number-checker', icon: UserCheck, key: 'numberChecker' as const, adminOnly: false },
-  { to: '/webhooks', icon: Webhook, key: 'webhooks' as const, adminOnly: false },
-  { to: '/templates', icon: ClipboardList, key: 'templates' as const, adminOnly: false },
-  { to: '/accounts', icon: ShieldCheck, key: 'accounts' as const, adminOnly: true, unscopedOnly: true },
-  { to: '/settings', icon: SettingsIcon, key: 'settings' as const, adminOnly: false },
-  { to: '/platform', icon: ShieldCheck, key: 'platform' as const, adminOnly: false, platformOnly: true },
-  { to: '/api-keys', icon: Key, key: 'apiKeys' as const, adminOnly: true, unscopedOnly: true },
-  { to: '/message-tester', icon: Send, key: 'messageTester' as const, adminOnly: false },
-  // Backend /infra/* is ADMIN-only; hide the nav item from non-admins (UX + defense-in-depth).
-  { to: '/infrastructure', icon: Server, key: 'infrastructure' as const, adminOnly: true, unscopedOnly: true },
-  { to: '/plugins', icon: Puzzle, key: 'plugins' as const, adminOnly: true, unscopedOnly: true },
-  // NOT unscopedOnly: the AI routes accept an account principal and scope every row by account,
+  { to: '/', icon: LayoutDashboard, key: 'dashboard' as const },
+  { to: '/sessions', icon: Smartphone, key: 'sessions' as const },
+  { to: '/chats', icon: MessageSquare, key: 'chats' as const },
+  { to: '/number-checker', icon: UserCheck, key: 'numberChecker' as const },
+  { to: '/webhooks', icon: Webhook, key: 'webhooks' as const },
+  { to: '/templates', icon: ClipboardList, key: 'templates' as const },
+  { to: '/accounts', icon: ShieldCheck, key: 'accounts' as const, deploymentOnly: true },
+  { to: '/settings', icon: SettingsIcon, key: 'settings' as const },
+  { to: '/platform', icon: ShieldCheck, key: 'platform' as const, platformOnly: true },
+  { to: '/api-keys', icon: Key, key: 'apiKeys' as const, deploymentOnly: true },
+  { to: '/message-tester', icon: Send, key: 'messageTester' as const },
+  // Backend /infra/* is ADMIN-only and unscoped-only; hide the nav item otherwise (UX + defense-in-depth).
+  { to: '/infrastructure', icon: Server, key: 'infrastructure' as const, deploymentOnly: true },
+  { to: '/plugins', icon: Puzzle, key: 'plugins' as const, deploymentOnly: true },
+  // NOT deploymentOnly: the AI routes accept an account principal and scope every row by account,
   // so a tenant admin manages their own models/chatbots from this page.
   { to: '/ai-integration', icon: Sparkles, key: 'aiIntegration' as const, adminOnly: true },
   // Backend /audit is ADMIN-only too.
@@ -71,7 +76,7 @@ const allNavItems: Array<{
 
 const themeIcons = { light: Sun, dark: Moon, system: Monitor };
 
-export function Layout({ onLogout, userRole }: LayoutProps) {
+export function Layout({ onLogout, canViewPlatform }: LayoutProps) {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const ThemeIcon = themeIcons[theme];
@@ -81,20 +86,15 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
     value: t(`theme.${theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light'}`),
   });
 
-  const { scoped, accountId } = useRole();
-  const isPlatformAdmin = (() => {
-    try {
-      const raw = sessionStorage.getItem('openwa_saas_user');
-      return raw ? (JSON.parse(raw) as { role?: string }).role === 'platform_admin' : false;
-    } catch {
-      return false;
-    }
-  })();
+  const { role, scoped, accountId } = useRole();
+  // The same predicate App uses for the routes: /accounts, /api-keys, /infra and /plugins are
+  // ADMIN-only AND @RequireUnscopedKey, so a tenant admin or a scoped key is offered no entry there.
+  const canManageDeploymentPages = canManageDeployment(role, scoped, accountId);
   const navItems = allNavItems.filter(
     item =>
-      (!item.adminOnly || userRole === 'admin') &&
-      (!item.unscopedOnly || !scoped) &&
-      (!item.platformOnly || isPlatformAdmin),
+      (!item.adminOnly || role === 'admin') &&
+      (!item.deploymentOnly || canManageDeploymentPages) &&
+      (!item.platformOnly || canViewPlatform),
   );
 
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -141,7 +141,9 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
   }, []);
 
   useEffect(() => {
-    if (userRole !== 'admin' || scoped) return;
+    // GET /infra/update-check is ADMIN-only behind the class-level @RequireUnscopedKey, so the same
+    // predicate that hides its page decides whether to ask at all.
+    if (!canManageDeploymentPages) return;
     let active = true;
     infraApi
       .getUpdateCheck()
@@ -156,7 +158,7 @@ export function Layout({ onLogout, userRole }: LayoutProps) {
     return () => {
       active = false;
     };
-  }, [userRole, scoped]);
+  }, [canManageDeploymentPages]);
 
   const handleNavClick = () => {
     if (isMobile) setIsMobileOpen(false);

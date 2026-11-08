@@ -69,6 +69,7 @@
     "numberChecker": "Number Checker",
     "webhooks": "Webhooks",
     "templates": "Templates",
+    "accounts": "Accounts",
     "apiKeys": "API Keys",
     "messageTester": "Message Tester",
     "infrastructure": "Infrastructure",

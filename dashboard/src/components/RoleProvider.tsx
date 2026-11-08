@@ -1,21 +1,29 @@
 import { useState, useCallback, type ReactNode } from 'react';
 import type { UserRole, RoleContextType } from '../types/role';
 import { RoleContext } from '../hooks/useRole';
+import { isUserRole, readStoredSessionUser, uiRoleFor } from '../utils/authLifecycle';
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  // Per tab, next to the API key it was validated for: a role outliving its key (or shared with
-  // another tab signed in with a different key) would gate the UI for the wrong actor.
+  // Per tab, next to the credential it was validated for: a role outliving its key (or shared with
+  // another tab signed in as a different actor) would gate the UI for the wrong actor.
   const [role, setRoleState] = useState<UserRole | null>(() => {
-    // Older builds kept the role in localStorage, shared by every tab. A tab that already holds its
-    // key but no role of its own adopts that copy, so its first reload after an upgrade does not drop
-    // the role until /auth/validate answers. The copy is left in place for the other tabs signed in
-    // before the upgrade; every sign-in since stores a role with its key, so no newer tab adopts it.
+    // A SaaS tab holds a session token and its user, not an API key: derive the role from that user
+    // the moment the provider mounts, or the first render after a reload has no role and hides every
+    // ADMIN page until /auth/me answers.
+    const saasUser = readStoredSessionUser();
+    if (saasUser && sessionStorage.getItem('openwa_saas_token')) return uiRoleFor(saasUser);
+    // Older builds kept the role in localStorage, shared by every tab. A tab that already holds a
+    // credential but no role of its own adopts that copy, so its first reload after an upgrade does
+    // not drop the role. The copy is left in place for the other tabs signed in before the upgrade;
+    // every sign-in since stores a role with its key, so no newer tab adopts it.
     const legacy = localStorage.getItem('openwa_user_role');
-    if (legacy && !sessionStorage.getItem('openwa_user_role') && sessionStorage.getItem('openwa_api_key')) {
+    const hasCredential =
+      sessionStorage.getItem('openwa_api_key') !== null || sessionStorage.getItem('openwa_saas_token') !== null;
+    if (legacy && hasCredential && !sessionStorage.getItem('openwa_user_role')) {
       sessionStorage.setItem('openwa_user_role', legacy);
     }
     const saved = sessionStorage.getItem('openwa_user_role');
-    return (saved as UserRole) || null;
+    return saved && isUserRole(saved) ? saved : null;
   });
 
   const setRole = useCallback((newRole: UserRole | null) => {
@@ -54,7 +62,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // The tenant this tab's key acts for, per tab like the role (same outliving-its-key reasoning).
-  const [accountId, setAccountIdState] = useState<string | null>(() => sessionStorage.getItem('openwa_account_id'));
+  // A SaaS session stores it inside its user, seeded here for the same reason the role is.
+  const [accountId, setAccountIdState] = useState<string | null>(() => {
+    const saasUser = readStoredSessionUser();
+    if (saasUser && sessionStorage.getItem('openwa_saas_token')) return saasUser.accountId ?? null;
+    return sessionStorage.getItem('openwa_account_id');
+  });
 
   const setAccountId = useCallback((newAccountId: string | null) => {
     setAccountIdState(newAccountId);

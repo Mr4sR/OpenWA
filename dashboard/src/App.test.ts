@@ -6,10 +6,6 @@ import { test, before, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
 
-let role = 'operator';
-let scoped = false;
-const requested: string[] = [];
-
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 }
@@ -18,22 +14,21 @@ function installFetchStub(): void {
   globalThis.fetch = ((input: RequestInfo | URL): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const path = url.replace(/^https?:\/\/[^/]+/, '');
-    requested.push(path);
-    if (path === '/api/auth/me')
+    // /auth/me echoes the session the case seeded, so an answer never depends on module state another
+    // case may have left behind.
+    if (path === '/api/auth/me') {
+      const stored = window.sessionStorage.getItem('openwa_saas_user');
       return Promise.resolve(
         jsonResponse({
-          user: {
-            id: 'u1',
-            email: 'admin@openwa.local',
-            name: 'Admin',
-            role: role === 'admin' ? 'platform_admin' : 'account_admin',
-            accountId: 'acc-1',
-          },
+          user: stored
+            ? JSON.parse(stored)
+            : { id: 'u1', email: 'admin@openwa.local', name: 'Admin', role: 'account_admin', accountId: 'acc-1' },
           account: { id: 'acc-1', name: 'Acc', status: 'active', planExpiresAt: null },
           plan: { slug: 'free', name: 'Free', maxSessions: 1, maxChatbots: 1, maxWebhooks: 1 },
           usage: null,
         }),
       );
+    }
     if (path === '/api/audit' || path.startsWith('/api/audit?'))
       return Promise.resolve(jsonResponse({ data: [], total: 0 }));
     if (path === '/api/sessions' || path === '/api/webhooks') return Promise.resolve(jsonResponse([]));
@@ -75,15 +70,18 @@ before(async () => {
 
 afterEach(() => {
   rtl.cleanup();
-  scoped = false;
+  // Every credential the cases seed: a leftover key beside a fresh token leaves the wire credential
+  // ambiguous for the next render.
+  window.sessionStorage.removeItem('openwa_api_key');
   window.sessionStorage.removeItem('openwa_key_scoped');
   window.sessionStorage.removeItem('openwa_saas_token');
   window.sessionStorage.removeItem('openwa_saas_user');
+  // The role provider persists what it derives; a leftover would seed the next case.
+  window.sessionStorage.removeItem('openwa_user_role');
+  window.sessionStorage.removeItem('openwa_account_id');
 });
 
 function renderAt(path: string, as: string): void {
-  role = as;
-  requested.length = 0;
   window.history.replaceState(null, '', path);
   window.sessionStorage.setItem('openwa_api_key', 'test-key');
   window.sessionStorage.setItem('openwa_saas_token', 'test-token');
@@ -93,7 +91,7 @@ function renderAt(path: string, as: string): void {
       id: 'u1',
       email: 'admin@openwa.local',
       name: 'Admin',
-      role: as === 'admin' ? 'platform_admin' : 'account_admin',
+      role: as === 'admin' ? 'platform_admin' : as === 'operator' ? 'account_member' : 'account_admin',
       accountId: 'acc-1',
     }),
   );
@@ -104,15 +102,15 @@ const logsLink = (): Element | null => document.querySelector('a[href="/logs"]')
 
 test('an operator gets no Logs entry and /logs sends them home', async () => {
   renderAt('/logs', 'operator');
-  // The sidebar renders once the lazy route resolves; wait for a nav entry every role has.
-  await rtl.waitFor(() => assert.ok(document.querySelector('a[href="/sessions"]')));
+  // The sidebar renders once the lazy route resolves; the timeout covers that load under a parallel run.
+  await rtl.waitFor(() => assert.ok(document.querySelector('a[href="/sessions"]')), { timeout: 10_000 });
   assert.equal(logsLink() === null, true, 'the Logs nav entry is shown to an operator');
-  await rtl.waitFor(() => assert.equal(window.location.pathname, '/'));
+  await rtl.waitFor(() => assert.equal(window.location.pathname, '/'), { timeout: 10_000 });
 });
 
 test('an admin keeps the Logs entry and the route', async () => {
   renderAt('/logs', 'admin');
-  await rtl.waitFor(() => assert.ok(logsLink(), 'the Logs nav entry is missing for an admin'));
+  await rtl.waitFor(() => assert.ok(logsLink(), 'the Logs nav entry is missing for an admin'), { timeout: 10_000 });
   // Give the router a chance to redirect before asserting that it did not.
   await new Promise(resolve => setTimeout(resolve, 50));
   assert.equal(window.location.pathname, '/logs');
@@ -136,15 +134,15 @@ for (const page of ['api-keys', 'infrastructure', 'plugins', 'accounts', 'platfo
       }),
     );
     rtl.render(createElement(App));
-    await rtl.waitFor(() => assert.ok(document.querySelector('a[href="/sessions"]')));
-    await new Promise(resolve => setTimeout(resolve, 50));
-    // The App never mounts the platform page for a tenant: either the route is absent (fallback to
-    // '/') or the SPA stays on the path with no platform content rendered. Both prove the fence.
-    const platformMounted = document.querySelector(
-      '.platform-page, .api-keys-page, .infrastructure-page, .plugins-page',
+    await rtl.waitFor(() => assert.ok(document.querySelector('a[href="/sessions"]')), { timeout: 10_000 });
+    // Neither the entry nor the route: the sidebar hides the link, and the catch-all route sends the
+    // visit home instead of mounting a page whose every request would 403.
+    assert.equal(
+      document.querySelector(`a[href="/${page}"]`),
+      null,
+      `the /${page} nav entry is offered to a tenant admin`,
     );
-    assert.ok(!platformMounted, 'no platform page content mounted for a tenant admin');
-    assert.ok(window.location.pathname !== `/service-placeholder`);
+    await rtl.waitFor(() => assert.equal(window.location.pathname, '/'), { timeout: 10_000 });
   });
 }
 
@@ -174,11 +172,14 @@ test('a startup /auth/me that lands after a sign-in with another user is ignored
     );
     rtl.render(createElement(App));
 
-    const logout = await rtl.waitFor(() => {
-      const button = document.querySelector('.logout-btn');
-      assert.ok(button);
-      return button;
-    });
+    const logout = await rtl.waitFor(
+      () => {
+        const button = document.querySelector('.logout-btn');
+        assert.ok(button);
+        return button;
+      },
+      { timeout: 10_000 },
+    );
     rtl.fireEvent.click(logout);
     // Sign in as a NEW tenant: /auth/login is unstubbed in "previous", so wrap fetch again.
     globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -204,16 +205,19 @@ test('a startup /auth/me that lands after a sign-in with another user is ignored
       }
       return previous(input, init);
     }) as typeof fetch;
-    const emailField = await rtl.waitFor(() => {
-      const field = document.getElementById('email');
-      assert.ok(field);
-      return field as HTMLInputElement;
-    });
+    const emailField = await rtl.waitFor(
+      () => {
+        const field = document.getElementById('email');
+        assert.ok(field);
+        return field as HTMLInputElement;
+      },
+      { timeout: 10_000 },
+    );
     const passwordField = document.getElementById('password') as HTMLInputElement;
     rtl.fireEvent.change(emailField, { target: { value: 'new@openwa.local' } });
     rtl.fireEvent.change(passwordField, { target: { value: 'whatever-1' } });
     rtl.fireEvent.submit(emailField.closest('form')!);
-    await rtl.waitFor(() => assert.ok(document.querySelector('a[href="/sessions"]')));
+    await rtl.waitFor(() => assert.ok(document.querySelector('a[href="/sessions"]')), { timeout: 10_000 });
     // A tenant admin IS an admin for the Logs surface (per-account audit); the stale answer must
     // not change that either way — the assertion below pins the session stays the new user's.
     assert.ok(document.querySelector('a[href="/sessions"]'));
@@ -232,6 +236,54 @@ test('a startup /auth/me that lands after a sign-in with another user is ignored
     assert.equal(window.sessionStorage.getItem('openwa_saas_token'), 'new-token');
     const current = JSON.parse(sessionStorage.getItem('openwa_saas_user') ?? '{}') as { email?: string };
     assert.equal(current.email, 'new@openwa.local');
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
+
+// A platform admin who signs in from the login page (no reload) must receive the platform routes.
+// The role arrives in the login answer AFTER App mounted, so a platform flag read once at mount
+// leaves the nav entry visible while its route is absent: every click bounces back to '/'.
+test('a platform admin signing in reaches the platform pages without a reload', async () => {
+  window.history.replaceState(null, '', '/');
+  const previous = globalThis.fetch;
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    if (url.endsWith('/api/auth/login'))
+      return Promise.resolve(
+        jsonResponse({
+          token: 'root-token',
+          expiresAt: Date.now() + 3_600_000,
+          user: { id: 'u0', email: 'root@openwa.local', name: 'Root', role: 'platform_admin', accountId: null },
+        }),
+      );
+    return previous(input, init);
+  }) as typeof fetch;
+  try {
+    rtl.render(createElement(App));
+    const emailField = await rtl.waitFor(
+      () => {
+        const field = document.getElementById('email');
+        assert.ok(field, 'the login form rendered');
+        return field as HTMLInputElement;
+      },
+      { timeout: 10_000 },
+    );
+    rtl.fireEvent.change(emailField, { target: { value: 'root@openwa.local' } });
+    rtl.fireEvent.change(document.getElementById('password')!, { target: { value: 'secret-pass' } });
+    rtl.fireEvent.submit(emailField.closest('form')!);
+    const accountsLink = await rtl.waitFor(
+      () => {
+        const link = document.querySelector('a[href="/accounts"]');
+        assert.ok(link, 'the Accounts nav entry is missing for a signed-in platform admin');
+        return link as HTMLAnchorElement;
+      },
+      { timeout: 10_000 },
+    );
+    rtl.fireEvent.click(accountsLink);
+    await rtl.waitFor(() => assert.equal(window.location.pathname, '/accounts', 'the Accounts route is missing'), {
+      timeout: 10_000,
+    });
   } finally {
     globalThis.fetch = previous;
   }

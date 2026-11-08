@@ -71,6 +71,7 @@
     "numberChecker": "Vérificateur de numéros",
     "webhooks": "Webhooks",
     "templates": "Templates",
+    "accounts": "Comptes",
     "apiKeys": "Clés API",
     "messageTester": "Testeur de messages",
     "infrastructure": "Infrastructure",

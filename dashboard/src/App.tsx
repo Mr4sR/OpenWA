@@ -9,7 +9,7 @@ import { useRole } from './hooks/useRole';
 import { RoleProvider } from './components/RoleProvider';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { saasAuthApi, type SaasUser } from './services/api';
-import { clearActorState, isUserRole } from './utils/authLifecycle';
+import { canManageDeployment, clearActorState, isPlatformAdmin, readStoredSessionUser, uiRoleFor } from './utils/authLifecycle';
 import './App.css';
 
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
@@ -40,49 +40,50 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
-  // Capture the key ONCE at mount. Read live per render, the null→key transition when
-  // handleLogin stores a fresh key would re-fire the startup re-validation effect below and
-  // double the /auth/validate request on every sign-in — the effect is for genuine page
-  // refreshes with a saved key only.
-  // SaaS session token (email+password login). The API key is picked on the post-login step and
-  // rides separately; the token identifies the USER, the key authorizes the WIRE.
+  // Capture the token ONCE at mount: it only decides whether the initial screen is the login form.
+  // The login page stores it before calling handleLogin, so reading it live per render would flip
+  // this on every sign-in without changing anything else.
   const [savedToken] = useState(() => sessionStorage.getItem('openwa_saas_token'));
   const [isAuthenticated, setIsAuthenticated] = useState(!!savedToken);
-  const { setRole, role, setEngineType, setScoped, setAccountId } = useRole();
-  // Read once: the platform route is developer-only, and the server refuses it regardless.
-  const [isPlatformAdmin] = useState(() => {
-    try {
-      const raw = sessionStorage.getItem('openwa_saas_user');
-      return raw ? (JSON.parse(raw) as { role?: string }).role === 'platform_admin' : false;
-    } catch {
-      return false;
-    }
-  });
+  const { setRole, role, setEngineType, setScoped, scoped, setAccountId, accountId } = useRole();
+  // The signed-in SaaS user, kept in state (seeded from the stored one) so the gates below follow a
+  // sign-in without a reload — the earlier version read sessionStorage once at mount, which froze the
+  // platform surface to whoever held the tab before the login.
+  const [sessionUser, setSessionUser] = useState<SaasUser | null>(() => readStoredSessionUser<SaasUser>());
+
+  /** Apply one sign-in's identity everywhere the UI gates on: the role context and the platform surface. */
+  const applyActor = useCallback(
+    (user: SaasUser | null) => {
+      setSessionUser(user);
+      setRole(user ? uiRoleFor(user) : null);
+      setAccountId(user?.accountId ?? null);
+      // A SaaS session token is never session-allowlisted: the tenant keeps every create affordance.
+      setScoped(false);
+    },
+    [setRole, setAccountId, setScoped],
+  );
+
+  // /accounts, /auth/api-keys, /infra and /plugins are @RequireRole(ADMIN) + @RequireUnscopedKey: the
+  // guard admits only an ADMIN principal with no session allowlist and no account. A tenant admin is
+  // ADMIN inside its own account, so those pages would only 403 there. Layout filters its nav with
+  // this same predicate, so a menu entry can never outlive the route it points at.
+  const canManageDeploymentPages = canManageDeployment(role, scoped, accountId);
+  // /platform is the developer surface: the server admits only a platform_admin login.
+  const platformAccess = isPlatformAdmin(sessionUser);
 
   const handleLogin = (token: string, user: SaasUser) => {
     sessionStorage.setItem('openwa_saas_token', token);
     sessionStorage.setItem('openwa_saas_user', JSON.stringify(user));
-
-    // The login page's validate response already carried the role, so no second /auth/validate
-    // round-trip is needed here. An absent or unrecognized role falls back to viewer, the
-    // least-privileged default.
-    // platform_admin IS the developer surface: full admin + the /platform pages. Tenant admins map
-    // to 'admin' scoped by their account; members map to 'operator'.
-    const mapped = user.role === 'platform_admin' ? 'admin' : user.role === 'account_admin' ? 'admin' : 'operator';
-    setRole(isUserRole(mapped) ? mapped : 'viewer');
-    setAccountId(user.accountId ?? null);
-    // A SaaS session token is never session-allowlisted: the tenant keeps every create affordance.
-    setScoped(false);
-
+    // The login answer already carries the role; an absent or unrecognized role falls back to the
+    // least-privileged default (viewer) in uiRoleFor().
+    applyActor(user);
     setIsAuthenticated(true);
   };
 
   const handleLogout = useCallback(() => {
     setIsAuthenticated(false);
-    setRole(null);
+    applyActor(null);
     setEngineType(null);
-    setScoped(false);
-    setAccountId(null);
     sessionStorage.removeItem('openwa_api_key');
     sessionStorage.removeItem('openwa_saas_token');
     sessionStorage.removeItem('openwa_saas_user');
@@ -90,47 +91,27 @@ function AppContent() {
     // clear a logout → login in the same tab with a different key/scope shows the previous
     // actor's sessions/messages/apiKeys/audit rows.
     clearActorState(queryClient);
-  }, [setRole, setEngineType, setScoped, setAccountId]);
+  }, [applyActor, setEngineType]);
 
   // Re-validate the SaaS session on mount: /auth/me re-derives role/account from the LIVE user row
   // (a disabled user or suspended tenant is logged out here), so a stale cached role never outlives
-  // the server's answer.
+  // the server's answer. The cached user already seeded the role in RoleProvider, so the first paint
+  // gates correctly instead of flashing a role-less UI.
   useEffect(() => {
     if (!savedToken) return;
-    const stored = sessionStorage.getItem('openwa_saas_user');
-    if (!stored) return;
-    // Best-effort: the cached user seeds the UI immediately; /auth/me replaces it with the truth.
-    let sessionUser: { id: string; email: string; name: string; role: string; accountId: string | null } | null = null;
-    try {
-      sessionUser = JSON.parse(stored);
-    } catch {
-      sessionUser = null;
-    }
-    const mapped = sessionUser
-      ? sessionUser.role === 'platform_admin' || sessionUser.role === 'account_admin'
-        ? 'admin'
-        : 'operator'
-      : 'viewer';
-    setRole(isUserRole(mapped) ? mapped : 'viewer');
-    // Same reasoning as handleLogin: the SaaS token principal is never session-scoped.
-    setScoped(false);
-    setAccountId(sessionUser?.accountId ?? null);
-
+    if (!sessionStorage.getItem('openwa_saas_user')) return;
     saasAuthApi
       .me(savedToken)
       .then(profile => {
         if (sessionStorage.getItem('openwa_saas_token') !== savedToken) return;
-        const u = profile.user;
-        const next = u.role === 'platform_admin' || u.role === 'account_admin' ? 'admin' : 'operator';
-        setRole(isUserRole(next) ? next : 'viewer');
-        setAccountId(u.accountId ?? null);
-        sessionStorage.setItem('openwa_saas_user', JSON.stringify(u));
+        sessionStorage.setItem('openwa_saas_user', JSON.stringify(profile.user));
+        applyActor(profile.user);
       })
       .catch(() => {
         // Invalid/expired token or a suspended tenant: the truth says sign in again.
         if (sessionStorage.getItem('openwa_saas_token') === savedToken) handleLogout();
       });
-  }, [savedToken, setRole, setScoped, setAccountId, handleLogout]);
+  }, [savedToken, applyActor, handleLogout]);
 
   const loadingFallback = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
@@ -151,21 +132,21 @@ function AppContent() {
       <BrowserRouter>
         <Suspense fallback={loadingFallback}>
           <Routes>
-            <Route path="/" element={<Layout onLogout={handleLogout} userRole={role} />}>
+            <Route path="/" element={<Layout onLogout={handleLogout} canViewPlatform={platformAccess} />}>
               <Route index element={<Dashboard />} />
               <Route path="sessions" element={<Sessions />} />
               <Route path="chats" element={<Chats />} />
               <Route path="number-checker" element={<NumberChecker />} />
               <Route path="settings" element={<Settings />} />
-              {isPlatformAdmin && <Route path="platform" element={<Platform />} />}
+              {platformAccess && <Route path="platform" element={<Platform />} />}
               <Route path="webhooks" element={<Webhooks />} />
               <Route path="templates" element={<Templates />} />
-              {isPlatformAdmin && <Route path="accounts" element={<Accounts />} />}
-              {isPlatformAdmin && <Route path="api-keys" element={<ApiKeys />} />}
+              {canManageDeploymentPages && <Route path="accounts" element={<Accounts />} />}
+              {canManageDeploymentPages && <Route path="api-keys" element={<ApiKeys />} />}
               {role === 'admin' && <Route path="logs" element={<Logs />} />}
               <Route path="message-tester" element={<MessageTester />} />
-              {isPlatformAdmin && <Route path="infrastructure" element={<Infrastructure />} />}
-              {isPlatformAdmin && <Route path="plugins" element={<Plugins />} />}
+              {canManageDeploymentPages && <Route path="infrastructure" element={<Infrastructure />} />}
+              {canManageDeploymentPages && <Route path="plugins" element={<Plugins />} />}
               {/* Tenant admins configure their own AI surfaces; the API scopes every row by account.
                   Members reach no AI route, so the page stays admin-only for them. */}
               {role === 'admin' && <Route path="ai-integration" element={<AiIntegration />} />}

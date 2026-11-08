@@ -8,6 +8,54 @@ export function isUserRole(value: unknown): value is UserRole {
   return typeof value === 'string' && (USER_ROLES as readonly string[]).includes(value);
 }
 
+/** What the dashboard needs of a SaaS user; `SaasUser` satisfies it. */
+export interface SessionUserLike {
+  role?: string;
+  accountId?: string | null;
+}
+
+/**
+ * The dashboard role of a SaaS login, mirroring SaasPrincipalService.resolve() on the server:
+ * the platform operator and a tenant admin are ADMIN (inside their own account), a member is
+ * OPERATOR, anything else VIEWER. One function so every site that maps a user cannot drift.
+ */
+export function uiRoleFor(user: SessionUserLike | null | undefined): UserRole {
+  if (user?.role === 'platform_admin' || user?.role === 'account_admin') return 'admin';
+  return user?.role === 'account_member' ? 'operator' : 'viewer';
+}
+
+/** The stored SaaS login, or null when there is none (or it does not parse). */
+export function readStoredSessionUser<T extends SessionUserLike>(): T | null {
+  const raw = sessionStorage.getItem('openwa_saas_user');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** True for the developer surface, which the server admits only to a platform_admin login. */
+export function isPlatformAdmin(user: SessionUserLike | null | undefined): boolean {
+  return user?.role === 'platform_admin';
+}
+
+/**
+ * True when the actor reaches the deployment-global pages (`/accounts`, `/api-keys`,
+ * `/infrastructure`, `/plugins`). Those routes are ADMIN-only AND @RequireUnscopedKey on the server,
+ * which the guard enforces as role ADMIN + no session allowlist + no accountId — a tenant admin is
+ * ADMIN inside its own account, so a menu entry for it would only 403. The nav and the routes both
+ * use this one predicate, so a link is never offered for a page that cannot load. `/platform` is
+ * narrower still and uses isPlatformAdmin().
+ */
+export function canManageDeployment(
+  role: UserRole | null,
+  scoped: boolean,
+  accountId: string | null,
+): boolean {
+  return role === 'admin' && !scoped && accountId === null;
+}
+
 /** Structural cache surface (a TanStack QueryClient satisfies this) so tests can use a stub. */
 export interface ClearableCache {
   clear(): void;

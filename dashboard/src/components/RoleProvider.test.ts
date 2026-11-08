@@ -26,15 +26,20 @@ beforeEach(() => {
 
 afterEach(() => rtl.cleanup());
 
-/** The role the first render sees: a later correction would still flash the wrong UI. */
-function firstRenderedRole(): string | null {
-  const seen: (string | null)[] = [];
+/** The role and account the first render sees: a later correction would still flash the wrong UI. */
+function firstRender(): { role: string | null; accountId: string | null } {
+  const seen: Array<{ role: string | null; accountId: string | null }> = [];
   function Probe() {
-    seen.push(useRole().role);
+    const { role, accountId } = useRole();
+    seen.push({ role, accountId });
     return null;
   }
   rtl.render(createElement(RoleProvider, null, createElement(Probe)));
   return seen[0];
+}
+
+function firstRenderedRole(): string | null {
+  return firstRender().role;
 }
 
 test('a signed-in tab adopts the role an older build left in localStorage', () => {
@@ -73,4 +78,30 @@ test('every signed-in tab adopts the shared role, not only the first to reload',
     assert.equal(firstRenderedRole(), 'admin', `the ${tab} tab lost its role`);
     rtl.cleanup();
   }
+});
+
+// A SaaS tab holds a session token and its user, never an API key, so deriving the role from the key
+// alone left the first render after a reload role-less and hid every ADMIN page until /auth/me answered.
+test('a SaaS tab derives its role and account from the stored user', () => {
+  sessionStorage.setItem('openwa_saas_token', 'token');
+  sessionStorage.setItem(
+    'openwa_saas_user',
+    JSON.stringify({ id: 'u1', email: 'a@b.c', name: 'A', role: 'account_admin', accountId: 'acc-1' }),
+  );
+
+  assert.deepEqual(firstRender(), { role: 'admin', accountId: 'acc-1' });
+});
+
+test('a member signs in as an operator and a platform admin as an admin', () => {
+  sessionStorage.setItem('openwa_saas_token', 'token');
+  const as = (role: string) => {
+    sessionStorage.setItem('openwa_saas_user', JSON.stringify({ role, accountId: null }));
+    const first = firstRender();
+    rtl.cleanup();
+    return first.role;
+  };
+
+  assert.equal(as('account_member'), 'operator');
+  assert.equal(as('platform_admin'), 'admin');
+  assert.equal(as('nonsense'), 'viewer');
 });
